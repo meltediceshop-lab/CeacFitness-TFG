@@ -107,12 +107,13 @@ export function ProfileSetupScreen() {
   };
 
   const handleComplete = () => {
-    setUserProfile({
+    const finalProfile = {
       ...userProfile,
       injuries: selectedInjuries,
       excludedExercises: excludedExercises.split(',').map(e => e.trim()).filter(Boolean),
-    });
-    completeOnboarding();
+    };
+    setUserProfile(finalProfile);
+    completeOnboarding(finalProfile);
   };
 
   return (

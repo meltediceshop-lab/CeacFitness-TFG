@@ -94,12 +94,32 @@ export interface AdvancedOnboarding {
   appTone: AppTone;
 }
 
+export type MeasurementReminderFrequency =
+  | 'weekly'
+  | '2weeks'
+  | '3weeks'
+  | 'monthly'
+  | '3sessions'
+  | '5sessions';
+
+export interface BodyMeasurementRecord {
+  chest?: number;
+  waist?: number;
+  hips?: number;
+  glutes?: number;
+  arms?: number;
+  forearms?: number;
+  thighs?: number;
+  calves?: number;
+  recordedAt: Date;
+}
+
 export interface UserProfile {
   name: string;
   biologicalProfile: BiologicalProfile;
   weight: number;
   height: number;
-  ageRange: AgeRange; // New field
+  ageRange: AgeRange;
   otherSports: string[];
   otherSportsDays: number;
   injuries: string[];
@@ -109,8 +129,9 @@ export interface UserProfile {
     waist?: number;
     hips?: number;
     arms?: number;
-    legs?: number;
   };
+  measurementHistory?: BodyMeasurementRecord[];
+  reminderFrequency?: MeasurementReminderFrequency;
 }
 
 // Exercise variation with alternatives
@@ -183,6 +204,7 @@ export interface User {
 }
 
 export type AppScreen =
+  | 'auth'
   | 'welcome'
   | 'onboarding-level'
   | 'onboarding-beginner'
@@ -196,7 +218,8 @@ export type AppScreen =
   | 'history'
   | 'chat'
   | 'profile'
-  | 'nutrition';
+  | 'nutrition'
+  | 'weekly-checkin';
 
 export interface ChatAction {
   id: string;

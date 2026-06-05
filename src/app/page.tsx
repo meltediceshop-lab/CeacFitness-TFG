@@ -1,6 +1,7 @@
 'use client';
 
 import { useApp } from '@/context/AppContext';
+import { AuthScreen } from '@/components/screens/AuthScreen';
 import { WelcomeScreen } from '@/components/screens/WelcomeScreen';
 import { OnboardingLevelScreen } from '@/components/screens/OnboardingLevelScreen';
 import { OnboardingBeginnerScreen } from '@/components/screens/OnboardingBeginnerScreen';
@@ -18,9 +19,16 @@ import { NutritionScreen } from '@/components/screens/NutritionScreen';
 import { WeeklyCheckInScreen } from '@/components/screens/WeeklyCheckInScreen';
 
 export default function Home() {
-  const { screen, showWeeklyCheckIn } = useApp();
+  const { screen, showWeeklyCheckIn, authLoading } = useApp();
 
-  // Show weekly check-in if needed
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
+
   if (showWeeklyCheckIn) {
     return (
       <main className="min-h-screen">
@@ -31,6 +39,8 @@ export default function Home() {
 
   const renderScreen = () => {
     switch (screen) {
+      case 'auth':
+        return <AuthScreen />;
       case 'welcome':
         return <WelcomeScreen />;
       case 'onboarding-level':
@@ -59,8 +69,10 @@ export default function Home() {
         return <ProfileScreen />;
       case 'nutrition':
         return <NutritionScreen />;
+      case 'weekly-checkin':
+        return <WeeklyCheckInScreen />;
       default:
-        return <WelcomeScreen />;
+        return <AuthScreen />;
     }
   };
 

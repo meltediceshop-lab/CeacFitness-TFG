@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import type {
   User,
   AppScreen,
@@ -272,7 +273,7 @@ function generateWeeklySessions(daysPerWeek: number, workoutDuration: string): W
   for (let i = 0; i < daysPerWeek; i++) {
     const template = sessionTemplates[i % sessionTemplates.length];
     sessions.push({
-      id: `session-${i + 1}`,
+      id: crypto.randomUUID(),
       sessionNumber: i + 1,
       name: template.name,
       targetMuscles: template.targetMuscles,
@@ -329,7 +330,12 @@ interface AppContextType {
   showWeeklyCheckIn: boolean;
   setShowWeeklyCheckIn: (show: boolean) => void;
   exerciseLogs: ExerciseLog[];
-  completeOnboarding: () => void;
+  authLoading: boolean;
+  supabaseUserId: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  completeOnboarding: (finalProfile?: Partial<UserProfile>) => void;
   completeWeeklySession: (sessionId: string, logs?: ExerciseLog[]) => void;
   moveSession: (sessionId: string, toSessionNumber: number) => void;
   removeSession: (sessionId: string) => void;
@@ -342,7 +348,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [screen, setScreen] = useState<AppScreen>('welcome');
+  const [screen, setScreen] = useState<AppScreen>('auth');
   const [user, setUser] = useState<User | null>(null);
   const [userLevel, setUserLevel] = useState<UserLevel | null>(null);
   const [beginnerOnboarding, setBeginnerOnboarding] = useState<Partial<BeginnerOnboarding>>({});
@@ -354,52 +360,220 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [workoutMode, setWorkoutMode] = useState<WorkoutMode | null>(null);
   const [showWeeklyCheckIn, setShowWeeklyCheckIn] = useState(false);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
 
-  // Load from localStorage on mount
+  const supabase = createClient();
+
+  // On mount: check Supabase session, then load user data
   useEffect(() => {
-    const savedUser = localStorage.getItem('fitmente-user');
-    const savedLogs = localStorage.getItem('fitmente-exercise-logs');
+    async function initAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        setUser(parsed);
+      if (session?.user) {
+        setSupabaseUserId(session.user.id);
+        await loadUserFromDB(session.user.id);
+      } else {
+        // Fall back to localStorage for users without account yet
+        const savedUser = localStorage.getItem('fitmente-user');
+        const savedLogs = localStorage.getItem('fitmente-exercise-logs');
 
-        // Check if it's a new week
-        if (parsed.lastWeeklyCheckIn && isNewWeek(new Date(parsed.lastWeeklyCheckIn))) {
-          setShowWeeklyCheckIn(true);
+        if (savedUser) {
+          try {
+            const parsed = JSON.parse(savedUser);
+            setUser(parsed);
+            if (parsed.lastWeeklyCheckIn && isNewWeek(new Date(parsed.lastWeeklyCheckIn))) {
+              setShowWeeklyCheckIn(true);
+            }
+            setScreen('dashboard');
+          } catch { /* ignore */ }
         }
 
-        setScreen('dashboard');
-      } catch {
-        // Invalid data, start fresh
+        if (savedLogs) {
+          try { setExerciseLogs(JSON.parse(savedLogs)); } catch { /* ignore */ }
+        }
+
+        setScreen('auth');
       }
+
+      setAuthLoading(false);
     }
 
-    if (savedLogs) {
-      try {
-        setExerciseLogs(JSON.parse(savedLogs));
-      } catch {
-        // Invalid data
+    initAuth();
+
+    // Listen for auth state changes (login / logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setSupabaseUserId(session.user.id);
+      } else {
+        setSupabaseUserId(null);
       }
-    }
+    });
+
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Save user to localStorage when it changes
+  async function loadUserFromDB(userId: string) {
+    try {
+      const [onboardingRes, profileRes, sessionsRes, logsRes] = await Promise.all([
+        fetch('/api/onboarding'),
+        fetch('/api/profile'),
+        fetch('/api/sessions/weekly'),
+        fetch('/api/history'),
+      ]);
+
+      const [onboardingData, profileData, sessionsData, historyData] = await Promise.all([
+        onboardingRes.json(),
+        profileRes.json(),
+        sessionsRes.json(),
+        logsRes.json(),
+      ]);
+
+      if (onboardingData.data) {
+        const ob = onboardingData.data;
+        const profile = profileData.data ?? {};
+        const sessionExerciseMap: Record<string, Exercise[]> = {
+          'Full Body': SAMPLE_EXERCISES['full-body'],
+          'Tren Superior': SAMPLE_EXERCISES['upper-body'],
+          'Tren Inferior': SAMPLE_EXERCISES['lower-body'],
+        };
+
+        // Re-attach variations from local catalog (not stored in DB)
+        const allSampleExercises = Object.values(SAMPLE_EXERCISES).flat();
+        const enrichWithVariations = (exs: Exercise[]): Exercise[] =>
+          exs.map(ex => {
+            const ref = allSampleExercises.find(r => r.id === ex.id);
+            return ref ? { ...ex, variations: ref.variations, alternatives: ref.alternatives } : ex;
+          });
+
+        const weeklySessions: WeeklySession[] = (sessionsData.data ?? []).map((s: Record<string, unknown>) => {
+          const dbExercises = s.exercises as Exercise[] | null;
+          const baseExercises = dbExercises && dbExercises.length > 0
+            ? dbExercises
+            : sessionExerciseMap[s.name as string] ?? SAMPLE_EXERCISES['full-body'];
+          const exercises = enrichWithVariations(baseExercises);
+          return {
+            id: s.id as string,
+            sessionNumber: s.session_number as number,
+            name: s.name as string,
+            targetMuscles: s.target_muscles as string,
+            duration: s.duration as number,
+            exercises,
+            status: s.status as 'completed' | 'available' | 'locked',
+            completedAt: s.completed_at ? new Date(s.completed_at as string) : undefined,
+          };
+        });
+
+        // Extract exercise logs from history
+        const allLogs: ExerciseLog[] = (historyData.data ?? []).flatMap(
+          (ws: Record<string, unknown>) =>
+            ((ws.exercise_logs as Record<string, unknown>[]) ?? []).map((l: Record<string, unknown>) => ({
+              exerciseId: l.exercise_id as string,
+              setNumber: l.set_number as number,
+              weight: l.weight as number | undefined,
+              reps: l.reps as number,
+              timestamp: new Date(l.timestamp as string),
+            }))
+        );
+        setExerciseLogs(allLogs);
+
+        const restoredUser: User = {
+          id: userId,
+          level: ob.level,
+          onboarding: ob.level === 'beginner'
+            ? {
+                experienceLevel: ob.experience_level,
+                goal: ob.beginner_goal,
+                daysPerWeek: ob.days_per_week,
+                trainingDays: ob.training_days ?? [],
+                workoutDuration: ob.workout_duration,
+                gymComfort: ob.gym_comfort,
+              } as BeginnerOnboarding
+            : {
+                goal: ob.advanced_goal,
+                trainingStyle: ob.training_style,
+                daysPerWeek: ob.days_per_week,
+                availability: ob.availability,
+                priorityMuscle: ob.priority_muscle,
+                appTone: ob.app_tone,
+              } as AdvancedOnboarding,
+          profile: {
+            name: profile.name ?? '',
+            biologicalProfile: profile.biological_profile ?? 'male',
+            weight: profile.weight ?? 0,
+            height: profile.height ?? 0,
+            ageRange: profile.age_range ?? 'under-25',
+            otherSports: profile.other_sports ?? [],
+            otherSportsDays: profile.other_sports_days ?? 0,
+            injuries: profile.injuries ?? [],
+            excludedExercises: profile.excluded_exercises ?? [],
+            measurements: profile.measurements ?? {},
+          },
+          sessions: [],
+          weeklySessions,
+          createdAt: new Date(ob.created_at),
+          currentWeek: 1,
+          lastWeeklyCheckIn: new Date(),
+          totalCompletedSessions: weeklySessions.filter(s => s.status === 'completed').length,
+        };
+
+        setUser(restoredUser);
+        setScreen('dashboard');
+      } else {
+        // User exists in auth but hasn't completed onboarding
+        setScreen('welcome');
+      }
+    } catch {
+      setScreen('welcome');
+    }
+  }
+
+  // Keep localStorage in sync (fallback / offline support)
   useEffect(() => {
     if (user) {
       localStorage.setItem('fitmente-user', JSON.stringify(user));
     }
   }, [user]);
 
-  // Save exercise logs
   useEffect(() => {
     if (exerciseLogs.length > 0) {
       localStorage.setItem('fitmente-exercise-logs', JSON.stringify(exerciseLogs));
     }
   }, [exerciseLogs]);
 
-  const completeOnboarding = () => {
+  async function login(email: string, password: string) {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Error al iniciar sesión');
+
+    setSupabaseUserId(data.user.id);
+    await loadUserFromDB(data.user.id);
+  }
+
+  async function register(email: string, password: string) {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Error al crear la cuenta');
+
+    setSupabaseUserId(data.user.id);
+    setScreen('welcome');
+  }
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    resetApp();
+  }
+
+  const completeOnboarding = async (finalProfile?: Partial<UserProfile>) => {
     const onboarding = userLevel === 'beginner'
       ? beginnerOnboarding as BeginnerOnboarding
       : advancedOnboarding as AdvancedOnboarding;
@@ -408,11 +582,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const workoutDuration = 'workoutDuration' in onboarding ? onboarding.workoutDuration : '45min';
     const weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration || '45min');
 
+    // Use finalProfile if provided (avoids React state batching race condition)
+    const resolvedProfile = finalProfile ?? userProfile;
+
     const newUser: User = {
-      id: `user-${Date.now()}`,
+      id: supabaseUserId ?? `user-${Date.now()}`,
       level: userLevel!,
       onboarding,
-      profile: userProfile as UserProfile,
+      profile: resolvedProfile as UserProfile,
       sessions: [],
       weeklySessions,
       createdAt: new Date(),
@@ -420,10 +597,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       lastWeeklyCheckIn: new Date(),
     };
     setUser(newUser);
+
+    // Persist to DB if authenticated
+    if (supabaseUserId) {
+      const payload = userLevel === 'beginner'
+        ? {
+            level: userLevel,
+            experience_level: (onboarding as BeginnerOnboarding).experienceLevel,
+            beginner_goal: (onboarding as BeginnerOnboarding).goal,
+            days_per_week: daysPerWeek,
+            training_days: (onboarding as BeginnerOnboarding).trainingDays,
+            workout_duration: (onboarding as BeginnerOnboarding).workoutDuration,
+            gym_comfort: (onboarding as BeginnerOnboarding).gymComfort,
+            profile: resolvedProfile,
+          }
+        : {
+            level: userLevel,
+            advanced_goal: (onboarding as AdvancedOnboarding).goal,
+            training_style: (onboarding as AdvancedOnboarding).trainingStyle,
+            days_per_week: daysPerWeek,
+            availability: (onboarding as AdvancedOnboarding).availability,
+            priority_muscle: (onboarding as AdvancedOnboarding).priorityMuscle,
+            app_tone: (onboarding as AdvancedOnboarding).appTone,
+            profile: resolvedProfile,
+          };
+
+      fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then(async res => {
+          if (!res.ok) console.error('[onboarding] Error al guardar:', await res.json());
+          else console.log('[onboarding] Guardado correctamente en DB');
+        })
+        .catch(err => console.error('[onboarding] Fetch fallido:', err));
+
+      fetch('/api/sessions/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(weeklySessions),
+      })
+        .then(async res => {
+          if (!res.ok) console.error('[sessions] Error al guardar:', await res.json());
+          else console.log('[sessions] Sesiones guardadas en DB');
+        })
+        .catch(err => console.error('[sessions] Fetch fallido:', err));
+    }
+
     setScreen('check-in');
   };
 
-  const completeWeeklySession = (sessionId: string, logs?: ExerciseLog[]) => {
+  const completeWeeklySession = async (sessionId: string, logs?: ExerciseLog[]) => {
     if (!user) return;
 
     const updatedSessions = user.weeklySessions.map(session =>
@@ -432,7 +657,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         : session
     );
 
-    // Update total completed sessions counter
     const currentTotal = user.totalCompletedSessions || 0;
 
     setUser({
@@ -441,9 +665,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       totalCompletedSessions: currentTotal + 1,
     });
 
-    // Save exercise logs
     if (logs && logs.length > 0) {
       setExerciseLogs(prev => [...prev, ...logs]);
+    }
+
+    // Persist to DB if authenticated
+    if (supabaseUserId) {
+      // Mark session as completed
+      fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed', completedAt: new Date().toISOString() }),
+      }).catch(() => { /* silently ignore */ });
+
+      // Create workout session record + logs
+      if (logs && logs.length > 0) {
+        fetch('/api/workouts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            weeklySessionId: sessionId,
+            date: new Date().toISOString(),
+            energyLevel: todayEnergy,
+            completed: true,
+            mode: workoutMode,
+          }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.data?.id) {
+              fetch(`/api/workouts/${data.data.id}/logs`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(logs),
+              }).catch(() => { /* silently ignore */ });
+            }
+          })
+          .catch(() => { /* silently ignore */ });
+      }
     }
   };
 
@@ -525,6 +784,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('fitmente-user');
     localStorage.removeItem('fitmente-exercise-logs');
     setUser(null);
+    setSupabaseUserId(null);
     setUserLevel(null);
     setBeginnerOnboarding({});
     setAdvancedOnboarding({});
@@ -535,7 +795,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWorkoutMode(null);
     setExerciseLogs([]);
     setShowWeeklyCheckIn(false);
-    setScreen('welcome');
+    setScreen('auth');
   };
 
   return (
@@ -564,6 +824,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         showWeeklyCheckIn,
         setShowWeeklyCheckIn,
         exerciseLogs,
+        authLoading,
+        supabaseUserId,
+        login,
+        register,
+        logout,
         completeOnboarding,
         completeWeeklySession,
         moveSession,

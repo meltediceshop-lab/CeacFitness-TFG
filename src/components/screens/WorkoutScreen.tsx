@@ -70,7 +70,24 @@ export function WorkoutScreen() {
 
   if (!selectedWeeklySession) return null;
 
-  const exercises = selectedWeeklySession.exercises;
+  const exercises = selectedWeeklySession.exercises ?? [];
+
+  if (exercises.length === 0) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center px-6">
+        <div className="text-center space-y-4">
+          <p className="text-stone-500">No hay ejercicios para esta sesión.</p>
+          <button
+            onClick={() => setScreen('dashboard')}
+            className="text-emerald-600 font-medium"
+          >
+            Volver al inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const currentExercise = exercises[currentExerciseIndex];
   const totalSets = exercises.reduce((acc, ex) => acc + ex.sets, 0);
 
@@ -279,34 +296,55 @@ export function WorkoutScreen() {
                   <h3 className="font-semibold text-stone-900 mb-3">¿No encuentras este ejercicio?</h3>
                   <p className="text-stone-500 text-sm mb-3">Prueba con estas alternativas:</p>
                   <div className="space-y-2">
-                    {showExerciseDetail.alternatives.map((alt, i) => (
-                      <Button
-                        key={i}
-                        variant="ghost"
-                        onClick={() => {
-                          let newExercise = typeof getExerciseByName === 'function' 
-                            ? getExerciseByName(alt) 
-                            : undefined;
+                    {showExerciseDetail.alternatives.map((alt, i) => {
+                      // Look up in catalog first, then try variation match
+                      const catalogMatch = typeof getExerciseByName === 'function'
+                        ? getExerciseByName(alt)
+                        : undefined;
+                      // Try to find a variation of the current exercise that matches the name
+                      const variationMatch = showExerciseDetail.variations?.find(v =>
+                        alt.toLowerCase().includes(v.name.toLowerCase()) ||
+                        v.name.toLowerCase().includes(alt.toLowerCase())
+                      );
 
-                          if (!newExercise) {
-                            newExercise = {
-                              ...showExerciseDetail,
-                              id: `mock-alt-${i}`,
-                              name: alt,
-                              variations: [],
-                              alternatives: [],
-                              instructions: `Mantén la técnica adecuada para: ${alt}`,
-                              imageUrl: undefined
-                            };
-                          }
-                          setShowExerciseDetail(newExercise);
-                          setSelectedVariation(newExercise.variations?.[0] || null);
-                        }}
-                        className="w-full h-auto min-h-[3rem] py-3 justify-start px-4 text-left font-normal text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl border-none shadow-none text-base transition-colors"
-                      >
-                        {alt}
-                      </Button>
-                    ))}
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            if (catalogMatch) {
+                              setShowExerciseDetail(catalogMatch);
+                              setSelectedVariation(catalogMatch.variations?.[0] || null);
+                            } else if (variationMatch) {
+                              // Switch to the matching variation image without changing exercise
+                              setSelectedVariation(variationMatch);
+                            } else {
+                              // Fallback: show the alternative with the variation's image if available
+                              const fallback: Exercise = {
+                                ...showExerciseDetail,
+                                id: `alt-${i}`,
+                                name: alt,
+                                imageUrl: showExerciseDetail.variations?.[i % (showExerciseDetail.variations?.length || 1)]?.imageUrl ?? showExerciseDetail.imageUrl,
+                                variations: [],
+                                alternatives: [],
+                              };
+                              setShowExerciseDetail(fallback);
+                              setSelectedVariation(null);
+                            }
+                          }}
+                          className="w-full flex items-center gap-3 py-3 px-4 text-left text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors"
+                        >
+                          {(catalogMatch?.imageUrl || variationMatch?.imageUrl) && (
+                            <img
+                              src={catalogMatch?.imageUrl || variationMatch?.imageUrl}
+                              alt={alt}
+                              className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                            />
+                          )}
+                          <span className="font-medium">{alt}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -495,13 +533,32 @@ export function WorkoutScreen() {
           ) : (
             <motion.div key="exercise" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">
               <Card className="p-6 bg-white border-0 rounded-3xl shadow-sm mb-6">
+                {/* GIF del ejercicio actual */}
+                {currentExercise.imageUrl && (
+                  <div className="h-40 rounded-2xl overflow-hidden mb-4 bg-stone-100">
+                    <img
+                      src={currentExercise.imageUrl}
+                      alt={currentExercise.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                )}
                 <div className="flex items-start justify-between mb-4">
-                  <div>
+                  <div className="flex-1">
                     <h2 className="text-xl font-bold text-stone-900">{currentExercise.name}</h2>
                     {currentExercise.instructions && (
                       <p className="text-stone-500 text-sm mt-1">{currentExercise.instructions}</p>
                     )}
                   </div>
+                  <button
+                    onClick={() => {
+                      setShowExerciseDetail(currentExercise);
+                      setSelectedVariation(currentExercise.variations?.[0] || null);
+                    }}
+                    className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 transition-colors ml-3 flex-shrink-0"
+                  >
+                    <Info className="w-5 h-5 text-stone-500" />
+                  </button>
                 </div>
 
                 <div className="flex gap-2 mb-4">
