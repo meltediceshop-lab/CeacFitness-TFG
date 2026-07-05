@@ -6,15 +6,15 @@ export const contentType = 'image/png';
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" fill="white"/>
   <defs>
-    <linearGradient id="kg" gradientUnits="userSpaceOnUse" x1="140" y1="435" x2="340" y2="77">
-      <stop offset="0%" stop-color="#4ade80"/>
-      <stop offset="42%" stop-color="#22d3ee"/>
-      <stop offset="100%" stop-color="#3b82f6"/>
+    <linearGradient id="kg" gradientUnits="userSpaceOnUse" x1="256" y1="100" x2="256" y2="412">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="55%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#4ade80"/>
     </linearGradient>
   </defs>
-  <line x1="168" y1="77" x2="168" y2="435" stroke="url(#kg)" stroke-width="62" stroke-linecap="round"/>
-  <line x1="168" y1="256" x2="375" y2="77" stroke="url(#kg)" stroke-width="62" stroke-linecap="round"/>
-  <line x1="168" y1="256" x2="375" y2="435" stroke="url(#kg)" stroke-width="62" stroke-linecap="round"/>
+  <line x1="185" y1="100" x2="185" y2="412" stroke="url(#kg)" stroke-width="32" stroke-linecap="round"/>
+  <line x1="185" y1="256" x2="360" y2="100" stroke="url(#kg)" stroke-width="32" stroke-linecap="round"/>
+  <line x1="185" y1="256" x2="360" y2="412" stroke="url(#kg)" stroke-width="32" stroke-linecap="round"/>
 </svg>`;
 
 export default function Icon() {
