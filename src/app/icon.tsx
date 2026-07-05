@@ -6,23 +6,23 @@ export const contentType = 'image/png';
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" fill="white"/>
   <defs>
-    <linearGradient id="barGrad" gradientUnits="userSpaceOnUse" x1="116" y1="84" x2="116" y2="428">
+    <linearGradient id="barGrad" gradientUnits="userSpaceOnUse" x1="194" y1="140" x2="194" y2="372">
       <stop offset="0%" stop-color="#22d3ee"/>
       <stop offset="55%" stop-color="#34d399"/>
       <stop offset="100%" stop-color="#4ade80"/>
     </linearGradient>
-    <linearGradient id="topArmGrad" gradientUnits="userSpaceOnUse" x1="190" y1="256" x2="414" y2="96">
+    <linearGradient id="topArmGrad" gradientUnits="userSpaceOnUse" x1="194" y1="256" x2="318" y2="150">
       <stop offset="0%" stop-color="#22d3ee"/>
       <stop offset="100%" stop-color="#2563eb"/>
     </linearGradient>
-    <linearGradient id="bottomArmGrad" gradientUnits="userSpaceOnUse" x1="190" y1="256" x2="414" y2="416">
+    <linearGradient id="bottomArmGrad" gradientUnits="userSpaceOnUse" x1="194" y1="256" x2="318" y2="362">
       <stop offset="0%" stop-color="#2dd4bf"/>
       <stop offset="100%" stop-color="#0ea5e9"/>
     </linearGradient>
   </defs>
-  <rect x="72" y="84" width="88" height="344" rx="20" fill="url(#barGrad)"/>
-  <polygon points="164,220 388,60 440,132 216,292" fill="url(#topArmGrad)"/>
-  <polygon points="216,220 440,380 388,452 164,292" fill="url(#bottomArmGrad)"/>
+  <line x1="194" y1="140" x2="194" y2="372" stroke="url(#barGrad)" stroke-width="54" stroke-linecap="round"/>
+  <line x1="194" y1="256" x2="318" y2="150" stroke="url(#topArmGrad)" stroke-width="54" stroke-linecap="round"/>
+  <line x1="194" y1="256" x2="318" y2="362" stroke="url(#bottomArmGrad)" stroke-width="54" stroke-linecap="round"/>
 </svg>`;
 
 export default function Icon() {
