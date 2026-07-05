@@ -10,7 +10,6 @@ import {
   Sparkles,
   Loader2,
   Battery,
-  CalendarX,
   Clock,
   XCircle,
   Sliders,
@@ -19,7 +18,77 @@ import {
   Check,
   Plus,
   ArrowRight,
+  ChevronDown,
+  TreePine,
+  Zap,
+  Utensils,
+  type LucideIcon,
 } from 'lucide-react';
+
+type CoachMode = 'nutrition' | 'gym' | 'outdoor' | 'calisthenics';
+
+const MODE_CONFIG: Record<CoachMode, { label: string; sublabel: string; emoji: string; color: string }> = {
+  nutrition:    { label: 'Nutrición',   sublabel: 'Dieta y comidas',       emoji: '🥗', color: 'emerald' },
+  gym:          { label: 'Gimnasio',    sublabel: 'Pesas y máquinas',       emoji: '🏋️', color: 'blue'    },
+  outdoor:      { label: 'Aire libre',  sublabel: 'Running y parque',       emoji: '🌿', color: 'teal'    },
+  calisthenics: { label: 'Barras',      sublabel: 'Calistenia y dominadas', emoji: '💪', color: 'purple'  },
+};
+
+const QUICK_ACTIONS_BY_MODE: Record<CoachMode, { id: string; label: string; icon: LucideIcon }[]> = {
+  nutrition: [
+    { id: 'diet',           label: 'Hazme un plan de comidas',        icon: Utensils  },
+    { id: 'macro',          label: 'Calcula mis macros',               icon: Sliders   },
+    { id: 'pre-workout',    label: 'Qué comer antes de entrenar',      icon: Clock     },
+    { id: 'snack',          label: 'Recomiéndame un snack saludable',  icon: Apple     },
+  ],
+  gym: [
+    { id: 'workout',        label: 'Créame un entreno para hoy',       icon: Dumbbell  },
+    { id: 'low-energy',     label: 'Hoy tengo poca energía',           icon: Battery   },
+    { id: 'short-time',     label: 'Tengo poco tiempo',                icon: Clock     },
+    { id: 'cant-exercise',  label: 'No puedo hacer un ejercicio',      icon: XCircle   },
+    { id: 'intensity',      label: 'Ajustar la intensidad',            icon: Sliders   },
+  ],
+  outdoor: [
+    { id: 'workout',        label: 'Entreno al aire libre para hoy',   icon: TreePine  },
+    { id: 'running',        label: 'Plan de running',                  icon: Zap       },
+    { id: 'low-energy',     label: 'Hoy tengo poca energía',           icon: Battery   },
+    { id: 'short-time',     label: 'Tengo poco tiempo',                icon: Clock     },
+  ],
+  calisthenics: [
+    { id: 'workout',        label: 'Rutina de barras para hoy',        icon: Dumbbell  },
+    { id: 'pullup',         label: 'Progresión de dominadas',          icon: Zap       },
+    { id: 'low-energy',     label: 'Hoy tengo poca energía',           icon: Battery   },
+    { id: 'cant-exercise',  label: 'No puedo hacer un ejercicio',      icon: XCircle   },
+  ],
+};
+
+const QUICK_MESSAGES_BY_MODE: Record<CoachMode, Record<string, string>> = {
+  nutrition: {
+    diet:         'Hazme un plan de comidas para hoy adaptado a mi objetivo y mi perfil.',
+    macro:        'Calcula mis macros según mi objetivo y mi perfil.',
+    'pre-workout':'¿Qué debería comer antes de entrenar para rendir mejor?',
+    snack:        'Recomiéndame un snack saludable y rico en proteína.',
+  },
+  gym: {
+    workout:       'Créame una sesión de entrenamiento en gimnasio personalizada para hoy según mi perfil.',
+    'low-energy':  'Hoy tengo poca energía. ¿Cómo adapto la sesión en el gym?',
+    'short-time':  'Solo tengo 20-30 minutos hoy en el gym. ¿Qué entreno hago?',
+    'cant-exercise':'Hay un ejercicio de gym que no puedo hacer hoy. ¿Con qué lo sustituyo?',
+    intensity:     'Quiero ajustar la intensidad del entreno de gym de hoy.',
+  },
+  outdoor: {
+    workout:      'Créame un entreno al aire libre para hoy según mi perfil.',
+    running:      '¿Puedes hacerme un plan de running adaptado a mi nivel?',
+    'low-energy': 'Hoy tengo poca energía. ¿Qué entreno suave al aire libre puedo hacer?',
+    'short-time': 'Solo tengo 20-30 minutos para entrenar al aire libre. ¿Qué hago?',
+  },
+  calisthenics: {
+    workout:       'Créame una rutina de barras y calistenia para hoy según mi nivel.',
+    pullup:        '¿Cómo puedo progresar en dominadas? Dame una progresión paso a paso.',
+    'low-energy':  'Hoy tengo poca energía. ¿Qué rutina de calistenia puedo hacer?',
+    'cant-exercise':'No puedo hacer un ejercicio de barras hoy. ¿Con qué lo sustituyo?',
+  },
+};
 
 interface ChatMessage {
   id: string;
@@ -29,25 +98,6 @@ interface ChatMessage {
   nutritionPlan?: CoachNutritionPlan;
 }
 
-const QUICK_ACTIONS = [
-  { id: 'workout', label: 'Créame un entreno para hoy', icon: Dumbbell },
-  { id: 'diet', label: 'Hazme un plan de comidas', icon: Apple },
-  { id: 'low-energy', label: 'Hoy tengo poca energía', icon: Battery },
-  { id: 'short-time', label: 'Tengo poco tiempo', icon: Clock },
-  { id: 'cant-exercise', label: 'No puedo hacer un ejercicio', icon: XCircle },
-  { id: 'intensity', label: 'Ajustar la intensidad', icon: Sliders },
-  { id: 'cant-train', label: 'No puedo entrenar hoy', icon: CalendarX },
-];
-
-const QUICK_MESSAGES: Record<string, string> = {
-  workout: 'Créame una sesión de entrenamiento personalizada para hoy según mi perfil.',
-  diet: 'Hazme un plan de comidas para hoy adaptado a mi objetivo y mi perfil.',
-  'low-energy': 'Hoy tengo poca energía. ¿Cómo adapto la sesión?',
-  'short-time': 'Solo tengo 20-30 minutos hoy. ¿Qué entreno hago?',
-  'cant-exercise': 'Hay un ejercicio que no puedo hacer hoy. ¿Con qué lo sustituyo?',
-  'intensity': 'Quiero ajustar la intensidad del entreno de hoy.',
-  'cant-train': 'Hoy no puedo entrenar. ¿Qué hago?',
-};
 
 export function ChatScreen() {
   const { user, setScreen, addSessionFromCoach } = useApp();
@@ -58,6 +108,8 @@ export function ChatScreen() {
   const [savedWorkouts, setSavedWorkouts] = useState<Set<string>>(new Set());
   const [savedPlans, setSavedPlans] = useState<Set<string>>(new Set());
   const [savingPlan, setSavingPlan] = useState<string | null>(null);
+  const [coachMode, setCoachMode] = useState<CoachMode>('gym');
+  const [showModeMenu, setShowModeMenu] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,7 +153,7 @@ export function ChatScreen() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, history }),
+        body: JSON.stringify({ message: trimmed, history, mode: coachMode }),
       });
       const data = await res.json();
       if (data.response) {
@@ -171,9 +223,96 @@ export function ChatScreen() {
             <h1 className="text-xl font-bold text-stone-900">Coach K</h1>
             <p className="text-stone-500 text-xs">Tu entrenador y nutricionista de IA</p>
           </div>
-          <div className="ml-auto flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs text-emerald-600 font-medium">En línea</span>
+          {/* Mode selector */}
+          <div className="relative ml-auto">
+            <button
+              onClick={() => setShowModeMenu(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card border border-stone-200/60 dark:border-stone-700/60 text-xs font-medium text-stone-700 dark:text-stone-200 hover:border-emerald-400/40 transition-all"
+            >
+              <span className="text-sm leading-none">{MODE_CONFIG[coachMode].emoji}</span>
+              <span>{MODE_CONFIG[coachMode].label}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${showModeMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {showModeMenu && (
+                <>
+                  {/* Backdrop */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowModeMenu(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 glass-modal rounded-2xl p-2 min-w-[176px] z-50 shadow-xl"
+                  >
+                    {/* Nutrición */}
+                    <button
+                      onClick={() => { setCoachMode('nutrition'); setShowModeMenu(false); }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                        coachMode === 'nutrition'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+                          : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/40'
+                      }`}
+                    >
+                      <span className="text-base leading-none">🥗</span>
+                      <span className="flex-1 text-left">Nutrición</span>
+                      {coachMode === 'nutrition' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                    </button>
+
+                    {/* Separator */}
+                    <div className="px-3 pt-2 pb-0.5">
+                      <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">Entrenamiento</span>
+                    </div>
+
+                    {/* Gym */}
+                    <button
+                      onClick={() => { setCoachMode('gym'); setShowModeMenu(false); }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                        coachMode === 'gym'
+                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400'
+                          : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/40'
+                      }`}
+                    >
+                      <span className="text-base leading-none">🏋️</span>
+                      <span className="flex-1 text-left">Gimnasio</span>
+                      {coachMode === 'gym' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                    </button>
+
+                    {/* Outdoor */}
+                    <button
+                      onClick={() => { setCoachMode('outdoor'); setShowModeMenu(false); }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                        coachMode === 'outdoor'
+                          ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400'
+                          : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/40'
+                      }`}
+                    >
+                      <span className="text-base leading-none">🌿</span>
+                      <span className="flex-1 text-left">Aire libre</span>
+                      {coachMode === 'outdoor' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                    </button>
+
+                    {/* Calisthenics */}
+                    <button
+                      onClick={() => { setCoachMode('calisthenics'); setShowModeMenu(false); }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                        coachMode === 'calisthenics'
+                          ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400'
+                          : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/40'
+                      }`}
+                    >
+                      <span className="text-base leading-none">💪</span>
+                      <span className="flex-1 text-left">Barras de calle</span>
+                      {coachMode === 'calisthenics' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </motion.div>
@@ -214,15 +353,17 @@ export function ChatScreen() {
               exit={{ opacity: 0 }}
               className="pl-11"
             >
-              <p className="text-xs text-stone-400 mb-2 font-medium">Prueba con:</p>
+              <p className="text-xs text-stone-400 mb-2 font-medium">
+                {MODE_CONFIG[coachMode].emoji} {MODE_CONFIG[coachMode].sublabel} · Prueba con:
+              </p>
               <div className="flex flex-col gap-2">
-                {QUICK_ACTIONS.map(({ id, label, icon: Icon }, i) => (
+                {QUICK_ACTIONS_BY_MODE[coachMode].map(({ id, label, icon: Icon }, i) => (
                   <motion.button
                     key={id}
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.04 }}
-                    onClick={() => sendMessage(QUICK_MESSAGES[id])}
+                    onClick={() => sendMessage(QUICK_MESSAGES_BY_MODE[coachMode][id] ?? label)}
                     className="flex items-center gap-3 px-4 py-2.5 glass-card rounded-xl text-left hover:ring-1 hover:ring-emerald-400/40 transition-all group"
                   >
                     <Icon className="w-4 h-4 text-stone-400 group-hover:text-emerald-500 transition-colors flex-shrink-0" />

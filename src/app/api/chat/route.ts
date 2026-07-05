@@ -7,10 +7,43 @@ const deepseek = new OpenAI({
   apiKey: process.env.GROQ_API_KEY!,
 });
 
+function getModeInstructions(mode?: string): string {
+  const envMap: Record<string, string> = {
+    nutrition: 'NUTRICIÓN deportiva',
+    gym: 'ENTRENAMIENTO EN GIMNASIO (pesas, máquinas, mancuernas)',
+    outdoor: 'ENTRENAMIENTO AL AIRE LIBRE (running, HIIT en parque, circuitos)',
+    calisthenics: 'CALISTENIA Y BARRAS (dominadas, fondos, muscle-up, etc.)',
+  };
+
+  const modeLabel = envMap[mode || ''] || 'ENTRENAMIENTO Y NUTRICIÓN';
+  const isNutrition = mode === 'nutrition';
+  const isGym = mode === 'gym';
+  const isOutdoor = mode === 'outdoor';
+  const isCalisthenics = mode === 'calisthenics';
+
+  let instructions = `\n\nMODO ACTIVO: ${modeLabel}
+RESTRICCIÓN DE TEMA OBLIGATORIA: Solo debes responder preguntas relacionadas con fitness y nutrición deportiva.`;
+
+  if (isGym) {
+    instructions += '\n- Propón ejercicios DE GIMNASIO: pesas libres, barras, máquinas, mancuernas. No propones ejercicios de calistenia de calle ni running.';
+  } else if (isOutdoor) {
+    instructions += '\n- Propón ejercicios AL AIRE LIBRE: running, HIIT en parque, circuitos con peso corporal. Sin máquinas de gym ni barras de calistenia.';
+  } else if (isCalisthenics) {
+    instructions += '\n- Propón CALISTENIA Y BARRAS: dominadas, fondos en paralelas, muscle-up, L-sit, front lever, pistol squat, etc. Sin máquinas ni pesas.';
+  } else if (isNutrition) {
+    instructions += '\n- Céntrate en nutrición: macros, timing de comidas, recetas, suplementos, dietas. Si preguntan sobre entrenamiento, puedes dar una respuesta mínima pero redirige a nutrición.';
+  }
+
+  instructions += '\n- Si el usuario pregunta algo ajeno al fitness y la nutrición (tiempo meteorológico, política, tecnología, entretenimiento, salud médica general, etc.), responde EXACTAMENTE esta frase y nada más: "Me limito solo a contestar preguntas sobre entrenamiento y nutrición. ¿En qué puedo ayudarte en esas áreas? 💪"';
+
+  return instructions;
+}
+
 function buildSystemPrompt(
   onboarding: Record<string, unknown>,
   profile: Record<string, unknown>,
   context?: { sessions?: Record<string, unknown>[]; lastMeasurement?: Record<string, unknown> | null },
+  mode?: string,
 ): string {
   const name = (profile.name as string) || 'Usuario';
   const isAdvanced = onboarding.level === 'advanced';
@@ -121,13 +154,14 @@ PERFIL DE ${name.toUpperCase()}:
 - Responde SIEMPRE en español
 - Sé conciso: máximo 3-4 párrafos por respuesta
 - Usa siempre el nombre "${name}" al dirigirte al usuario
-- Puedes ayudar con: ajustes de entrenamiento, nutrición, motivación, técnica de ejercicios, dudas de fitness
 - TIENES DOS HERRAMIENTAS: "create_workout_session" (crea un entreno que el usuario puede añadir a sus sesiones con un toque) y "create_nutrition_plan" (crea un plan de comidas que se guarda en la pestaña Nutrición). Úsalas SOLO cuando el usuario pida explícitamente un entreno/rutina o una dieta/plan de comidas. Adáptalas SIEMPRE a su perfil, objetivo, nivel, lesiones y preferencias.
 - Cuando uses una herramienta, en tu respuesta de texto explica brevemente qué le has preparado y anímale a guardarlo con el botón de la tarjeta. No repitas todos los datos: ya los verá en la tarjeta.
 - Para nutrición puedes crear el plan directamente con la herramienta aunque no haya completado el cuestionario, usando los datos de su perfil
 - NUNCA diagnostiques enfermedades ni recetes medicamentos
 - Si hay lesiones, recomienda consultar a un médico además de dar consejos adaptados
 - Tono: ${isAdvanced ? 'directo, sin rodeos, técnico cuando proceda' : 'motivador, cercano, sin agobiar con datos'}`;
+
+  prompt += getModeInstructions(mode);
 
   return prompt;
 }
@@ -137,9 +171,10 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { message, history } = await req.json() as {
+    const { message, history, mode } = await req.json() as {
       message: string;
       history?: { role: string; content: string }[];
+      mode?: string;
     };
 
     if (!message?.trim()) {
@@ -162,7 +197,7 @@ export async function POST(req: NextRequest) {
           content: buildSystemPrompt(onboarding, profile, {
             sessions: sessions ?? [],
             lastMeasurement: measurements?.[0] ?? null,
-          }),
+          }, mode),
         });
       }
     }
