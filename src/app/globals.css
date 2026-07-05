@@ -64,7 +64,12 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: #eef2f1;
+  }
+
+  html.dark body {
+    background-color: #050806;
   }
 
   /* Mobile-first optimizations */
@@ -72,11 +77,11 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     height: 100%;
-    background-color: #ffffff;
+    background-color: #eef2f1;
   }
 
   html.dark {
-    background-color: #0a0a0a;
+    background-color: #050806;
   }
 
   /* El contenido real empieza debajo de la status bar */
