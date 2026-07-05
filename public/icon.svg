@@ -1,24 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" fill="white"/>
   <defs>
-    <linearGradient id="barGrad" gradientUnits="userSpaceOnUse" x1="194" y1="140" x2="194" y2="372">
+    <linearGradient id="kg" gradientUnits="userSpaceOnUse" x1="181.49" y1="-305.36" x2="181.49" y2="0">
       <stop offset="0%" stop-color="#22d3ee"/>
-      <stop offset="55%" stop-color="#34d399"/>
       <stop offset="100%" stop-color="#4ade80"/>
     </linearGradient>
-    <linearGradient id="topArmGrad" gradientUnits="userSpaceOnUse" x1="194" y1="256" x2="318" y2="150">
-      <stop offset="0%" stop-color="#22d3ee"/>
-      <stop offset="100%" stop-color="#2563eb"/>
-    </linearGradient>
-    <linearGradient id="bottomArmGrad" gradientUnits="userSpaceOnUse" x1="194" y1="256" x2="318" y2="362">
-      <stop offset="0%" stop-color="#2dd4bf"/>
-      <stop offset="100%" stop-color="#0ea5e9"/>
-    </linearGradient>
   </defs>
-  <!-- Trazo vertical de la K -->
-  <line x1="194" y1="140" x2="194" y2="372" stroke="url(#barGrad)" stroke-width="54" stroke-linecap="round"/>
-  <!-- Brazo superior -->
-  <line x1="194" y1="256" x2="318" y2="150" stroke="url(#topArmGrad)" stroke-width="54" stroke-linecap="round"/>
-  <!-- Brazo inferior -->
-  <line x1="194" y1="256" x2="318" y2="362" stroke="url(#bottomArmGrad)" stroke-width="54" stroke-linecap="round"/>
+  <!-- Contorno real de la "K" (Verdana Bold), fijo como trazado vectorial -->
+  <g transform="translate(74.51,408.68)">
+    <path d="M198.72-164.06L324.02 0L227.43 0L136.17-122.23L117.71-99.87L117.71 0L38.96 0L38.96-305.36L117.71-305.36L117.71-167.14L226.82-305.36L318.08-305.36Z" fill="url(#kg)"/>
+  </g>
 </svg>
