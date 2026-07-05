@@ -39,11 +39,20 @@ RESTRICCIÓN DE TEMA OBLIGATORIA: Solo debes responder preguntas relacionadas co
   return instructions;
 }
 
+type KnowledgeEntry = { title: string; content: string };
+
+function buildKnowledgeSection(knowledge: KnowledgeEntry[]): string {
+  if (knowledge.length === 0) return '';
+  const items = knowledge.map(k => `• ${k.title}: ${k.content}`).join('\n');
+  return `\n\nBASE DE CONOCIMIENTO DEL COACH (información curada específicamente para esta app; úsala como referencia principal por encima de tu conocimiento general cuando sea relevante para la pregunta):\n${items}`;
+}
+
 function buildSystemPrompt(
   onboarding: Record<string, unknown>,
   profile: Record<string, unknown>,
   context?: { sessions?: Record<string, unknown>[]; lastMeasurement?: Record<string, unknown> | null },
   mode?: string,
+  knowledge?: KnowledgeEntry[],
 ): string {
   const name = (profile.name as string) || 'Usuario';
   const isAdvanced = onboarding.level === 'advanced';
@@ -162,6 +171,7 @@ PERFIL DE ${name.toUpperCase()}:
 - Tono: ${isAdvanced ? 'directo, sin rodeos, técnico cuando proceda' : 'motivador, cercano, sin agobiar con datos'}`;
 
   prompt += getModeInstructions(mode);
+  prompt += buildKnowledgeSection(knowledge ?? []);
 
   return prompt;
 }
@@ -183,6 +193,26 @@ export async function POST(req: NextRequest) {
 
     const messages: OpenAI.ChatCompletionMessageParam[] = [];
 
+    // Base de conocimiento: prioriza la categoría del modo activo + entradas generales
+    let knowledge: KnowledgeEntry[] = [];
+    const knowledgeCategories = mode ? [mode, 'general'] : ['general'];
+    const { data: matchedKnowledge } = await supabase
+      .from('coach_knowledge')
+      .select('title, content')
+      .in('category', knowledgeCategories)
+      .textSearch('search', message, { type: 'websearch', config: 'spanish' })
+      .limit(6);
+    knowledge = matchedKnowledge ?? [];
+    if (knowledge.length === 0) {
+      const { data: fallbackKnowledge } = await supabase
+        .from('coach_knowledge')
+        .select('title, content')
+        .in('category', knowledgeCategories)
+        .order('created_at', { ascending: false })
+        .limit(4);
+      knowledge = fallbackKnowledge ?? [];
+    }
+
     if (user) {
       const [{ data: onboarding }, { data: profile }, { data: sessions }, { data: measurements }] = await Promise.all([
         supabase.from('user_onboarding').select('*').eq('user_id', user.id).single(),
@@ -197,7 +227,7 @@ export async function POST(req: NextRequest) {
           content: buildSystemPrompt(onboarding, profile, {
             sessions: sessions ?? [],
             lastMeasurement: measurements?.[0] ?? null,
-          }, mode),
+          }, mode, knowledge),
         });
       }
     }
@@ -205,7 +235,8 @@ export async function POST(req: NextRequest) {
     if (messages.length === 0) {
       messages.push({
         role: 'system',
-        content: 'Eres Fit K Coach, un entrenador personal de IA experto en fitness y nutrición. Responde siempre en español, de forma concisa y motivadora.',
+        content: 'Eres Fit K Coach, un entrenador personal de IA experto en fitness y nutrición. Responde siempre en español, de forma concisa y motivadora.'
+          + buildKnowledgeSection(knowledge),
       });
     }
 
