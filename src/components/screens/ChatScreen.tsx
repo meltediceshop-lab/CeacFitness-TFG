@@ -25,13 +25,14 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-type CoachMode = 'nutrition' | 'gym' | 'outdoor' | 'calisthenics';
+type CoachMode = 'nutrition' | 'gym' | 'outdoor';
+
+const CHAT_MODES: CoachMode[] = ['nutrition', 'gym', 'outdoor'];
 
 const MODE_CONFIG: Record<CoachMode, { label: string; sublabel: string; emoji: string; color: string }> = {
-  nutrition:    { label: 'Nutrición',   sublabel: 'Dieta y comidas',       emoji: '🥗', color: 'emerald' },
-  gym:          { label: 'Gimnasio',    sublabel: 'Pesas y máquinas',       emoji: '🏋️', color: 'blue'    },
-  outdoor:      { label: 'Aire libre',  sublabel: 'Running y parque',       emoji: '🌿', color: 'teal'    },
-  calisthenics: { label: 'Barras',      sublabel: 'Calistenia y dominadas', emoji: '💪', color: 'purple'  },
+  nutrition: { label: 'Nutrición',  sublabel: 'Dieta y comidas',   emoji: '🥗', color: 'emerald' },
+  gym:       { label: 'Gimnasio',   sublabel: 'Pesas y máquinas',  emoji: '🏋️', color: 'blue'    },
+  outdoor:   { label: 'Aire libre', sublabel: 'Running y parque',  emoji: '🌿', color: 'teal'    },
 };
 
 const QUICK_ACTIONS_BY_MODE: Record<CoachMode, { id: string; label: string; icon: LucideIcon }[]> = {
@@ -53,12 +54,6 @@ const QUICK_ACTIONS_BY_MODE: Record<CoachMode, { id: string; label: string; icon
     { id: 'running',        label: 'Plan de running',                  icon: Zap       },
     { id: 'low-energy',     label: 'Hoy tengo poca energía',           icon: Battery   },
     { id: 'short-time',     label: 'Tengo poco tiempo',                icon: Clock     },
-  ],
-  calisthenics: [
-    { id: 'workout',        label: 'Rutina de barras para hoy',        icon: Dumbbell  },
-    { id: 'pullup',         label: 'Progresión de dominadas',          icon: Zap       },
-    { id: 'low-energy',     label: 'Hoy tengo poca energía',           icon: Battery   },
-    { id: 'cant-exercise',  label: 'No puedo hacer un ejercicio',      icon: XCircle   },
   ],
 };
 
@@ -82,12 +77,6 @@ const QUICK_MESSAGES_BY_MODE: Record<CoachMode, Record<string, string>> = {
     'low-energy': 'Hoy tengo poca energía. ¿Qué entreno suave al aire libre puedo hacer?',
     'short-time': 'Solo tengo 20-30 minutos para entrenar al aire libre. ¿Qué hago?',
   },
-  calisthenics: {
-    workout:       'Créame una rutina de barras y calistenia para hoy según mi nivel.',
-    pullup:        '¿Cómo puedo progresar en dominadas? Dame una progresión paso a paso.',
-    'low-energy':  'Hoy tengo poca energía. ¿Qué rutina de calistenia puedo hacer?',
-    'cant-exercise':'No puedo hacer un ejercicio de barras hoy. ¿Con qué lo sustituyo?',
-  },
 };
 
 interface ChatMessage {
@@ -101,7 +90,11 @@ interface ChatMessage {
 
 export function ChatScreen() {
   const { user, setScreen, addSessionFromCoach } = useApp();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesByMode, setMessagesByMode] = useState<Record<CoachMode, ChatMessage[]>>({
+    nutrition: [],
+    gym: [],
+    outdoor: [],
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
@@ -112,18 +105,28 @@ export function ChatScreen() {
   const [showModeMenu, setShowModeMenu] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const messages = messagesByMode[coachMode];
+
   useEffect(() => {
     async function loadHistory() {
       try {
-        const res = await fetch('/api/chat');
-        const data = await res.json();
-        if (data.data?.length) {
-          setMessages(data.data.map((m: { id: string; role: string; content: string }) => ({
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          })));
-        }
+        const results = await Promise.all(CHAT_MODES.map(async (m) => {
+          const res = await fetch(`/api/chat?mode=${m}`);
+          const data = await res.json();
+          const msgs: ChatMessage[] = (data.data || []).map((mm: { id: string; role: string; content: string }) => ({
+            id: mm.id,
+            role: mm.role as 'user' | 'assistant',
+            content: mm.content,
+          }));
+          return [m, msgs] as const;
+        }));
+        setMessagesByMode(prev => {
+          const next = { ...prev };
+          for (const [m, msgs] of results) {
+            if (msgs.length && next[m].length === 0) next[m] = msgs;
+          }
+          return next;
+        });
       } catch { /* ignore */ } finally {
         setIsLoadingHistory(false);
       }
@@ -133,7 +136,7 @@ export function ChatScreen() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, coachMode]);
 
   if (!user) return null;
 
@@ -143,17 +146,18 @@ export function ChatScreen() {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
 
+    const mode = coachMode;
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed };
-    setMessages(prev => [...prev, userMsg]);
+    setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], userMsg] }));
     setInput('');
     setIsLoading(true);
 
     try {
-      const history = messages.slice(-20).map(m => ({ role: m.role, content: m.content }));
+      const history = messagesByMode[mode].slice(-20).map(m => ({ role: m.role, content: m.content }));
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, history, mode: coachMode }),
+        body: JSON.stringify({ message: trimmed, history, mode }),
       });
       const data = await res.json();
       if (data.response) {
@@ -164,14 +168,14 @@ export function ChatScreen() {
           workout: data.workout ?? undefined,
           nutritionPlan: data.nutritionPlan ?? undefined,
         };
-        setMessages(prev => [...prev, aiMsg]);
+        setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], aiMsg] }));
       }
     } catch {
-      setMessages(prev => [...prev, {
+      setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], {
         id: `err-${Date.now()}`,
         role: 'assistant',
         content: 'No pude conectarme. Revisa tu conexión e inténtalo de nuevo.',
-      }]);
+      }] }));
     } finally {
       setIsLoading(false);
     }
@@ -294,20 +298,6 @@ export function ChatScreen() {
                       <span className="text-base leading-none">🌿</span>
                       <span className="flex-1 text-left">Aire libre</span>
                       {coachMode === 'outdoor' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                    </button>
-
-                    {/* Calisthenics */}
-                    <button
-                      onClick={() => { setCoachMode('calisthenics'); setShowModeMenu(false); }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        coachMode === 'calisthenics'
-                          ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400'
-                          : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/40'
-                      }`}
-                    >
-                      <span className="text-base leading-none">💪</span>
-                      <span className="flex-1 text-left">Barras de calle</span>
-                      {coachMode === 'calisthenics' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
                     </button>
                   </motion.div>
                 </>

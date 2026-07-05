@@ -12,24 +12,20 @@ function getModeInstructions(mode?: string): string {
     nutrition: 'NUTRICIÓN deportiva',
     gym: 'ENTRENAMIENTO EN GIMNASIO (pesas, máquinas, mancuernas)',
     outdoor: 'ENTRENAMIENTO AL AIRE LIBRE (running, HIIT en parque, circuitos)',
-    calisthenics: 'CALISTENIA Y BARRAS (dominadas, fondos, muscle-up, etc.)',
   };
 
   const modeLabel = envMap[mode || ''] || 'ENTRENAMIENTO Y NUTRICIÓN';
   const isNutrition = mode === 'nutrition';
   const isGym = mode === 'gym';
   const isOutdoor = mode === 'outdoor';
-  const isCalisthenics = mode === 'calisthenics';
 
   let instructions = `\n\nMODO ACTIVO: ${modeLabel}
 RESTRICCIÓN DE TEMA OBLIGATORIA: Solo debes responder preguntas relacionadas con fitness y nutrición deportiva.`;
 
   if (isGym) {
-    instructions += '\n- Propón ejercicios DE GIMNASIO: pesas libres, barras, máquinas, mancuernas. No propones ejercicios de calistenia de calle ni running.';
+    instructions += '\n- Propón ejercicios DE GIMNASIO: pesas libres, barras, máquinas, mancuernas. No propones ejercicios al aire libre ni running.';
   } else if (isOutdoor) {
-    instructions += '\n- Propón ejercicios AL AIRE LIBRE: running, HIIT en parque, circuitos con peso corporal. Sin máquinas de gym ni barras de calistenia.';
-  } else if (isCalisthenics) {
-    instructions += '\n- Propón CALISTENIA Y BARRAS: dominadas, fondos en paralelas, muscle-up, L-sit, front lever, pistol squat, etc. Sin máquinas ni pesas.';
+    instructions += '\n- Propón ejercicios AL AIRE LIBRE: running, HIIT en parque, circuitos con peso corporal. Sin máquinas de gym.';
   } else if (isNutrition) {
     instructions += '\n- Céntrate en nutrición: macros, timing de comidas, recetas, suplementos, dietas. Si preguntan sobre entrenamiento, puedes dar una respuesta mínima pero redirige a nutrición.';
   }
@@ -366,8 +362,8 @@ export async function POST(req: NextRequest) {
 
     if (user) {
       await supabase.from('chat_messages').insert([
-        { user_id: user.id, role: 'user', content: message },
-        { user_id: user.id, role: 'assistant', content: aiResponse },
+        { user_id: user.id, role: 'user', content: message, mode: mode ?? null },
+        { user_id: user.id, role: 'assistant', content: aiResponse, mode: mode ?? null },
       ]);
     }
 
@@ -378,19 +374,25 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return NextResponse.json({ data: [] });
 
-    const { data, error } = await supabase
+    const mode = req.nextUrl.searchParams.get('mode');
+
+    let query = supabase
       .from('chat_messages')
       .select('id, role, content, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
       .limit(100);
+
+    if (mode) query = query.eq('mode', mode);
+
+    const { data, error } = await query;
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
