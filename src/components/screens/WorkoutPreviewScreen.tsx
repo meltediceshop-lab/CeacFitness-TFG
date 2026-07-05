@@ -111,16 +111,16 @@ export function WorkoutPreviewScreen() {
         </div>
 
         {/* Session Info Card */}
-        <Card className="p-5 bg-gradient-to-br from-emerald-500 to-teal-500 border-0 rounded-2xl shadow-lg shadow-emerald-200 text-white">
+        <Card className="p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-white/80 text-sm">{selectedWeeklySession.targetMuscles}</p>
+              <p className="text-stone-500 text-sm">{selectedWeeklySession.targetMuscles}</p>
               <div className="flex items-center gap-4 mt-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-stone-800">
                   <Clock className="w-5 h-5" />
                   <span className="font-semibold">{selectedWeeklySession.duration} minutos</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-stone-800">
                   <Dumbbell className="w-5 h-5" />
                   <span className="font-semibold">{selectedWeeklySession.exercises.length} ejercicios</span>
                 </div>
