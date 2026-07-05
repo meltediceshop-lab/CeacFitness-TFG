@@ -355,7 +355,7 @@ export function OnboardingBeginnerScreen() {
     const orderedDays: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
     return (
-      <div className="bg-white rounded-2xl p-4 shadow-sm">
+      <div className="glass-card rounded-2xl p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-medium text-stone-600">{weekInfo.weekLabel}</span>
           <span className="text-xs text-stone-400">
@@ -391,7 +391,7 @@ export function OnboardingBeginnerScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col px-6 py-8">
+    <div className="min-h-dvh glass-bg flex flex-col px-6 py-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -400,7 +400,7 @@ export function OnboardingBeginnerScreen() {
       >
         <button
           onClick={handleBack}
-          className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>
@@ -438,7 +438,7 @@ export function OnboardingBeginnerScreen() {
               <div className="space-y-3">
                 <Card
                   onClick={() => handleExperience('never')}
-                  className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl"
+                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
                 >
                   <p className="font-medium text-stone-800">
                     Nunca he entrenado y quiero empezar desde cero
@@ -446,7 +446,7 @@ export function OnboardingBeginnerScreen() {
                 </Card>
                 <Card
                   onClick={() => handleExperience('inconsistent')}
-                  className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl"
+                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
                 >
                   <p className="font-medium text-stone-800">
                     He entrenado otras veces, pero nunca he sido constante
@@ -481,7 +481,7 @@ export function OnboardingBeginnerScreen() {
                   <Card
                     key={option.id}
                     onClick={() => handleGoal(option.id)}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
                   >
                     <p className="font-medium text-stone-800">{option.label}</p>
                   </Card>
@@ -517,7 +517,7 @@ export function OnboardingBeginnerScreen() {
                   <Card
                     key={days}
                     onClick={() => handleDaysPerWeek(days)}
-                    className="p-6 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl text-center"
+                    className="glass-card p-6 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl text-center"
                   >
                     <p className="text-3xl font-bold text-emerald-600">{days}</p>
                     <p className="text-stone-500 text-sm mt-1">días</p>
@@ -556,7 +556,7 @@ export function OnboardingBeginnerScreen() {
                 >
                   <Card
                     onClick={() => handleStartWeekChoice('this-week')}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl group"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl group"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
@@ -577,7 +577,7 @@ export function OnboardingBeginnerScreen() {
                 >
                   <Card
                     onClick={() => handleStartWeekChoice('next-week')}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl group"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl group"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-stone-100 group-hover:bg-emerald-100 flex items-center justify-center transition-colors">
@@ -726,7 +726,7 @@ export function OnboardingBeginnerScreen() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="bg-white rounded-xl border border-stone-200 overflow-hidden"
+                          className="glass-card rounded-xl overflow-hidden"
                         >
                           {/* Day header */}
                           <button
@@ -853,7 +853,7 @@ export function OnboardingBeginnerScreen() {
                   <Card
                     key={option.id}
                     onClick={() => handleWorkoutDuration(option.id)}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl group"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl group"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-stone-100 group-hover:bg-emerald-100 flex items-center justify-center transition-colors">
@@ -898,7 +898,7 @@ export function OnboardingBeginnerScreen() {
                   <Card
                     key={option.id}
                     onClick={() => handleGymComfort(option.id)}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
                   >
                     <p className="font-medium text-stone-800">{option.label}</p>
                   </Card>
@@ -956,7 +956,7 @@ export function OnboardingBeginnerScreen() {
                 <CalendarMiniView />
 
                 {/* Training Details */}
-                <Card className="p-4 bg-white rounded-2xl shadow-sm space-y-3">
+                <Card className="glass-card p-4 rounded-2xl space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-stone-500">Días de entreno</span>
                     <span className="font-medium text-stone-900">{selectedDays.length} días</span>

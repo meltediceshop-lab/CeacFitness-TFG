@@ -34,7 +34,7 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-dvh glass-bg flex flex-col items-center justify-center px-6 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -52,14 +52,14 @@ export function AuthScreen() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-stone-100 p-8 space-y-6">
+        <div className="glass-card rounded-3xl p-8 space-y-6">
           {/* Toggle */}
-          <div className="flex rounded-2xl bg-stone-100 p-1">
+          <div className="flex rounded-2xl glass-card p-1">
             <button
               type="button"
               onClick={() => { setMode('login'); setError(''); }}
               className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${
-                mode === 'login' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'
+                mode === 'login' ? 'glass-btn text-stone-900 shadow-sm' : 'text-stone-500'
               }`}
             >
               Iniciar sesión
@@ -68,7 +68,7 @@ export function AuthScreen() {
               type="button"
               onClick={() => { setMode('register'); setError(''); }}
               className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${
-                mode === 'register' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'
+                mode === 'register' ? 'glass-btn text-stone-900 shadow-sm' : 'text-stone-500'
               }`}
             >
               Crear cuenta
@@ -85,7 +85,7 @@ export function AuthScreen() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="rounded-xl border-stone-200 focus:border-emerald-400 focus:ring-emerald-400"
+                className="glass-input rounded-xl"
               />
             </div>
 
@@ -99,7 +99,7 @@ export function AuthScreen() {
                 onChange={e => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="rounded-xl border-stone-200 focus:border-emerald-400 focus:ring-emerald-400"
+                className="glass-input rounded-xl"
               />
             </div>
 

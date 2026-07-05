@@ -54,7 +54,7 @@ export function OnboardingAdvancedScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col px-6 py-8">
+    <div className="min-h-dvh glass-bg flex flex-col px-6 py-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -63,7 +63,7 @@ export function OnboardingAdvancedScreen() {
       >
         <button
           onClick={handleBack}
-          className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>
@@ -108,7 +108,7 @@ export function OnboardingAdvancedScreen() {
                   <Card
                     key={option.id}
                     onClick={() => handleGoal(option.id)}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all bg-white rounded-2xl"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl"
                   >
                     <p className="font-medium text-stone-800">{option.label}</p>
                   </Card>
@@ -141,7 +141,7 @@ export function OnboardingAdvancedScreen() {
                   <Card
                     key={option.id}
                     onClick={() => handleTrainingStyle(option.id)}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all bg-white rounded-2xl"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl"
                   >
                     <p className="font-medium text-stone-800">{option.label}</p>
                   </Card>
@@ -170,7 +170,7 @@ export function OnboardingAdvancedScreen() {
                   <Card
                     key={days}
                     onClick={() => handleDaysPerWeek(days)}
-                    className="p-6 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all bg-white rounded-2xl text-center"
+                    className="glass-card p-6 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl text-center"
                   >
                     <p className="text-3xl font-bold text-teal-600">{days}</p>
                     <p className="text-stone-500 text-sm mt-1">
@@ -206,7 +206,7 @@ export function OnboardingAdvancedScreen() {
                   <Card
                     key={option.id}
                     onClick={() => handleAvailability(option.id)}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all bg-white rounded-2xl"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl"
                   >
                     <p className="font-medium text-stone-800">{option.label}</p>
                   </Card>
@@ -242,7 +242,7 @@ export function OnboardingAdvancedScreen() {
                   <Card
                     key={option.id}
                     onClick={() => handleMuscle(option.id)}
-                    className="p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all bg-white rounded-2xl text-center"
+                    className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl text-center"
                   >
                     <p className="font-medium text-stone-800">{option.label}</p>
                   </Card>
@@ -251,7 +251,7 @@ export function OnboardingAdvancedScreen() {
 
               <Card
                 onClick={() => handleMuscle('none')}
-                className="p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all bg-white rounded-2xl text-center"
+                className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl text-center"
               >
                 <p className="font-medium text-stone-500">Ninguno en concreto</p>
               </Card>
@@ -276,14 +276,14 @@ export function OnboardingAdvancedScreen() {
               <div className="space-y-3">
                 <Card
                   onClick={() => handleTone('demanding')}
-                  className="p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all bg-white rounded-2xl"
+                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl"
                 >
                   <p className="font-semibold text-stone-800 mb-1">Directo y exigente</p>
                   <p className="text-stone-500 text-sm">Sin rodeos, al grano</p>
                 </Card>
                 <Card
                   onClick={() => handleTone('flexible')}
-                  className="p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all bg-white rounded-2xl"
+                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl"
                 >
                   <p className="font-semibold text-stone-800 mb-1">Directo pero flexible</p>
                   <p className="text-stone-500 text-sm">Claro, pero con margen</p>

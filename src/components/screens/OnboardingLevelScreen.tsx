@@ -15,7 +15,7 @@ export function OnboardingLevelScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col px-6 py-8">
+    <div className="min-h-dvh glass-bg flex flex-col px-6 py-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -24,7 +24,7 @@ export function OnboardingLevelScreen() {
       >
         <button
           onClick={() => setScreen('welcome')}
-          className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>
@@ -60,7 +60,7 @@ export function OnboardingLevelScreen() {
           >
             <Card
               onClick={() => handleSelect('beginner')}
-              className="p-6 cursor-pointer border-2 border-transparent hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-100 transition-all duration-300 bg-white rounded-2xl group"
+              className="p-6 cursor-pointer border-2 border-transparent hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-100 transition-all duration-300 glass-card rounded-2xl group"
             >
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center group-hover:from-emerald-200 group-hover:to-teal-200 transition-colors">
@@ -86,7 +86,7 @@ export function OnboardingLevelScreen() {
           >
             <Card
               onClick={() => handleSelect('advanced')}
-              className="p-6 cursor-pointer border-2 border-transparent hover:border-teal-300 hover:shadow-lg hover:shadow-teal-100 transition-all duration-300 bg-white rounded-2xl group"
+              className="p-6 cursor-pointer border-2 border-transparent hover:border-teal-300 hover:shadow-lg hover:shadow-teal-100 transition-all duration-300 glass-card rounded-2xl group"
             >
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-100 to-cyan-100 flex items-center justify-center group-hover:from-teal-200 group-hover:to-cyan-200 transition-colors">

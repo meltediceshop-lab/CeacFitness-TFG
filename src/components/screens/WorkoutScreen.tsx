@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft,
   Check,
   ChevronRight,
   ChevronLeft,
@@ -17,10 +16,24 @@ import {
   X,
   TrendingUp,
   Info,
-  Play,
-  Pause
+  Watch,
+  Hash,
 } from 'lucide-react';
-import type { Exercise, ExerciseVariation } from '@/types/user';
+import type { Exercise, ExerciseVariation, ClockStyle } from '@/types/user';
+import { ExercisePreview } from '@/components/workout/ExercisePreview';
+import type { Equipment } from '@/lib/exerciseImages';
+
+// Variantes universales por equipamiento — válidas para cualquier ejercicio
+const EQUIPMENT_VARIANTS: { id: Equipment; label: string }[] = [
+  { id: undefined, label: 'Recomendada' },
+  { id: 'barbell', label: 'Barra' },
+  { id: 'dumbbells', label: 'Mancuernas' },
+  { id: 'machine', label: 'Máquina' },
+  { id: 'cable', label: 'Cable' },
+  { id: 'bodyweight', label: 'Sin peso' },
+];
+import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 interface ExerciseLog {
   exerciseId: string;
@@ -29,19 +42,104 @@ interface ExerciseLog {
   reps: number;
 }
 
+// ─── Modal selector de reloj (primera vez) ────────────────────────────────────
+function ClockPickerModal({ onChoose }: { onChoose: (style: ClockStyle) => void }) {
+  useScrollLock();
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-end justify-center"
+    >
+      <motion.div
+        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 80, opacity: 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        className="bg-white w-full max-w-md rounded-t-3xl px-6 pt-6 pb-10"
+      >
+        <div className="w-10 h-1 bg-stone-200 rounded-full mx-auto mb-5" />
+        <h2 className="text-xl font-bold text-stone-900 text-center mb-1">¿Qué tipo de reloj prefieres?</h2>
+        <p className="text-stone-400 text-sm text-center mb-6">
+          Verás el tiempo de tu entreno arriba a la derecha
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {([
+            { style: 'digital' as ClockStyle, label: 'Digital', icon: Hash, desc: '04:32' },
+            { style: 'analog'  as ClockStyle, label: 'Analógico', icon: Watch, desc: 'Con agujas' },
+          ]).map(opt => (
+            <button key={opt.style}
+              onClick={() => onChoose(opt.style)}
+              className="flex flex-col items-center gap-3 p-5 rounded-2xl border-2 border-stone-200 hover:border-emerald-400 hover:bg-emerald-50 transition-all"
+            >
+              <opt.icon className="w-8 h-8 text-emerald-500" />
+              <div className="text-center">
+                <p className="font-semibold text-stone-900">{opt.label}</p>
+                <p className="text-xs text-stone-400">{opt.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <p className="text-center text-stone-400 text-xs">
+          Podrás cambiarlo en cualquier momento en <span className="font-medium text-stone-600">Perfil → Ajustes</span>
+        </p>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Modal reloj expandido ────────────────────────────────────────────────────
+function ClockExpandedModal({
+  elapsed, style, targetMinutes, onClose,
+}: {
+  elapsed: number; style: ClockStyle; targetMinutes?: number; onClose: () => void;
+}) {
+  useScrollLock();
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center px-6"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        className="bg-white rounded-3xl p-8 flex flex-col items-center gap-4 max-w-xs w-full"
+        onClick={e => e.stopPropagation()}
+      >
+        <WorkoutClockLarge elapsed={elapsed} style={style} targetMinutes={targetMinutes} />
+        {targetMinutes && (
+          <div className="text-center">
+            <p className="text-stone-400 text-xs">Objetivo</p>
+            <p className="font-semibold text-stone-700">{targetMinutes} minutos</p>
+          </div>
+        )}
+        <button onClick={onClose}
+          className="mt-2 px-6 py-2 rounded-xl bg-stone-100 text-stone-600 text-sm font-medium hover:bg-stone-200 transition-colors">
+          Cerrar
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export function WorkoutScreen() {
-  const { 
-    selectedWeeklySession, 
-    workoutMode, 
-    setScreen, 
+  const {
+    user,
+    selectedWeeklySession,
+    workoutMode,
+    setScreen,
+    setUser,
     completeWeeklySession,
     getExerciseHistory,
-    getExerciseByName 
+    getExerciseByName
   } = useApp();
 
   // 1. Estado del Modal (Compartido para Modo Simple y Guiado)
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
   const [selectedVariation, setSelectedVariation] = useState<ExerciseVariation | null>(null);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment>(undefined);
 
   // 2. Estado del Modo Guiado
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -50,6 +148,7 @@ export function WorkoutScreen() {
   const [reps, setReps] = useState('');
   const [isResting, setIsResting] = useState(false);
   const [restTime, setRestTime] = useState(0);
+  const [restTotal, setRestTotal] = useState(0);
   const [completedSets, setCompletedSets] = useState<Set<string>>(new Set());
   const restIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -58,15 +157,52 @@ export function WorkoutScreen() {
   const [showRecordPrompt, setShowRecordPrompt] = useState(false);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [completionStep, setCompletionStep] = useState<1 | 2>(1); // 1=mensaje, 2=compartir
+  const [simpleDone, setSimpleDone] = useState<Set<string>>(new Set()); // modo simple: ejercicios marcados
 
-  // Limpieza del temporizador
+  // 4. Cronómetro modo simple
+  const [elapsed, setElapsed] = useState(0); // segundos desde que empezó
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [durationAlertShown, setDurationAlertShown] = useState(false);
+  const [showDurationBanner, setShowDurationBanner] = useState(false);
+  const [showClockPicker, setShowClockPicker] = useState(false);
+  const [showClockExpanded, setShowClockExpanded] = useState(false);
+
+  // Limpieza del temporizador de descanso
   useEffect(() => {
     return () => {
-      if (restIntervalRef.current) {
-        clearInterval(restIntervalRef.current);
-      }
+      if (restIntervalRef.current) clearInterval(restIntervalRef.current);
     };
   }, []);
+
+  // Cronómetro: arranca en ambos modos al montar el entreno
+  useEffect(() => {
+    // Primera vez (cualquier modo) → mostrar selector de reloj
+    if (!user?.profile.clockStyleChosen) {
+      setShowClockPicker(true);
+    }
+
+    timerRef.current = setInterval(() => {
+      setElapsed(prev => prev + 1);
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Alerta cuando alcanza la duración objetivo
+  const targetDuration = selectedWeeklySession?.duration ?? 0;
+  useEffect(() => {
+    if (workoutMode !== 'simple') return;
+    if (!durationAlertShown && targetDuration > 0 && elapsed >= targetDuration * 60) {
+      setDurationAlertShown(true);
+      setShowDurationBanner(true);
+      // Auto-ocultar tras 6 segundos
+      setTimeout(() => setShowDurationBanner(false), 6000);
+    }
+  }, [elapsed, durationAlertShown, targetDuration, workoutMode]);
 
   if (!selectedWeeklySession) return null;
 
@@ -74,7 +210,7 @@ export function WorkoutScreen() {
 
   if (exercises.length === 0) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center px-6">
+      <div className="min-h-screen glass-bg flex items-center justify-center px-6">
         <div className="text-center space-y-4">
           <p className="text-stone-500">No hay ejercicios para esta sesión.</p>
           <button
@@ -109,6 +245,7 @@ export function WorkoutScreen() {
 
   const startRestTimer = (seconds: number) => {
     setRestTime(seconds);
+    setRestTotal(seconds);
     setIsResting(true);
 
     if (restIntervalRef.current) clearInterval(restIntervalRef.current);
@@ -164,20 +301,53 @@ export function WorkoutScreen() {
     setReps('');
   };
 
+  const savePendingActions = () => {
+    if (!selectedWeeklySession) return;
+    try {
+      const KEY = 'fitmente-session-actions';
+      const existing: Record<string, unknown> = JSON.parse(localStorage.getItem(KEY) || '{}');
+      existing[selectedWeeklySession.id] = {
+        sessionId:          selectedWeeklySession.id,
+        sessionName:        selectedWeeklySession.name,
+        completedAt:        new Date().toISOString(),
+        dismissedRegister:  false,
+        dismissedCommunity: false,
+      };
+      localStorage.setItem(KEY, JSON.stringify(existing));
+    } catch { /* silently ignore */ }
+  };
+
   const handleWorkoutComplete = () => {
+    savePendingActions();
     if (workoutMode === 'simple') {
       setShowRecordPrompt(true);
     } else {
-      completeWeeklySession(selectedWeeklySession.id);
+      const logsToSave = exerciseLogs.map(l => ({ ...l, timestamp: new Date() }));
+      completeWeeklySession(selectedWeeklySession.id, logsToSave);
       setShowComplete(true);
     }
   };
 
-  const handleSimpleModeComplete = () => setShowRecordPrompt(true);
+  const handleSimpleModeComplete = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    savePendingActions();
+    setShowRecordPrompt(true);
+  };
   const handleExit = () => setShowExitConfirm(true);
-  const confirmExit = () => setScreen('dashboard');
+  const confirmExit = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setScreen('dashboard');
+  };
+
+  const clockStyle: ClockStyle = user?.profile.clockStyle ?? 'digital';
+
+  const handleClockStyleChoice = (style: ClockStyle) => {
+    if (!user) return;
+    setUser({ ...user, profile: { ...user.profile, clockStyle: style, clockStyleChosen: true } });
+    setShowClockPicker(false);
+  };
   
-  const handleRecordChoice = (choice: 'now' | 'later' | 'skip') => {
+  const handleRecordChoice = (_choice: 'now' | 'later' | 'skip') => {
     completeWeeklySession(selectedWeeklySession.id);
     setShowRecordPrompt(false);
     setShowComplete(true);
@@ -200,54 +370,48 @@ export function WorkoutScreen() {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            className="glass-modal rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
-            {/* GIF Display */}
-            <div className="relative h-48 bg-stone-100 rounded-t-3xl overflow-hidden">
-              {(selectedVariation?.imageUrl || showExerciseDetail.imageUrl) ? (
-                <img
-                  src={selectedVariation?.imageUrl || showExerciseDetail.imageUrl}
-                  alt={showExerciseDetail.name}
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Dumbbell className="w-16 h-16 text-stone-300" />
-                </div>
-              )}
+            {/* Preview animado del ejercicio */}
+            <div className="relative h-52">
+              <ExercisePreview
+                name={showExerciseDetail.name}
+                muscle={showExerciseDetail.targetMuscle}
+                equipment={selectedEquipment}
+                className="w-full h-52"
+                rounded="rounded-t-3xl"
+              />
               <button
                 onClick={() => setShowExerciseDetail(null)}
-                className="absolute top-4 right-4 p-2 rounded-xl bg-white/90 hover:bg-white transition-colors"
+                className="absolute top-4 right-4 p-2 rounded-xl bg-white/90 hover:bg-white transition-colors shadow-sm"
               >
                 <X className="w-5 h-5 text-stone-600" />
               </button>
             </div>
 
             <div className="p-6">
-              <h2 className="text-xl font-bold text-stone-900 mb-4">{showExerciseDetail.name}</h2>
+              <h2 className="text-xl font-bold text-stone-900 dark:text-white mb-4">{showExerciseDetail.name}</h2>
 
-              {/* Variation Selector */}
-              {showExerciseDetail.variations && showExerciseDetail.variations.length > 0 && (
-                <div className="mb-6">
-                  <p className="text-stone-600 text-sm font-medium mb-3">Variación:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {showExerciseDetail.variations.map(variation => (
-                      <button
-                        key={variation.id}
-                        onClick={() => setSelectedVariation(variation)}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                          selectedVariation?.id === variation.id
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
-                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                        }`}
-                      >
-                        {variation.name}
-                      </button>
-                    ))}
-                  </div>
+              {/* Selector de variante por equipamiento (universal) */}
+              <div className="mb-6">
+                <p className="text-stone-600 dark:text-white/60 text-sm font-medium mb-3">Variante:</p>
+                <div className="flex flex-wrap gap-2">
+                  {EQUIPMENT_VARIANTS.map(variant => (
+                    <button
+                      key={variant.label}
+                      onClick={() => setSelectedEquipment(variant.id)}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                        selectedEquipment === variant.id
+                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                          : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200'
+                      }`}
+                    >
+                      {variant.label}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
 
               {/* Exercise Info */}
               <div className="bg-emerald-50 rounded-2xl p-4 mb-6">
@@ -271,7 +435,7 @@ export function WorkoutScreen() {
 
               {/* Last Weight */}
               {getLastWeight(showExerciseDetail.id) && (
-                <div className="bg-stone-50 rounded-2xl p-4 mb-6">
+                <div className="glass-bg rounded-2xl p-4 mb-6">
                   <div className="flex items-center gap-3">
                     <TrendingUp className="w-5 h-5 text-emerald-600" />
                     <div>
@@ -367,33 +531,94 @@ export function WorkoutScreen() {
   // -------------------------
   
   if (showComplete) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col items-center justify-center px-6 py-12">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-8 max-w-sm">
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 150 }} className="w-20 h-20 mx-auto bg-emerald-100 rounded-2xl flex items-center justify-center">
-            <Check className="w-10 h-10 text-emerald-600" />
-          </motion.div>
-          <div className="space-y-3">
-            <h1 className="text-2xl font-bold text-stone-900">Has completado la sesión de hoy</h1>
-            <p className="text-stone-500">Esto cuenta.</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <div className="flex justify-around text-center">
-              <div>
-                <p className="text-2xl font-bold text-emerald-600">{exercises.length}</p>
-                <p className="text-stone-500 text-sm">ejercicios</p>
-              </div>
-              <div className="w-px bg-stone-200" />
-              <div>
-                <p className="text-2xl font-bold text-emerald-600">{totalSets}</p>
-                <p className="text-stone-500 text-sm">series</p>
+    const totalSessions = user?.totalCompletedSessions ?? 0;
+    const isNewUser = totalSessions <= 2;
+    const newMessages = ['Eso ya cuenta.', 'Hoy también suma.', 'Lo importante es que has venido.', 'Buen paso.', 'Seguimos a tu ritmo.'];
+    const proMessages = ['Buen trabajo.', 'Muy buena sesión.', 'Sigues construyendo.', 'Otra más.', 'Sesión sólida.', 'Hoy te noto fuerte.'];
+    const msgs = isNewUser ? newMessages : proMessages;
+    const motivMsg = msgs[totalSessions % msgs.length];
+    const sessionName = selectedWeeklySession?.name ?? 'Entrenamiento';
+    const sessionDuration = selectedWeeklySession?.duration ?? 45;
+
+    if (completionStep === 1) {
+      return (
+        <div className="min-h-screen glass-bg flex flex-col items-center justify-center px-6 py-12">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-8 max-w-sm w-full">
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 150 }} className="w-20 h-20 mx-auto bg-emerald-100 rounded-2xl flex items-center justify-center">
+              <Check className="w-10 h-10 text-emerald-600" />
+            </motion.div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold text-stone-900">Has completado la sesión de hoy</h1>
+              <p className="text-stone-500 text-lg">{motivMsg}</p>
+            </div>
+            <div className="glass-card rounded-2xl p-5">
+              <div className="flex justify-around text-center">
+                <div>
+                  <p className="text-2xl font-bold text-emerald-600">{exercises.length}</p>
+                  <p className="text-stone-500 text-sm">ejercicios</p>
+                </div>
+                <div className="w-px bg-stone-200" />
+                <div>
+                  <p className="text-2xl font-bold text-emerald-600">{totalSets}</p>
+                  <p className="text-stone-500 text-sm">series</p>
+                </div>
+                <div className="w-px bg-stone-200" />
+                <div>
+                  <p className="text-2xl font-bold text-emerald-600">{Math.round(elapsed / 60) || sessionDuration}</p>
+                  <p className="text-stone-500 text-sm">min reales</p>
+                </div>
               </div>
             </div>
+            <div className="pt-2 w-full">
+              <Button onClick={() => setCompletionStep(2)} className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold text-lg">
+                Continuar
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen glass-bg flex flex-col items-center justify-center px-6 py-12">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-6 max-w-sm w-full">
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-stone-900">¿Quieres compartirlo?</h2>
+            <p className="text-stone-500 text-sm">La comunidad te acompaña en el proceso</p>
           </div>
-          <div className="pt-4">
-            <Button onClick={() => setScreen('dashboard')} className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold text-lg">
-              Volver al inicio
-            </Button>
+          <div className="space-y-3">
+            <button
+              onClick={() => { setScreen('community'); }}
+              className="w-full p-4 bg-white dark:bg-[#1a1a1a] border-2 border-stone-100 dark:border-stone-800 hover:border-emerald-300 rounded-2xl flex items-center gap-4 transition-all shadow-sm"
+            >
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">📝</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-stone-900">Escribir una nota</p>
+                <p className="text-stone-500 text-sm">Comparte tu experiencia de hoy</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => { setScreen('community'); }}
+              className="w-full p-4 bg-white dark:bg-[#1a1a1a] border-2 border-stone-100 dark:border-stone-800 hover:border-emerald-300 rounded-2xl flex items-center gap-4 transition-all shadow-sm"
+            >
+              <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">🏋️</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-stone-900">Compartir entrenamiento</p>
+                <p className="text-stone-500 text-sm">{sessionName} · {sessionDuration} min · {exercises.length} ejercicios</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setScreen('dashboard')}
+              className="w-full py-4 text-stone-400 hover:text-stone-600 text-sm transition-colors"
+            >
+              ❌ Ahora no
+            </button>
           </div>
         </motion.div>
       </div>
@@ -402,7 +627,7 @@ export function WorkoutScreen() {
 
   if (showRecordPrompt) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col items-center justify-center px-6 py-12">
+      <div className="min-h-screen glass-bg flex flex-col items-center justify-center px-6 py-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md w-full">
           <div className="w-20 h-20 mx-auto bg-emerald-100 rounded-2xl flex items-center justify-center mb-6">
             <Dumbbell className="w-10 h-10 text-emerald-600" />
@@ -425,7 +650,26 @@ export function WorkoutScreen() {
 
   if (workoutMode === 'simple') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col">
+      <div className="min-h-screen glass-bg flex flex-col">
+        {/* ── Banner de duración alcanzada ── */}
+        <AnimatePresence>
+          {showDurationBanner && (
+            <motion.div
+              initial={{ y: -60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -60, opacity: 0 }}
+              className="fixed top-0 inset-x-0 z-50 mx-4 mt-16 bg-amber-400 text-amber-900 rounded-2xl px-4 py-3 flex items-center justify-between shadow-lg"
+            >
+              <p className="text-sm font-semibold">
+                ¡{targetDuration} minutos completados! Sigue hasta que quieras terminar.
+              </p>
+              <button onClick={() => setShowDurationBanner(false)} className="ml-3 flex-shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="px-6 pt-8 pb-4">
           <div className="flex items-center justify-between mb-4">
             <button onClick={handleExit} className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -433,40 +677,80 @@ export function WorkoutScreen() {
             </button>
             <div className="text-center">
               <p className="text-stone-500 text-sm">{selectedWeeklySession.name}</p>
-              <p className="font-semibold text-stone-900">{selectedWeeklySession.duration} minutos</p>
+              <p className="font-semibold text-stone-900">{selectedWeeklySession.duration} min</p>
             </div>
-            <div className="w-10" />
+            {/* Reloj — pulsar para expandir */}
+            <button onClick={() => setShowClockExpanded(true)} className="focus:outline-none">
+              <WorkoutClock elapsed={elapsed} style={clockStyle} targetMinutes={targetDuration} />
+            </button>
+          </div>
+          {/* Progreso del modo simple */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full"
+                animate={{ width: `${exercises.length ? (exercises.filter(e => simpleDone.has(e.id)).length / exercises.length) * 100 : 0}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            <span className="text-sm text-stone-500 font-medium">{exercises.filter(e => simpleDone.has(e.id)).length}/{exercises.length}</span>
           </div>
         </div>
 
         <div className="flex-1 px-6 pb-32 overflow-y-auto">
           <div className="space-y-4">
-            {exercises.map((exercise, index) => (
+            {exercises.map((exercise, index) => {
+              const done = simpleDone.has(exercise.id);
+              return (
               <motion.div key={exercise.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
-                <Card 
+                <Card
                   onClick={() => {
                     setShowExerciseDetail(exercise);
                     setSelectedVariation(exercise.variations?.[0] || null);
+                    setSelectedEquipment(undefined);
                   }}
-                  className="p-4 bg-white border-0 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                  className={`p-4 border-0 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-all ${done ? 'bg-emerald-50 dark:bg-emerald-500/15' : 'glass-card'}`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 font-bold">
-                      {index + 1}
+                    <div className="relative flex-shrink-0">
+                      <ExercisePreview
+                        name={exercise.name}
+                        muscle={exercise.targetMuscle}
+                        className="w-16 h-16"
+                        rounded="rounded-xl"
+                      />
+                      <span className="absolute -top-1.5 -left-1.5 w-6 h-6 bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center justify-center shadow">
+                        {index + 1}
+                      </span>
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-stone-900">{exercise.name}</p>
-                      <p className="text-emerald-600 font-medium">
+                      <p className={`font-semibold ${done ? 'text-stone-400 line-through' : 'text-stone-900'}`}>{exercise.name}</p>
+                      <p className={`font-medium ${done ? 'text-stone-300' : 'text-emerald-600'}`}>
                         {exercise.sets} series x {formatReps(exercise.reps)} reps
                       </p>
                       {exercise.instructions && (
                         <p className="text-stone-400 text-sm mt-1">{exercise.instructions}</p>
                       )}
                     </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSimpleDone(prev => {
+                          const next = new Set(prev);
+                          if (next.has(exercise.id)) next.delete(exercise.id); else next.add(exercise.id);
+                          return next;
+                        });
+                      }}
+                      className={`w-9 h-9 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${done ? 'border-emerald-500 bg-emerald-500' : 'border-stone-300 hover:border-emerald-400'}`}
+                      title={done ? 'Marcar como pendiente' : 'Marcar como hecho'}
+                    >
+                      <Check className={`w-5 h-5 ${done ? 'text-white' : 'text-stone-300'}`} />
+                    </button>
                   </div>
                 </Card>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -479,7 +763,7 @@ export function WorkoutScreen() {
 
         {showExitConfirm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-6 max-w-sm w-full">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-modal rounded-3xl p-6 max-w-sm w-full">
               <h3 className="text-xl font-bold text-stone-900 mb-2">¿Salir del entreno?</h3>
               <p className="text-stone-500 mb-6">Tu progreso no se guardará</p>
               <div className="flex gap-3">
@@ -489,6 +773,27 @@ export function WorkoutScreen() {
             </motion.div>
           </div>
         )}
+
+        {/* ── Modal: selector de reloj (primera vez) ── */}
+        <AnimatePresence>
+          {showClockPicker && (
+            <ClockPickerModal
+              onChoose={handleClockStyleChoice}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* ── Modal: reloj expandido (al pulsar el reloj) ── */}
+        <AnimatePresence>
+          {showClockExpanded && (
+            <ClockExpandedModal
+              elapsed={elapsed}
+              style={clockStyle}
+              targetMinutes={targetDuration}
+              onClose={() => setShowClockExpanded(false)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* INYECTAMOS EL MODAL AQUÍ */}
         {ExerciseDetailModal}
@@ -501,7 +806,20 @@ export function WorkoutScreen() {
   // -------------------------
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col">
+    <div className="min-h-screen glass-bg flex flex-col">
+      {/* Banner de duración alcanzada (modo guiado) */}
+      <AnimatePresence>
+        {showDurationBanner && (
+          <motion.div
+            initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -60, opacity: 0 }}
+            className="fixed top-0 inset-x-0 z-50 mx-4 mt-16 bg-amber-400 text-amber-900 rounded-2xl px-4 py-3 flex items-center justify-between shadow-lg"
+          >
+            <p className="text-sm font-semibold">¡{targetDuration} minutos completados! Sigue hasta terminar.</p>
+            <button onClick={() => setShowDurationBanner(false)}><X className="w-4 h-4" /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="px-6 pt-8 pb-4">
         <div className="flex items-center justify-between mb-4">
           <button onClick={handleExit} className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -511,7 +829,10 @@ export function WorkoutScreen() {
             <p className="text-stone-500 text-sm">{selectedWeeklySession.name}</p>
             <p className="font-semibold text-stone-900">Ejercicio {currentExerciseIndex + 1} de {exercises.length}</p>
           </div>
-          <div className="w-10" />
+          {/* Reloj modo guiado — misma lógica que simple */}
+          <button onClick={() => setShowClockExpanded(true)} className="focus:outline-none">
+            <WorkoutClock elapsed={elapsed} style={clockStyle} targetMinutes={targetDuration} />
+          </button>
         </div>
         <Progress value={progress} className="h-2 bg-stone-200" />
         <p className="text-right text-sm text-stone-400 mt-1">{completedSets.size}/{totalSets} series</p>
@@ -521,28 +842,40 @@ export function WorkoutScreen() {
         <AnimatePresence mode="wait">
           {isResting ? (
             <motion.div key="rest" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex-1 flex flex-col items-center justify-center text-center">
-              <div className="w-32 h-32 rounded-full bg-emerald-100 flex items-center justify-center mb-6">
-                <Clock className="w-12 h-12 text-emerald-500" />
+              <p className="text-stone-500 mb-5 flex items-center gap-2"><Clock className="w-4 h-4" /> Descansa</p>
+              <div className="relative w-52 h-52 mb-8">
+                <svg className="w-52 h-52 -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(16,185,129,0.15)" strokeWidth="6" />
+                  <motion.circle
+                    cx="50" cy="50" r="45" fill="none" stroke="#10b981" strokeWidth="6" strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 45}
+                    animate={{ strokeDashoffset: 2 * Math.PI * 45 * (1 - (restTotal ? restTime / restTotal : 0)) }}
+                    transition={{ duration: 0.4, ease: 'linear' }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-5xl font-bold text-stone-900">
+                    {Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}
+                  </span>
+                  <span className="text-stone-400 text-sm mt-1">siguiente serie</span>
+                </div>
               </div>
-              <p className="text-stone-500 mb-2">Descansa</p>
-              <p className="text-6xl font-bold text-stone-900 mb-8">
-                {Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}
-              </p>
-              <Button onClick={skipRest} variant="outline" className="rounded-xl px-6">Saltar descanso</Button>
+              <div className="flex gap-3">
+                <Button onClick={() => { setRestTime(t => t + 15); setRestTotal(t => t + 15); }} variant="outline" className="rounded-xl px-5">
+                  +15s
+                </Button>
+                <Button onClick={skipRest} className="rounded-xl px-6 bg-emerald-500 hover:bg-emerald-600">Saltar descanso</Button>
+              </div>
             </motion.div>
           ) : (
             <motion.div key="exercise" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">
               <Card className="p-6 bg-white border-0 rounded-3xl shadow-sm mb-6">
-                {/* GIF del ejercicio actual */}
-                {currentExercise.imageUrl && (
-                  <div className="h-40 rounded-2xl overflow-hidden mb-4 bg-stone-100">
-                    <img
-                      src={currentExercise.imageUrl}
-                      alt={currentExercise.name}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                )}
+                {/* Preview animado del ejercicio actual */}
+                <ExercisePreview
+                  name={currentExercise.name}
+                  muscle={currentExercise.targetMuscle}
+                  className="h-44 w-full mb-4"
+                />
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <h2 className="text-xl font-bold text-stone-900">{currentExercise.name}</h2>
@@ -554,6 +887,7 @@ export function WorkoutScreen() {
                     onClick={() => {
                       setShowExerciseDetail(currentExercise);
                       setSelectedVariation(currentExercise.variations?.[0] || null);
+                      setSelectedEquipment(undefined);
                     }}
                     className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 transition-colors ml-3 flex-shrink-0"
                   >
@@ -572,7 +906,7 @@ export function WorkoutScreen() {
                   })}
                 </div>
 
-                <div className="bg-stone-50 rounded-2xl p-4">
+                <div className="glass-bg rounded-2xl p-4">
                   <p className="text-stone-500 text-sm mb-1">Serie {currentSetIndex + 1}</p>
                   <p className="text-2xl font-bold text-stone-900">
                     {currentExercise.reps[currentSetIndex] || currentExercise.reps[0]} repeticiones
@@ -582,8 +916,19 @@ export function WorkoutScreen() {
 
               <div className="space-y-4 mb-6">
                 <div>
-                  <label className="text-stone-600 text-sm mb-2 block">Peso usado (kg) - opcional</label>
-                  <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Ej: 20" className="py-5 px-4 rounded-xl bg-white border-stone-200 text-lg" />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-stone-600 text-sm">Peso usado (kg) - opcional</label>
+                    {getLastWeight(currentExercise.id) && (
+                      <button
+                        type="button"
+                        onClick={() => setWeight(String(getLastWeight(currentExercise.id)))}
+                        className="text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-full flex items-center gap-1"
+                      >
+                        <TrendingUp className="w-3 h-3" /> Última vez: {getLastWeight(currentExercise.id)} kg
+                      </button>
+                    )}
+                  </div>
+                  <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={getLastWeight(currentExercise.id) ? String(getLastWeight(currentExercise.id)) : 'Ej: 20'} className="py-5 px-4 rounded-xl bg-white border-stone-200 text-lg" />
                 </div>
                 <div>
                   <label className="text-stone-600 text-sm mb-2 block">Repeticiones hechas (si diferente)</label>
@@ -637,7 +982,7 @@ export function WorkoutScreen() {
 
       {showExitConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-6 max-w-sm w-full">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-modal rounded-3xl p-6 max-w-sm w-full">
             <h3 className="text-xl font-bold text-stone-900 mb-2">¿Salir del entreno?</h3>
             <p className="text-stone-500 mb-6">Tu progreso se guardará parcialmente</p>
             <div className="flex gap-3">
@@ -647,6 +992,23 @@ export function WorkoutScreen() {
           </motion.div>
         </div>
       )}
+
+      {/* ── Modales de reloj (modo guiado) ── */}
+      <AnimatePresence>
+        {showClockPicker && (
+          <ClockPickerModal onChoose={handleClockStyleChoice} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showClockExpanded && (
+          <ClockExpandedModal
+            elapsed={elapsed}
+            style={clockStyle}
+            targetMinutes={targetDuration}
+            onClose={() => setShowClockExpanded(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* INYECTAMOS EL MODAL AQUÍ (Compartido) */}
       {ExerciseDetailModal}

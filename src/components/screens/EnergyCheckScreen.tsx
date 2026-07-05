@@ -85,7 +85,7 @@ export function EnergyCheckScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col px-6 py-8">
+    <div className="min-h-dvh glass-bg flex flex-col px-6 py-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -94,7 +94,7 @@ export function EnergyCheckScreen() {
       >
         <button
           onClick={() => setScreen('workout-preview')}
-          className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>
@@ -145,8 +145,8 @@ export function EnergyCheckScreen() {
                     onClick={() => handleEnergySelect(option.id)}
                     className={`p-4 cursor-pointer border-2 transition-all rounded-2xl ${
                       isSelected
-                        ? 'border-emerald-400 bg-emerald-50 shadow-lg shadow-emerald-200'
-                        : 'border-transparent bg-white hover:border-stone-200'
+                        ? 'glass-card bg-emerald-50 border-emerald-400 shadow-lg shadow-emerald-200'
+                        : 'glass-card border-transparent hover:border-stone-200'
                     }`}
                   >
                     <div className="flex items-start gap-4">

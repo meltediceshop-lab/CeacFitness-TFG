@@ -20,7 +20,19 @@ import {
   MoveRight,
   AlertCircle
 } from 'lucide-react';
-import type { WorkoutMode, Exercise, ExerciseVariation } from '@/types/user';
+import type { WorkoutMode, Exercise } from '@/types/user';
+import { ExercisePreview } from '@/components/workout/ExercisePreview';
+import type { Equipment } from '@/lib/exerciseImages';
+
+// Variantes universales por equipamiento — válidas para cualquier ejercicio
+const EQUIPMENT_VARIANTS: { id: Equipment; label: string }[] = [
+  { id: undefined, label: 'Recomendada' },
+  { id: 'barbell', label: 'Barra' },
+  { id: 'dumbbells', label: 'Mancuernas' },
+  { id: 'machine', label: 'Máquina' },
+  { id: 'cable', label: 'Cable' },
+  { id: 'bodyweight', label: 'Sin peso' },
+];
 
 export function WorkoutPreviewScreen() {
   const {
@@ -34,7 +46,7 @@ export function WorkoutPreviewScreen() {
   } = useApp();
   const [showModeModal, setShowModeModal] = useState(false);
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
-  const [selectedVariation, setSelectedVariation] = useState<ExerciseVariation | null>(null);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment>(undefined);
   const [showSessionOptions, setShowSessionOptions] = useState(false);
 
   if (!selectedWeeklySession) {
@@ -72,7 +84,7 @@ export function WorkoutPreviewScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col">
+    <div className="min-h-dvh glass-bg flex flex-col">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -82,7 +94,7 @@ export function WorkoutPreviewScreen() {
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => setScreen('dashboard')}
-            className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+            className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
           >
             <ArrowLeft className="w-5 h-5 text-stone-600" />
           </button>
@@ -92,7 +104,7 @@ export function WorkoutPreviewScreen() {
           </div>
           <button
             onClick={() => setShowSessionOptions(true)}
-            className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+            className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
           >
             <AlertCircle className="w-5 h-5 text-stone-400" />
           </button>
@@ -142,29 +154,38 @@ export function WorkoutPreviewScreen() {
                   <Card
                     onClick={() => {
                       setShowExerciseDetail(exercise);
-                      setSelectedVariation(exercise.variations?.[0] || null);
+                      setSelectedEquipment(undefined);
                     }}
-                    className="p-4 bg-white border-0 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    className="glass-card p-3 border-0 rounded-2xl hover:shadow-md transition-all cursor-pointer"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-stone-600 font-semibold">
-                          {index + 1}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Preview del ejercicio */}
+                        <div className="relative flex-shrink-0">
+                          <ExercisePreview
+                            name={exercise.name}
+                            muscle={exercise.targetMuscle}
+                            className="w-16 h-16"
+                            rounded="rounded-xl"
+                          />
+                          <span className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow">
+                            {index + 1}
+                          </span>
                         </div>
-                        <div>
-                          <p className="font-medium text-stone-900">{exercise.name}</p>
-                          <p className="text-stone-500 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-stone-900 dark:text-white truncate">{exercise.name}</p>
+                          <p className="text-stone-500 dark:text-white/50 text-sm">
                             {exercise.sets} series x {formatReps(exercise.reps)} reps
                           </p>
                           {lastWeight && (
-                            <div className="flex items-center gap-1 text-emerald-600 text-xs mt-1">
+                            <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs mt-1">
                               <TrendingUp className="w-3 h-3" />
                               <span>Último peso: {lastWeight} kg</span>
                             </div>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-stone-400">
+                      <div className="flex items-center gap-1 text-stone-400 flex-shrink-0">
                         <Info className="w-4 h-4" />
                         <ChevronRight className="w-5 h-5" />
                       </div>
@@ -203,7 +224,7 @@ export function WorkoutPreviewScreen() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25 }}
-              className="bg-white rounded-t-3xl p-6 w-full max-w-md"
+              className="glass-modal rounded-t-3xl p-6 w-full max-w-md"
               onClick={e => e.stopPropagation()}
             >
               <div className="w-12 h-1 bg-stone-300 rounded-full mx-auto mb-6" />
@@ -218,7 +239,7 @@ export function WorkoutPreviewScreen() {
               <div className="space-y-3">
                 <Card
                   onClick={() => handleModeSelect('guided')}
-                  className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-stone-50 rounded-2xl"
+                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
@@ -237,7 +258,7 @@ export function WorkoutPreviewScreen() {
 
                 <Card
                   onClick={() => handleModeSelect('simple')}
-                  className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-stone-50 rounded-2xl"
+                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-stone-200 rounded-xl flex items-center justify-center">
@@ -281,7 +302,7 @@ export function WorkoutPreviewScreen() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25 }}
-              className="bg-white rounded-t-3xl p-6 w-full max-w-md"
+              className="glass-modal rounded-t-3xl p-6 w-full max-w-md"
               onClick={e => e.stopPropagation()}
             >
               <div className="w-12 h-1 bg-stone-300 rounded-full mx-auto mb-6" />
@@ -301,7 +322,7 @@ export function WorkoutPreviewScreen() {
                     setShowSessionOptions(false);
                     alert('Función de mover sesión próximamente');
                   }}
-                  className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-stone-50 rounded-2xl"
+                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
@@ -355,22 +376,18 @@ export function WorkoutPreviewScreen() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+              className="glass-modal rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               {/* GIF Display */}
-              <div className="relative h-48 bg-stone-100 rounded-t-3xl overflow-hidden">
-                {(selectedVariation?.imageUrl || showExerciseDetail.imageUrl) ? (
-                  <img
-                    src={selectedVariation?.imageUrl || showExerciseDetail.imageUrl}
-                    alt={showExerciseDetail.name}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Dumbbell className="w-16 h-16 text-stone-300" />
-                  </div>
-                )}
+              <div className="relative h-56 rounded-t-3xl overflow-hidden">
+                <ExercisePreview
+                  name={showExerciseDetail.name}
+                  muscle={showExerciseDetail.targetMuscle}
+                  equipment={selectedEquipment}
+                  className="w-full h-full"
+                  rounded="rounded-none"
+                />
                 <button
                   onClick={() => setShowExerciseDetail(null)}
                   className="absolute top-4 right-4 p-2 rounded-xl bg-white/90 hover:bg-white transition-colors"
@@ -380,31 +397,29 @@ export function WorkoutPreviewScreen() {
               </div>
 
               <div className="p-6">
-                <h2 className="text-xl font-bold text-stone-900 mb-4">
+                <h2 className="text-xl font-bold text-stone-900 dark:text-white mb-4">
                   {showExerciseDetail.name}
                 </h2>
 
-                {/* Variation Selector */}
-                {showExerciseDetail.variations && showExerciseDetail.variations.length > 0 && (
-                  <div className="mb-6">
-                    <p className="text-stone-600 text-sm font-medium mb-3">Variación:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {showExerciseDetail.variations.map(variation => (
-                        <button
-                          key={variation.id}
-                          onClick={() => setSelectedVariation(variation)}
-                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                            selectedVariation?.id === variation.id
-                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
-                              : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                          }`}
-                        >
-                          {variation.name}
-                        </button>
-                      ))}
-                    </div>
+                {/* Selector de variante por equipamiento (universal) */}
+                <div className="mb-6">
+                  <p className="text-stone-600 dark:text-white/60 text-sm font-medium mb-3">Variante:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {EQUIPMENT_VARIANTS.map(variant => (
+                      <button
+                        key={variant.label}
+                        onClick={() => setSelectedEquipment(variant.id)}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                          selectedEquipment === variant.id
+                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                            : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200'
+                        }`}
+                      >
+                        {variant.label}
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
 
                 {/* Exercise Info */}
                 <div className="bg-emerald-50 rounded-2xl p-4 mb-6">
@@ -485,7 +500,7 @@ export function WorkoutPreviewScreen() {
 
                             // 3. Forzamos la actualización de React
                             setShowExerciseDetail(newExercise);
-                            setSelectedVariation(newExercise.variations?.[0] || null);
+                            setSelectedEquipment(undefined);
                           }}
                           className="w-full h-auto min-h-[3rem] py-3 justify-start px-4 text-left font-normal text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl border-none shadow-none text-base transition-colors"
                         >

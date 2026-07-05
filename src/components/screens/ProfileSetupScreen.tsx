@@ -117,7 +117,7 @@ export function ProfileSetupScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col px-6 py-8">
+    <div className="min-h-dvh glass-bg flex flex-col px-6 py-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -126,7 +126,7 @@ export function ProfileSetupScreen() {
       >
         <button
           onClick={handleBack}
-          className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>
@@ -174,7 +174,7 @@ export function ProfileSetupScreen() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Tu nombre"
-                    className="py-5 px-4 rounded-xl bg-white border-stone-200 focus:border-emerald-400"
+                    className="glass-input py-5 px-4 rounded-xl"
                   />
                 </div>
 
@@ -214,7 +214,7 @@ export function ProfileSetupScreen() {
                       value={weight}
                       onChange={(e) => setWeight(e.target.value)}
                       placeholder="70"
-                      className="py-5 px-4 rounded-xl bg-white border-stone-200 focus:border-emerald-400"
+                      className="glass-input py-5 px-4 rounded-xl"
                     />
                   </div>
                   <div className="space-y-2">
@@ -225,7 +225,7 @@ export function ProfileSetupScreen() {
                       value={height}
                       onChange={(e) => setHeight(e.target.value)}
                       placeholder="175"
-                      className="py-5 px-4 rounded-xl bg-white border-stone-200 focus:border-emerald-400"
+                      className="glass-input py-5 px-4 rounded-xl"
                     />
                   </div>
                 </div>
@@ -391,7 +391,7 @@ export function ProfileSetupScreen() {
                     value={customInjury}
                     onChange={(e) => setCustomInjury(e.target.value)}
                     placeholder="Otra lesión..."
-                    className="py-3 px-4 rounded-xl bg-white border-stone-200 focus:border-emerald-400"
+                    className="glass-input py-3 px-4 rounded-xl"
                     onKeyDown={(e) => e.key === 'Enter' && addCustomInjury()}
                   />
                   <Button
@@ -412,7 +412,7 @@ export function ProfileSetupScreen() {
                   value={excludedExercises}
                   onChange={(e) => setExcludedExercises(e.target.value)}
                   placeholder="Ej: Peso muerto, sentadillas profundas..."
-                  className="rounded-xl bg-white border-stone-200 focus:border-emerald-400 min-h-[80px]"
+                  className="glass-input rounded-xl min-h-[80px]"
                 />
                 <p className="text-stone-400 text-xs">Separa los ejercicios con comas</p>
               </div>

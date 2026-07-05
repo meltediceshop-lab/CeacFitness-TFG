@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { BottomNav } from '@/components/ui/BottomNav';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { MeasurementReminderFrequency } from '@/types/user';
 import {
@@ -14,10 +14,10 @@ import {
   Clock,
   ChevronRight,
   LogOut,
-  MessageCircle,
-  Apple,
-  Home,
   Bell,
+  Moon,
+  Sun,
+  Apple,
 } from 'lucide-react';
 
 // ── Silueta corporal SVG ──────────────────────────────────────────
@@ -110,7 +110,7 @@ function frequencyLabel(f: MeasurementReminderFrequency): string {
 
 // ── Componente principal ──────────────────────────────────────────
 export function ProfileScreen() {
-  const { user, setUser, setScreen, logout } = useApp();
+  const { user, setUser, setScreen, logout, isDark, toggleDarkMode } = useApp();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showReminderPicker, setShowReminderPicker] = useState(false);
@@ -132,17 +132,17 @@ export function ProfileScreen() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col pb-24">
+    <div className="min-h-dvh glass-bg flex flex-col pb-24">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="px-6 pt-8 pb-6">
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => setScreen('dashboard')} className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+          <button onClick={() => setScreen('dashboard')} className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow">
             <ArrowLeft className="w-5 h-5 text-stone-600" />
           </button>
           <h1 className="text-2xl font-bold text-stone-900">Tu perfil</h1>
         </div>
 
-        <Card className="p-5 bg-white border-0 rounded-2xl shadow-sm">
+        <Card className="glass-card p-5 border-0 rounded-2xl">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-2xl flex items-center justify-center">
               <span className="text-2xl font-bold text-white">{user.profile.name?.charAt(0).toUpperCase()}</span>
@@ -160,7 +160,7 @@ export function ProfileScreen() {
 
         {/* ── NUTRICIÓN ── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-          <Card onClick={() => setScreen('nutrition')} className="p-5 bg-white border-0 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+          <Card onClick={() => setScreen('nutrition')} className="glass-card p-5 border-0 rounded-2xl cursor-pointer hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
@@ -178,7 +178,7 @@ export function ProfileScreen() {
 
         {/* ── AJUSTES ── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <Card className="p-5 bg-white border-0 rounded-2xl shadow-sm">
+          <Card className="glass-card p-5 border-0 rounded-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center">
                 <Settings className="w-5 h-5 text-stone-600" />
@@ -242,9 +242,21 @@ export function ProfileScreen() {
                 )}
               </AnimatePresence>
 
-              <div className="border-t border-stone-100 my-2" />
+              {/* Modo oscuro / claro */}
+              <button onClick={toggleDarkMode} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-stone-50 dark:hover:bg-white/5 transition-colors">
+                <div className="flex items-center gap-3">
+                  {isDark ? <Moon className="w-5 h-5 text-stone-400" /> : <Sun className="w-5 h-5 text-stone-400" />}
+                  <span className="text-stone-700 dark:text-white/80 text-sm">Modo oscuro</span>
+                </div>
+                {/* Interruptor */}
+                <span className={`relative w-11 h-6 rounded-full transition-colors ${isDark ? 'bg-emerald-500' : 'bg-stone-300'}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${isDark ? 'translate-x-5' : ''}`} />
+                </span>
+              </button>
 
-              <button onClick={() => setShowLogoutConfirm(true)} className="w-full flex items-center p-3 rounded-xl hover:bg-red-50 transition-colors text-red-600 gap-3">
+              <div className="border-t border-stone-100 dark:border-white/10 my-2" />
+
+              <button onClick={() => setShowLogoutConfirm(true)} className="w-full flex items-center p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-red-600 gap-3">
                 <LogOut className="w-5 h-5" />
                 <span className="text-sm">Cerrar sesión</span>
               </button>
@@ -254,22 +266,7 @@ export function ProfileScreen() {
       </div>
 
       {/* Bottom Nav */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-stone-200 px-4 py-3">
-        <div className="max-w-md mx-auto flex justify-around">
-          <button onClick={() => setScreen('dashboard')} className="flex flex-col items-center gap-1 px-6 py-1">
-            <Home className="w-6 h-6 text-stone-400" />
-            <span className="text-xs text-stone-400">Inicio</span>
-          </button>
-          <button onClick={() => setScreen('chat')} className="flex flex-col items-center gap-1 px-6 py-1">
-            <MessageCircle className="w-6 h-6 text-stone-400" />
-            <span className="text-xs text-stone-400">Asistente</span>
-          </button>
-          <button onClick={() => setScreen('nutrition')} className="flex flex-col items-center gap-1 px-6 py-1">
-            <Apple className="w-6 h-6 text-stone-400" />
-            <span className="text-xs text-stone-400">Nutrición</span>
-          </button>
-        </div>
-      </div>
+      <BottomNav active="profile" />
 
       {/* Logout modal */}
       <AnimatePresence>
@@ -281,7 +278,7 @@ export function ProfileScreen() {
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl p-6 max-w-sm w-full"
+              className="glass-modal rounded-3xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-stone-900 mb-2">¿Cerrar sesión?</h3>

@@ -21,7 +21,7 @@ export function CheckInScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-teal-50 flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-dvh glass-bg flex flex-col items-center justify-center px-6 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -59,7 +59,7 @@ export function CheckInScreen() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}
-          className="bg-white/60 backdrop-blur rounded-2xl p-5 border border-emerald-100"
+          className="glass-card rounded-2xl p-5"
         >
           <div className="flex items-center justify-center gap-2 text-emerald-700 mb-2">
             <Sparkles className="w-5 h-5" />

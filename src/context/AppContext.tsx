@@ -13,6 +13,7 @@ import type {
   EnergyLevel,
   WorkoutSession,
   WeeklySession,
+  WeekRecord,
   WorkoutMode,
   Exercise,
   ExerciseVariation,
@@ -259,7 +260,23 @@ const SAMPLE_EXERCISES: Record<string, Exercise[]> = {
 };
 
 // Generate weekly sessions based on user preferences
-function generateWeeklySessions(daysPerWeek: number, workoutDuration: string): WeeklySession[] {
+// startFrom: global session number for the first session of the new week (enables continuous numbering)
+// Distribuye N sesiones de lunes(0) a domingo(6) de forma equidistante
+function distributeDays(daysPerWeek: number): number[] {
+  // Distribución predefinida: prioriza lunes, miércoles, viernes, sábado...
+  const PREFERRED: Record<number, number[]> = {
+    1: [0],
+    2: [0, 3],
+    3: [0, 2, 4],
+    4: [0, 1, 3, 5],
+    5: [0, 1, 2, 4, 5],
+    6: [0, 1, 2, 3, 4, 5],
+    7: [0, 1, 2, 3, 4, 5, 6],
+  };
+  return PREFERRED[daysPerWeek] ?? [0, 2, 4].slice(0, daysPerWeek);
+}
+
+function generateWeeklySessions(daysPerWeek: number, workoutDuration: string, startFrom = 1, customDays?: number[]): WeeklySession[] {
   const sessionTemplates = [
     { name: 'Full Body', targetMuscles: 'Todo el cuerpo', exercises: SAMPLE_EXERCISES['full-body'] },
     { name: 'Tren Superior', targetMuscles: 'Pecho, espalda, hombros', exercises: SAMPLE_EXERCISES['upper-body'] },
@@ -268,18 +285,20 @@ function generateWeeklySessions(daysPerWeek: number, workoutDuration: string): W
   ];
 
   const duration = workoutDuration === '30min' ? 30 : workoutDuration === '45min' ? 45 : workoutDuration === '1hour' ? 60 : 45;
+  const days = customDays ?? distributeDays(daysPerWeek);
 
   const sessions: WeeklySession[] = [];
   for (let i = 0; i < daysPerWeek; i++) {
     const template = sessionTemplates[i % sessionTemplates.length];
     sessions.push({
       id: crypto.randomUUID(),
-      sessionNumber: i + 1,
+      sessionNumber: startFrom + i,
       name: template.name,
       targetMuscles: template.targetMuscles,
       duration,
       exercises: template.exercises,
-      status: 'available',
+      status: i === 0 ? 'available' : 'locked',
+      dayOfWeek: days[i] ?? i,
     });
   }
 
@@ -332,6 +351,8 @@ interface AppContextType {
   exerciseLogs: ExerciseLog[];
   authLoading: boolean;
   supabaseUserId: string | null;
+  isDark: boolean;
+  toggleDarkMode: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -339,10 +360,21 @@ interface AppContextType {
   completeWeeklySession: (sessionId: string, logs?: ExerciseLog[]) => void;
   moveSession: (sessionId: string, toSessionNumber: number) => void;
   removeSession: (sessionId: string) => void;
+  addSessionFromCoach: (workout: import('@/types/user').CoachWorkout) => void;
   handleWeeklyCheckIn: (preference: 'same' | 'change' | 'decide-later') => void;
+  /** true cuando todas las sesiones de la semana están completadas y el usuario aún no ha planificado la siguiente */
+  weekPlannerPending: boolean;
+  /** Genera las sesiones para la próxima semana (para mostrárselas en el planificador antes de confirmar) */
+  generateNextWeekPreview: () => WeeklySession[];
+  /** Archiva la semana actual y guarda el plan editado para la nueva semana */
+  startNewWeekWithPlan: (sessions: WeeklySession[]) => void;
   getExerciseHistory: (exerciseId: string) => ExerciseLog[];
   getExerciseByName: (name: string) => Exercise | undefined;
+  getExerciseCatalog: () => Exercise[];
+  updateSessionExercises: (sessionId: string, exercises: Exercise[]) => void;
+  updateAvatar: (file: File) => Promise<void>;
   resetApp: () => void;
+  seedDemoWeeks: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -362,8 +394,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
+  const [isDark, setIsDark] = useState(false);
 
   const supabase = createClient();
+
+  useEffect(() => {
+    const saved = localStorage.getItem('fitmente-dark-mode');
+    const dark = saved === 'true';
+    setIsDark(dark);
+    document.documentElement.classList.toggle('dark', dark);
+  }, []);
+
+  function toggleDarkMode() {
+    setIsDark(prev => {
+      const next = !prev;
+      document.documentElement.classList.toggle('dark', next);
+      localStorage.setItem('fitmente-dark-mode', String(next));
+      return next;
+    });
+  }
 
   // On mount: check Supabase session, then load user data
   useEffect(() => {
@@ -416,18 +465,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function loadUserFromDB(userId: string) {
     try {
-      const [onboardingRes, profileRes, sessionsRes, logsRes] = await Promise.all([
+      const [onboardingRes, profileRes, sessionsRes, logsRes, weeklyHistoryRes] = await Promise.all([
         fetch('/api/onboarding'),
         fetch('/api/profile'),
         fetch('/api/sessions/weekly'),
         fetch('/api/history'),
+        fetch('/api/history/weekly'),
       ]);
 
-      const [onboardingData, profileData, sessionsData, historyData] = await Promise.all([
+      const [onboardingData, profileData, sessionsData, historyData, weeklyHistoryData] = await Promise.all([
         onboardingRes.json(),
         profileRes.json(),
         sessionsRes.json(),
         logsRes.json(),
+        weeklyHistoryRes.json(),
       ]);
 
       if (onboardingData.data) {
@@ -447,7 +498,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return ref ? { ...ex, variations: ref.variations, alternatives: ref.alternatives } : ex;
           });
 
-        const weeklySessions: WeeklySession[] = (sessionsData.data ?? []).map((s: Record<string, unknown>) => {
+        let weeklySessions: WeeklySession[] = (sessionsData.data ?? []).map((s: Record<string, unknown>) => {
           const dbExercises = s.exercises as Exercise[] | null;
           const baseExercises = dbExercises && dbExercises.length > 0
             ? dbExercises
@@ -464,6 +515,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             completedAt: s.completed_at ? new Date(s.completed_at as string) : undefined,
           };
         });
+
+        // Si no hay sesiones para esta semana, regenerarlas automáticamente
+        if (weeklySessions.length === 0) {
+          const daysPerWeek = ob.days_per_week as number ?? 3;
+          const workoutDuration = ob.workout_duration as string ?? '45min';
+          weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration);
+          fetch('/api/sessions/weekly', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(weeklySessions),
+          }).catch(() => { /* silently ignore */ });
+        }
 
         // Extract exercise logs from history
         const allLogs: ExerciseLog[] = (historyData.data ?? []).flatMap(
@@ -509,6 +572,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             injuries: profile.injuries ?? [],
             excludedExercises: profile.excluded_exercises ?? [],
             measurements: profile.measurements ?? {},
+            avatarUrl: profile.avatar_url ?? undefined,
           },
           sessions: [],
           weeklySessions,
@@ -517,6 +581,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           lastWeeklyCheckIn: new Date(),
           totalCompletedSessions: weeklySessions.filter(s => s.status === 'completed').length,
         };
+
+        // Cargar historial semanal desde Supabase (con migración desde localStorage si hace falta)
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let weeklyHistory: any[] = (weeklyHistoryData?.data ?? []);
+
+          // Migración única: si Supabase está vacío pero hay datos en localStorage, súbelos
+          if (weeklyHistory.length === 0) {
+            const lsKey = `fitmente-weekly-history-${userId}`;
+            const legacyKey = `fitmente-weekly-history-${ob.id}`;
+            const stored = localStorage.getItem(lsKey) ?? localStorage.getItem(legacyKey);
+            if (stored) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              weeklyHistory = JSON.parse(stored) as any[];
+              // Sube el historial heredado a Supabase
+              fetch('/api/history/weekly', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(weeklyHistory),
+              }).catch(() => { /* ignore */ });
+            }
+          }
+
+          if (weeklyHistory.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            restoredUser.weeklyHistory = weeklyHistory.map((w: any) => ({
+              ...w,
+              sessions: (w.sessions ?? []).map((s: any) => ({
+                ...s,
+                completedAt: s.completedAt ? new Date(s.completedAt) : undefined,
+              })),
+            }));
+            // Ajusta semana actual al número más alto
+            const maxWeek = Math.max(...restoredUser.weeklyHistory!.map(w => w.weekNumber), 0);
+            if (maxWeek >= restoredUser.currentWeek) restoredUser.currentWeek = maxWeek + 1;
+          }
+        } catch { /* ignore */ }
 
         setUser(restoredUser);
         setScreen('dashboard');
@@ -742,6 +843,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const addSessionFromCoach = (workout: import('@/types/user').CoachWorkout) => {
+    if (!user) return;
+
+    const newSession: WeeklySession = {
+      id: crypto.randomUUID(),
+      sessionNumber: user.weeklySessions.length + 1,
+      name: workout.name,
+      targetMuscles: workout.targetMuscles,
+      duration: workout.duration,
+      exercises: workout.exercises.map((ex, i) => ({
+        id: `coach-${Date.now()}-${i}`,
+        name: ex.name,
+        targetMuscle: 'none' as const,
+        sets: ex.sets,
+        reps: ex.reps,
+        restSeconds: ex.restSeconds,
+        instructions: ex.instructions,
+        alternatives: [],
+        variations: [],
+      })),
+      status: 'available',
+    };
+
+    const updatedSessions = [...user.weeklySessions, newSession];
+    setUser({ ...user, weeklySessions: updatedSessions });
+
+    if (supabaseUserId) {
+      fetch('/api/sessions/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSessions),
+      }).catch(() => {});
+    }
+
+    setScreen('dashboard');
+  };
+
+  const HISTORY_LS_KEY = supabaseUserId ? `fitmente-weekly-history-${supabaseUserId}` : null;
+
+  // Persiste el historial semanal: Supabase (fuente de verdad) + localStorage (respaldo offline)
+  const saveHistoryToLS = (history: WeekRecord[]) => {
+    if (HISTORY_LS_KEY) {
+      try { localStorage.setItem(HISTORY_LS_KEY, JSON.stringify(history)); } catch { /* ignore */ }
+    }
+    if (supabaseUserId && history.length > 0) {
+      fetch('/api/history/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(history),
+      }).catch(() => { /* ignore */ });
+    }
+  };
+
   const handleWeeklyCheckIn = (preference: 'same' | 'change' | 'decide-later') => {
     if (!user) return;
 
@@ -749,26 +903,163 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const daysPerWeek = onboarding.daysPerWeek || 3;
     const workoutDuration = onboarding.workoutDuration || '45min';
 
+    // Archive the current week before rolling over
+    const weekRecord: WeekRecord = {
+      weekNumber: user.currentWeek,
+      sessions: user.weeklySessions.map(s => ({
+        ...s,
+        completedAt: s.completedAt ? new Date(s.completedAt) : undefined,
+      })),
+      startedAt: user.lastWeeklyCheckIn?.toISOString() || new Date().toISOString(),
+      closedAt: new Date().toISOString(),
+    };
+    const updatedHistory = [...(user.weeklyHistory || []), weekRecord];
+    saveHistoryToLS(updatedHistory);
+
+    // Calculate starting session number for new week (continuous numbering)
+    const lastSessionNum = user.weeklySessions.reduce((max, s) => Math.max(max, s.sessionNumber), 0);
+    const nextStartFrom = lastSessionNum + 1;
+
     if (preference === 'same') {
-      // Generate new sessions for the week
-      const newSessions = generateWeeklySessions(daysPerWeek, workoutDuration);
+      const newSessions = generateWeeklySessions(daysPerWeek, workoutDuration, nextStartFrom);
       setUser({
         ...user,
         weeklySessions: newSessions,
+        weeklyHistory: updatedHistory,
         currentWeek: user.currentWeek + 1,
         lastWeeklyCheckIn: new Date(),
       });
     } else if (preference === 'decide-later') {
-      // Just mark the check-in as done
       setUser({
         ...user,
+        weeklyHistory: updatedHistory,
         currentWeek: user.currentWeek + 1,
         lastWeeklyCheckIn: new Date(),
       });
     }
-    // If 'change', the user will go to a different flow (not implemented yet)
 
     setShowWeeklyCheckIn(false);
+  };
+
+  // ── Planificador semanal ──────────────────────────────────────────────────────
+
+  // true cuando TODAS las sesiones de la semana actual están completadas
+  const weekPlannerPending = !!(
+    user &&
+    user.weeklySessions.length > 0 &&
+    user.weeklySessions.every(s => s.status === 'completed')
+  );
+
+  // Genera una preview de las sesiones de la próxima semana (sin archivar nada)
+  const generateNextWeekPreview = (): WeeklySession[] => {
+    if (!user) return [];
+    const onboarding = user.onboarding as BeginnerOnboarding;
+    const daysPerWeek = onboarding.daysPerWeek || 3;
+    const workoutDuration = onboarding.workoutDuration || '45min';
+    const lastSessionNum = user.weeklySessions.reduce((max, s) => Math.max(max, s.sessionNumber), 0);
+    return generateWeeklySessions(daysPerWeek, workoutDuration, lastSessionNum + 1);
+  };
+
+  // Archiva la semana actual y guarda el plan confirmado por el usuario
+  const startNewWeekWithPlan = (sessions: WeeklySession[]) => {
+    if (!user) return;
+
+    const weekRecord: WeekRecord = {
+      weekNumber: user.currentWeek,
+      sessions: user.weeklySessions.map(s => ({
+        ...s,
+        completedAt: s.completedAt ? new Date(s.completedAt) : undefined,
+      })),
+      startedAt: user.lastWeeklyCheckIn?.toISOString() || new Date().toISOString(),
+      closedAt: new Date().toISOString(),
+    };
+    const updatedHistory = [...(user.weeklyHistory || []), weekRecord];
+    saveHistoryToLS(updatedHistory);
+
+    // Primera sesión disponible, resto bloqueadas
+    const readySessions = sessions.map((s, i) => ({
+      ...s,
+      status: (i === 0 ? 'available' : 'locked') as import('@/types/user').SessionStatus,
+    }));
+
+    setUser({
+      ...user,
+      weeklySessions: readySessions,
+      weeklyHistory: updatedHistory,
+      currentWeek: user.currentWeek + 1,
+      lastWeeklyCheckIn: new Date(),
+    });
+
+    // Persiste en BD
+    if (supabaseUserId) {
+      fetch('/api/sessions/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(readySessions),
+      }).catch(() => {});
+    }
+
+    setShowWeeklyCheckIn(false);
+  };
+
+  // Siembra 3 semanas de entrenos de demo para comprobar el historial
+  const seedDemoWeeks = () => {
+    if (!user) return;
+    const now = new Date();
+    const daysAgo = (d: number) => { const dt = new Date(now); dt.setDate(dt.getDate() - d); return dt; };
+
+    const makeSession = (num: number, name: string, targetMuscles: string, daysBack: number): WeeklySession => ({
+      id: crypto.randomUUID(),
+      sessionNumber: num,
+      name,
+      targetMuscles,
+      duration: 45,
+      exercises: SAMPLE_EXERCISES['full-body'],
+      status: 'completed',
+      completedAt: daysAgo(daysBack),
+    });
+
+    const fakeWeeks: WeekRecord[] = [
+      {
+        weekNumber: 1,
+        startedAt: daysAgo(28).toISOString(),
+        closedAt:  daysAgo(21).toISOString(),
+        sessions: [
+          makeSession(1, 'Full Body', 'Todo el cuerpo', 27),
+          makeSession(2, 'Tren Superior', 'Pecho, espalda, hombros', 25),
+          makeSession(3, 'Tren Inferior', 'Piernas y core', 23),
+        ],
+      },
+      {
+        weekNumber: 2,
+        startedAt: daysAgo(21).toISOString(),
+        closedAt:  daysAgo(14).toISOString(),
+        sessions: [
+          makeSession(4, 'Full Body', 'Todo el cuerpo', 20),
+          makeSession(5, 'Tren Superior', 'Pecho, espalda, hombros', 18),
+          makeSession(6, 'Tren Inferior', 'Piernas y core', 16),
+        ],
+      },
+      {
+        weekNumber: 3,
+        startedAt: daysAgo(14).toISOString(),
+        closedAt:  daysAgo(7).toISOString(),
+        sessions: [
+          makeSession(7, 'Full Body', 'Todo el cuerpo', 13),
+          makeSession(8, 'Tren Superior', 'Pecho, espalda, hombros', 11),
+          makeSession(9, 'Tren Inferior', 'Piernas y core', 9),
+        ],
+      },
+    ];
+
+    const updatedHistory = [...fakeWeeks, ...(user.weeklyHistory || [])];
+    saveHistoryToLS(updatedHistory);
+    setUser({
+      ...user,
+      weeklyHistory: updatedHistory,
+      currentWeek: Math.max(user.currentWeek, 4),
+      totalCompletedSessions: (user.totalCompletedSessions || 0) + 9,
+    });
   };
 
   const getExerciseHistory = (exerciseId: string): ExerciseLog[] => {
@@ -778,6 +1069,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const getExerciseByName = (name: string): Exercise | undefined => {
     const allExercisesFlat = Object.values(SAMPLE_EXERCISES).flat();
     return allExercisesFlat.find(ex => ex.name === name);
+  };
+
+  // Catálogo único de ejercicios (para añadir/cambiar en una sesión)
+  const getExerciseCatalog = (): Exercise[] => {
+    const flat = Object.values(SAMPLE_EXERCISES).flat();
+    const seen = new Set<string>();
+    return flat.filter(ex => {
+      if (seen.has(ex.name)) return false;
+      seen.add(ex.name);
+      return true;
+    });
+  };
+
+  // Reemplaza los ejercicios de una sesión y persiste
+  const updateSessionExercises = (sessionId: string, exercises: Exercise[]) => {
+    if (!user) return;
+    const updatedSessions = user.weeklySessions.map(s =>
+      s.id === sessionId ? { ...s, exercises } : s
+    );
+    setUser({ ...user, weeklySessions: updatedSessions });
+    if (selectedWeeklySession?.id === sessionId) {
+      setSelectedWeeklySession({ ...selectedWeeklySession, exercises });
+    }
+    if (supabaseUserId) {
+      fetch('/api/sessions/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSessions),
+      }).catch(() => {});
+    }
   };
 
   const resetApp = () => {
@@ -797,6 +1118,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setShowWeeklyCheckIn(false);
     setScreen('auth');
   };
+
+  async function updateAvatar(file: File) {
+    if (!user) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.url) {
+      setUser({ ...user, profile: { ...user.profile, avatarUrl: data.url } });
+    }
+  }
 
   return (
     <AppContext.Provider
@@ -826,6 +1158,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         exerciseLogs,
         authLoading,
         supabaseUserId,
+        isDark,
+        toggleDarkMode,
         login,
         register,
         logout,
@@ -833,10 +1167,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         completeWeeklySession,
         moveSession,
         removeSession,
+        addSessionFromCoach,
         handleWeeklyCheckIn,
+        weekPlannerPending,
+        generateNextWeekPreview,
+        startNewWeekWithPlan,
         getExerciseHistory,
         getExerciseByName,
+        getExerciseCatalog,
+        updateSessionExercises,
+        updateAvatar,
         resetApp,
+        seedDemoWeeks,
       }}
     >
       {children}

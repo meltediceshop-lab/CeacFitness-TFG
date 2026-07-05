@@ -15,7 +15,7 @@ export function WeeklyCheckInScreen() {
   const totalLastWeek = user.weeklySessions?.length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-dvh glass-bg flex flex-col items-center justify-center px-6 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -48,7 +48,7 @@ export function WeeklyCheckInScreen() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <Card className="p-4 bg-emerald-50 border-emerald-200 rounded-2xl">
+            <Card className="glass-card bg-emerald-50 p-4 rounded-2xl">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
                   <Sparkles className="w-5 h-5 text-emerald-600" />
@@ -84,7 +84,7 @@ export function WeeklyCheckInScreen() {
           <div className="space-y-3">
             <Card
               onClick={() => handleWeeklyCheckIn('same')}
-              className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl group"
+              className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl group"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
@@ -103,7 +103,7 @@ export function WeeklyCheckInScreen() {
                 // In the future, this would open a day selection flow
                 handleWeeklyCheckIn('decide-later');
               }}
-              className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl group"
+              className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl group"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center group-hover:bg-stone-200 transition-colors">
@@ -118,7 +118,7 @@ export function WeeklyCheckInScreen() {
 
             <Card
               onClick={() => handleWeeklyCheckIn('decide-later')}
-              className="p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all bg-white rounded-2xl group"
+              className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl group"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center group-hover:bg-stone-200 transition-colors">

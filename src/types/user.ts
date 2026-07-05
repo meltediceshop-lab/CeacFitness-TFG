@@ -102,7 +102,11 @@ export type MeasurementReminderFrequency =
   | '3sessions'
   | '5sessions';
 
+export type ClockStyle = 'digital' | 'analog';
+
 export interface BodyMeasurementRecord {
+  id?: string;
+  weight?: number;
   chest?: number;
   waist?: number;
   hips?: number;
@@ -111,12 +115,14 @@ export interface BodyMeasurementRecord {
   forearms?: number;
   thighs?: number;
   calves?: number;
+  photoUrl?: string;
   recordedAt: Date;
 }
 
 export interface UserProfile {
   name: string;
   biologicalProfile: BiologicalProfile;
+  avatarUrl?: string;
   weight: number;
   height: number;
   ageRange: AgeRange;
@@ -132,6 +138,8 @@ export interface UserProfile {
   };
   measurementHistory?: BodyMeasurementRecord[];
   reminderFrequency?: MeasurementReminderFrequency;
+  clockStyle?: ClockStyle;
+  clockStyleChosen?: boolean;
 }
 
 // Exercise variation with alternatives
@@ -176,6 +184,8 @@ export interface WeeklySession {
   exercises: Exercise[];
   status: SessionStatus;
   completedAt?: Date;
+  /** Día de la semana: 0=lunes … 6=domingo */
+  dayOfWeek?: number;
 }
 
 export interface WorkoutSession {
@@ -189,6 +199,13 @@ export interface WorkoutSession {
   mode?: WorkoutMode; // Track which mode was used
 }
 
+export interface WeekRecord {
+  weekNumber: number;
+  sessions: WeeklySession[];
+  startedAt: string;  // ISO
+  closedAt: string;   // ISO
+}
+
 export interface User {
   id: string;
   level: UserLevel;
@@ -198,9 +215,10 @@ export interface User {
   weeklySessions: WeeklySession[]; // Current week's sessions
   createdAt: Date;
   currentWeek: number;
-  lastWeeklyCheckIn?: Date; // For weekly check-in tracking
-  totalCompletedSessions?: number; // Track total sessions for progressive disclosure
-  lastWeightUpdate?: Date; // Track when weight was last updated
+  lastWeeklyCheckIn?: Date;
+  totalCompletedSessions?: number;
+  lastWeightUpdate?: Date;
+  weeklyHistory?: WeekRecord[];
 }
 
 export type AppScreen =
@@ -219,7 +237,42 @@ export type AppScreen =
   | 'chat'
   | 'profile'
   | 'nutrition'
-  | 'weekly-checkin';
+  | 'weekly-checkin'
+  | 'community';
+
+// ── Community ─────────────────────────────────────────────────────
+export interface CommunityPost {
+  id: string;
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  type: 'note' | 'workout';
+  content?: string;
+  workoutName?: string;
+  workoutDuration?: number;
+  workoutExercises?: number;
+  photoUrl?: string;
+  createdAt: string;
+  myReaction?: string | null;
+  reactionCount: number;
+  commentCount: number;
+  comments?: CommunityComment[];
+  milestone?: string; // Etiqueta celebratoria opcional (ej: "Constancia 🔥"), sin comparación
+  isDemo?: boolean;   // Publicación de ejemplo (interactiva solo en local)
+}
+
+export type CommunityFilter = 'all' | 'note' | 'workout';
+
+export interface CommunityComment {
+  id: string;
+  postId: string;
+  userId: string;
+  displayName: string;
+  content: string;
+  createdAt: string;
+}
+
+export type CommunityReactionType = 'identify' | 'bravo' | 'keep-going' | 'fire' | 'same';
 
 export interface ChatAction {
   id: string;
@@ -237,3 +290,109 @@ export const CHAT_ACTIONS: ChatAction[] = [
   { id: 'change-day', label: 'Quiero cambiar un día', icon: 'calendar', description: 'Mover tu entreno' },
   { id: 'discomfort', label: 'Tengo una molestia', icon: 'alert-triangle', description: 'Adaptar ejercicios' },
 ];
+
+// ── AI Chat ─────────────────────────────────────────────────────────
+export interface CoachWorkout {
+  name: string;
+  targetMuscles: string;
+  duration: number;
+  exercises: Array<{
+    name: string;
+    sets: number;
+    reps: number[];
+    restSeconds: number;
+    instructions?: string;
+  }>;
+}
+
+export interface CoachNutritionPlan {
+  goal: string;
+  dailyCalories: number;
+  macros: { protein: number; carbs: number; fats: number };
+  meals: Array<{ name: string; time: string; foods: string[]; calories: number }>;
+  guidelines: string[];
+  preWorkout?: string;
+  postWorkout?: string;
+}
+
+export interface AIChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+  workout?: CoachWorkout;
+  nutritionPlan?: CoachNutritionPlan;
+}
+
+// ── Nutrition ────────────────────────────────────────────────────────
+export type NutritionGoal = 'lose-fat' | 'gain-muscle' | 'maintain' | 'performance';
+export type DietType = 'omnivore' | 'vegetarian' | 'vegan' | 'other';
+export type CookingFrequency = 'home' | 'outside' | 'mixed';
+
+export interface NutritionProfile {
+  goal: NutritionGoal;
+  allergies: string[];
+  dietType: DietType;
+  dislikedFoods: string;
+  mealsPerDay: number;
+  cookingFrequency: CookingFrequency;
+  budget: 'low' | 'medium' | 'high';
+  trainingTime: 'morning' | 'afternoon' | 'evening';
+  supplements: string;
+  medicalConditions: string;
+  completedAt: string;
+}
+
+export interface NutritionMeal {
+  name: string;
+  time: string;
+  description: string;
+  examples: string[];
+}
+
+export interface NutritionPlan {
+  dailyCalories: number;
+  macros: {
+    protein: string;
+    carbs: string;
+    fats: string;
+  };
+  meals: NutritionMeal[];
+  guidelines: string[];
+  supplements?: string[];
+  preWorkout: string;
+  postWorkout: string;
+  generatedAt: string;
+}
+
+// ── Seguimiento diario ───────────────────────────────────────────────
+export type MealSlot = 'breakfast' | 'lunch' | 'snack' | 'dinner' | 'other';
+
+export interface NutritionLogEntry {
+  id: string;
+  mealSlot: MealSlot;
+  foodName: string;
+  quantityG?: number;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+}
+
+export interface MacroTargets {
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+}
+
+export interface WeekDaySummary {
+  date: string;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  water: number;
+  waterGoal: number;
+  entries: number;
+}

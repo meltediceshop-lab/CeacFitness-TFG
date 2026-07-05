@@ -8,7 +8,7 @@ export function WelcomeScreen() {
   const { setScreen } = useApp();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-dvh glass-bg flex flex-col items-center justify-center px-6 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

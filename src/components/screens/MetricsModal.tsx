@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Check, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LineChart } from '@/components/metrics/LineChart';
 import type { BodyMeasurementRecord } from '@/types/user';
 
 // ─── Paths del proyecto react-native-body-highlighter (MIT) ───────────────────
@@ -149,14 +150,46 @@ interface MetricsModalProps {
   gender: 'male' | 'female';
   currentWeight: number;
   lastRecord: BodyMeasurementRecord | null;
+  history?: BodyMeasurementRecord[];
   onSave: (data: { weight?: number; record: BodyMeasurementRecord }) => void;
   onClose: () => void;
 }
 
-export function MetricsModal({ gender, currentWeight, lastRecord, onSave, onClose }: MetricsModalProps) {
+export function MetricsModal({ gender, currentWeight, lastRecord, history = [], onSave, onClose }: MetricsModalProps) {
+  const [tab, setTab]                 = useState<'register' | 'evolution'>('register');
   const [activePoint, setActivePoint] = useState<string | null>(null);
   const [showInputs, setShowInputs]   = useState(false);
   const [saved, setSaved]             = useState(false);
+
+  // Historial ordenado cronológicamente (antiguo → reciente) para gráficas
+  const chrono = useMemo(
+    () => [...history].sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()),
+    [history]
+  );
+
+  // Serie de peso para la gráfica
+  const weightSeries = useMemo(
+    () => chrono
+      .filter(r => r.weight != null)
+      .map(r => ({ date: new Date(r.recordedAt).toISOString().slice(0, 10), value: r.weight! })),
+    [chrono]
+  );
+
+  // Tendencia de cada medida: primer y último valor no nulo
+  const trends = useMemo(() => {
+    return FIELDS.map(f => {
+      const series = chrono
+        .map(r => f.id === 'weight' ? r.weight : (r as unknown as Record<string, number | undefined>)[f.id])
+        .filter((v): v is number => v != null);
+      if (series.length === 0) return { ...f, current: undefined, delta: null, count: 0 };
+      const current = series[series.length - 1];
+      const first = series[0];
+      const delta = series.length >= 2 ? current - first : null;
+      return { ...f, current, delta, count: series.length };
+    });
+  }, [chrono]);
+
+  const hasEvolutionData = history.length >= 1;
   const [draft, setDraft]             = useState<Record<FieldId, string>>({
     weight:   currentWeight?.toString() ?? '',
     chest:    lastRecord?.chest?.toString()    ?? '',
@@ -202,7 +235,7 @@ export function MetricsModal({ gender, currentWeight, lastRecord, onSave, onClos
         initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[94vh] overflow-hidden flex flex-col"
+        className="glass-modal w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[94vh] overflow-hidden flex flex-col"
       >
         <div className="flex items-center justify-between px-6 pt-5 pb-2 flex-shrink-0">
           <div>
@@ -213,82 +246,182 @@ export function MetricsModal({ gender, currentWeight, lastRecord, onSave, onClos
                 : 'Sin registros previos'}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 transition-colors">
-            <X className="w-5 h-5 text-stone-600" />
+          <button onClick={onClose} className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 transition-colors">
+            <X className="w-5 h-5 text-stone-600 dark:text-white/70" />
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-4 pb-6">
-          <div className="flex items-center justify-center" style={{ height: 340 }}>
-            {gender === 'female'
-              ? <FemaleSilhouette active={activePoint} onPoint={handlePoint} record={lastRecord} />
-              : <MaleSilhouette   active={activePoint} onPoint={handlePoint} record={lastRecord} />
-            }
+        {/* Tabs Registrar / Evolución */}
+        <div className="px-6 pb-3 flex-shrink-0">
+          <div className="flex gap-1 p-1 rounded-2xl bg-stone-100 dark:bg-white/8">
+            <button
+              onClick={() => setTab('register')}
+              className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${
+                tab === 'register' ? 'bg-white dark:bg-white/15 text-stone-900 dark:text-white shadow-sm' : 'text-stone-500 dark:text-white/50'
+              }`}
+            >
+              Registrar
+            </button>
+            <button
+              onClick={() => setTab('evolution')}
+              className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${
+                tab === 'evolution' ? 'bg-white dark:bg-white/15 text-stone-900 dark:text-white shadow-sm' : 'text-stone-500 dark:text-white/50'
+              }`}
+            >
+              Evolución
+            </button>
           </div>
+        </div>
 
-          <p className="text-center text-stone-400 text-xs mb-3">
-            Pulsa un anillo para seleccionar esa medida
-          </p>
+        <div className="overflow-y-auto flex-1 px-4 pb-6">
+          {tab === 'register' ? (
+            <>
+              <div className="flex items-center justify-center" style={{ height: 340 }}>
+                {gender === 'female'
+                  ? <FemaleSilhouette active={activePoint} onPoint={handlePoint} record={lastRecord} />
+                  : <MaleSilhouette   active={activePoint} onPoint={handlePoint} record={lastRecord} />
+                }
+              </div>
 
-          <button onClick={() => setShowInputs(!showInputs)}
-            className="w-full flex items-center justify-between py-3 px-4 rounded-2xl bg-stone-50 hover:bg-stone-100 transition-colors mb-3">
-            <span className="text-stone-700 font-medium text-sm">
-              {showInputs ? 'Ocultar campos' : 'Introducir medidas'}
-            </span>
-            {showInputs ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
-          </button>
+              <p className="text-center text-stone-400 text-xs mb-3">
+                Pulsa un anillo para seleccionar esa medida
+              </p>
 
-          <AnimatePresence>
-            {showInputs && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {FIELDS.map(f => {
-                    const isActive = activePoint === f.id;
-                    const prev = f.id === 'weight' ? currentWeight : (lastRecord as Record<string,unknown> | null)?.[f.id];
-                    return (
-                      <div key={f.id}
-                        className={`rounded-2xl border p-3 cursor-pointer transition-all ${
-                          isActive ? 'border-emerald-400 bg-emerald-50 shadow-sm' : 'border-stone-200 bg-white hover:border-stone-300'
-                        }`}
-                        onClick={() => f.id !== 'weight' && setActivePoint(f.id)}>
-                        <label className={`text-xs font-medium block mb-1 cursor-pointer ${isActive ? 'text-emerald-700' : 'text-stone-500'}`}>
-                          {f.label}
-                        </label>
-                        <div className="flex items-end gap-0.5">
-                          <Input id={`m-${f.id}`} type="number"
-                            value={draft[f.id]}
-                            onChange={e => setDraft(d => ({ ...d, [f.id]: e.target.value }))}
-                            onFocus={() => f.id !== 'weight' && setActivePoint(f.id)}
-                            placeholder={prev?.toString() ?? '—'}
-                            className={`flex-1 h-8 px-0 border-0 bg-transparent focus:ring-0 text-sm font-bold shadow-none ${
-                              isActive ? 'text-emerald-800 placeholder:text-emerald-300' : 'text-stone-800 placeholder:text-stone-300'
-                            }`} />
-                          <span className={`text-xs pb-0.5 ${isActive ? 'text-emerald-500' : 'text-stone-400'}`}>{f.unit}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+              <button onClick={() => setShowInputs(!showInputs)}
+                className="w-full flex items-center justify-between py-3 px-4 rounded-2xl bg-stone-50 dark:bg-white/8 hover:bg-stone-100 transition-colors mb-3">
+                <span className="text-stone-700 dark:text-white/80 font-medium text-sm">
+                  {showInputs ? 'Ocultar campos' : 'Introducir medidas'}
+                </span>
+                {showInputs ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+              </button>
+
+              <AnimatePresence>
+                {showInputs && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      {FIELDS.map(f => {
+                        const isActive = activePoint === f.id;
+                        const prev = f.id === 'weight' ? currentWeight : (lastRecord as Record<string,unknown> | null)?.[f.id];
+                        return (
+                          <div key={f.id}
+                            className={`rounded-2xl border p-3 cursor-pointer transition-all ${
+                              isActive ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-500/15 shadow-sm' : 'border-stone-200 dark:border-white/10 bg-white dark:bg-white/5 hover:border-stone-300'
+                            }`}
+                            onClick={() => f.id !== 'weight' && setActivePoint(f.id)}>
+                            <label className={`text-xs font-medium block mb-1 cursor-pointer ${isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-stone-500 dark:text-white/50'}`}>
+                              {f.label}
+                            </label>
+                            <div className="flex items-end gap-0.5">
+                              <Input id={`m-${f.id}`} type="number"
+                                value={draft[f.id]}
+                                onChange={e => setDraft(d => ({ ...d, [f.id]: e.target.value }))}
+                                onFocus={() => f.id !== 'weight' && setActivePoint(f.id)}
+                                placeholder={prev?.toString() ?? '—'}
+                                className={`flex-1 h-8 px-0 border-0 bg-transparent focus:ring-0 text-sm font-bold shadow-none ${
+                                  isActive ? 'text-emerald-800 dark:text-emerald-300 placeholder:text-emerald-300' : 'text-stone-800 dark:text-white placeholder:text-stone-300'
+                                }`} />
+                              <span className={`text-xs pb-0.5 ${isActive ? 'text-emerald-500' : 'text-stone-400'}`}>{f.unit}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence mode="wait">
+                {saved ? (
+                  <motion.div key="ok" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                    className="flex items-center justify-center gap-2 py-4 bg-emerald-50 dark:bg-emerald-500/15 rounded-2xl text-emerald-700 dark:text-emerald-400">
+                    <Check className="w-5 h-5" /><span className="font-semibold">¡Guardado!</span>
+                  </motion.div>
+                ) : (
+                  <motion.div key="btn">
+                    <Button onClick={handleSave}
+                      className="w-full py-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-semibold text-base shadow-lg shadow-emerald-100">
+                      Guardar métricas
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          ) : (
+            /* ── Pestaña Evolución ── */
+            <div className="space-y-4">
+              {!hasEvolutionData ? (
+                <div className="text-center py-12">
+                  <TrendingUp className="w-10 h-10 text-stone-300 dark:text-white/20 mx-auto mb-3" />
+                  <p className="text-stone-500 dark:text-white/60 text-sm font-medium">Aún no hay registros</p>
+                  <p className="text-stone-400 text-xs mt-1">Guarda tus medidas para ver tu evolución aquí</p>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              ) : (
+                <>
+                  {/* Gráfica de peso */}
+                  <div className="rounded-2xl bg-stone-50 dark:bg-white/5 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-stone-800 dark:text-white">Peso</p>
+                      <span className="text-xs text-stone-400">{weightSeries.length} registros</span>
+                    </div>
+                    {weightSeries.length >= 2 ? (
+                      <LineChart data={weightSeries} unit=" kg" color="#10b981" height={150} />
+                    ) : (
+                      <p className="text-stone-400 text-xs py-6 text-center">Necesitas al menos 2 registros de peso para ver la gráfica</p>
+                    )}
+                  </div>
 
-          <AnimatePresence mode="wait">
-            {saved ? (
-              <motion.div key="ok" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                className="flex items-center justify-center gap-2 py-4 bg-emerald-50 rounded-2xl text-emerald-700">
-                <Check className="w-5 h-5" /><span className="font-semibold">¡Guardado!</span>
-              </motion.div>
-            ) : (
-              <motion.div key="btn">
-                <Button onClick={handleSave}
-                  className="w-full py-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-semibold text-base shadow-lg shadow-emerald-100">
-                  Guardar métricas
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  {/* Tendencias por medida */}
+                  <div>
+                    <p className="text-sm font-semibold text-stone-800 dark:text-white mb-2 px-1">Tendencias</p>
+                    <div className="space-y-1.5">
+                      {trends.filter(t => t.count > 0).map(t => {
+                        const up = t.delta != null && t.delta > 0;
+                        const down = t.delta != null && t.delta < 0;
+                        return (
+                          <div key={t.id} className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-white dark:bg-white/5 border border-stone-100 dark:border-white/8">
+                            <span className="text-sm text-stone-600 dark:text-white/70">{t.label}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-bold text-stone-900 dark:text-white">
+                                {t.current}<span className="text-xs font-normal text-stone-400 ml-0.5">{t.unit}</span>
+                              </span>
+                              {t.delta != null && (
+                                <span className={`flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-md ${
+                                  up ? 'text-orange-600 bg-orange-50 dark:bg-orange-500/15'
+                                  : down ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15'
+                                  : 'text-stone-500 bg-stone-100 dark:bg-white/8'
+                                }`}>
+                                  {up ? <TrendingUp className="w-3 h-3" /> : down ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                  {t.delta > 0 ? '+' : ''}{t.delta.toFixed(1)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Historial de registros */}
+                  <div>
+                    <p className="text-sm font-semibold text-stone-800 dark:text-white mb-2 px-1">Historial</p>
+                    <div className="space-y-1.5">
+                      {[...chrono].reverse().slice(0, 8).map((r, i) => (
+                        <div key={r.id ?? i} className="flex items-center justify-between py-2 px-3 rounded-xl bg-stone-50 dark:bg-white/5">
+                          <span className="text-xs text-stone-500 dark:text-white/60">
+                            {new Date(r.recordedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                          <span className="text-xs font-semibold text-stone-700 dark:text-white/80">
+                            {r.weight != null ? `${r.weight} kg` : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>

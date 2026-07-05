@@ -1,380 +1,439 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { BottomNav } from '@/components/ui/BottomNav';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { CoachWorkout, CoachNutritionPlan } from '@/types/user';
 import {
-  ArrowLeft,
-  Dumbbell,
-  History,
-  MessageCircle,
-  User,
+  Send,
+  Sparkles,
+  Loader2,
   Battery,
   CalendarX,
   Clock,
   XCircle,
   Sliders,
-  Calendar,
-  AlertTriangle,
-  ChevronRight,
-  Sparkles,
-  Check,
+  Dumbbell,
   Apple,
-  Home
+  Check,
+  Plus,
+  ArrowRight,
 } from 'lucide-react';
-import { CHAT_ACTIONS } from '@/types/user';
-
-const ACTION_ICONS: Record<string, typeof Battery> = {
-  'low-energy': Battery,
-  'cant-train': CalendarX,
-  'short-time': Clock,
-  'cant-exercise': XCircle,
-  'intensity': Sliders,
-  'change-day': Calendar,
-  'discomfort': AlertTriangle,
-};
 
 interface ChatMessage {
   id: string;
-  type: 'user' | 'ai';
+  role: 'user' | 'assistant';
   content: string;
-  options?: { id: string; label: string }[];
+  workout?: CoachWorkout;
+  nutritionPlan?: CoachNutritionPlan;
 }
 
+const QUICK_ACTIONS = [
+  { id: 'workout', label: 'Créame un entreno para hoy', icon: Dumbbell },
+  { id: 'diet', label: 'Hazme un plan de comidas', icon: Apple },
+  { id: 'low-energy', label: 'Hoy tengo poca energía', icon: Battery },
+  { id: 'short-time', label: 'Tengo poco tiempo', icon: Clock },
+  { id: 'cant-exercise', label: 'No puedo hacer un ejercicio', icon: XCircle },
+  { id: 'intensity', label: 'Ajustar la intensidad', icon: Sliders },
+  { id: 'cant-train', label: 'No puedo entrenar hoy', icon: CalendarX },
+];
+
+const QUICK_MESSAGES: Record<string, string> = {
+  workout: 'Créame una sesión de entrenamiento personalizada para hoy según mi perfil.',
+  diet: 'Hazme un plan de comidas para hoy adaptado a mi objetivo y mi perfil.',
+  'low-energy': 'Hoy tengo poca energía. ¿Cómo adapto la sesión?',
+  'short-time': 'Solo tengo 20-30 minutos hoy. ¿Qué entreno hago?',
+  'cant-exercise': 'Hay un ejercicio que no puedo hacer hoy. ¿Con qué lo sustituyo?',
+  'intensity': 'Quiero ajustar la intensidad del entreno de hoy.',
+  'cant-train': 'Hoy no puedo entrenar. ¿Qué hago?',
+};
+
 export function ChatScreen() {
-  const { user, setScreen } = useApp();
-  const [activeAction, setActiveAction] = useState<string | null>(null);
+  const { user, setScreen, addSessionFromCoach } = useApp();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [savedWorkouts, setSavedWorkouts] = useState<Set<string>>(new Set());
+  const [savedPlans, setSavedPlans] = useState<Set<string>>(new Set());
+  const [savingPlan, setSavingPlan] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/chat');
+        const data = await res.json();
+        if (data.data?.length) {
+          setMessages(data.data.map((m: { id: string; role: string; content: string }) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          })));
+        }
+      } catch { /* ignore */ } finally {
+        setIsLoadingHistory(false);
+      }
+    }
+    loadHistory();
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   if (!user) return null;
 
   const isAdvanced = user.level === 'advanced';
 
-  const handleAction = (actionId: string) => {
-    setActiveAction(actionId);
+  async function sendMessage(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isLoading) return;
 
-    // Generate AI response based on action
-    const responses: Record<string, ChatMessage[]> = {
-      'low-energy': [
-        {
-          id: '1',
-          type: 'ai',
-          content: 'Entendido. Voy a ajustar la sesión de hoy para que sea más ligera. Menos series, menos peso sugerido, y ejercicios que no te agoten tanto.',
-        },
-        {
-          id: '2',
-          type: 'ai',
-          content: 'He reducido el volumen un 30%. Recuerda: entrenar suave es mejor que no entrenar.',
-        },
-      ],
-      'cant-train': [
-        {
-          id: '1',
-          type: 'ai',
-          content: 'Sin problema. ¿Quieres que movamos el entreno a otro día esta semana?',
-          options: [
-            { id: 'move', label: 'Sí, moverlo' },
-            { id: 'skip', label: 'No, dejarlo pasar' },
-          ],
-        },
-      ],
-      'short-time': [
-        {
-          id: '1',
-          type: 'ai',
-          content: '¿Cuánto tiempo tienes?',
-          options: [
-            { id: '20', label: '20 minutos' },
-            { id: '30', label: '30 minutos' },
-            { id: '40', label: '40 minutos' },
-          ],
-        },
-      ],
-      'cant-exercise': [
-        {
-          id: '1',
-          type: 'ai',
-          content: '¿Qué ejercicio no puedes hacer hoy?',
-          options: [
-            { id: 'press', label: 'Press de banca' },
-            { id: 'row', label: 'Remo' },
-            { id: 'squat', label: 'Sentadilla' },
-            { id: 'other', label: 'Otro ejercicio' },
-          ],
-        },
-      ],
-      'intensity': [
-        {
-          id: '1',
-          type: 'ai',
-          content: '¿Cómo quieres ajustar la intensidad de hoy?',
-          options: [
-            { id: 'softer', label: 'Más suave' },
-            { id: 'harder', label: 'Más intenso' },
-          ],
-        },
-      ],
-      'change-day': [
-        {
-          id: '1',
-          type: 'ai',
-          content: '¿Qué día quieres cambiar?',
-          options: [
-            { id: 'today', label: 'El de hoy' },
-            { id: 'week', label: 'Reorganizar la semana' },
-          ],
-        },
-      ],
-      'discomfort': [
-        {
-          id: '1',
-          type: 'ai',
-          content: '¿Dónde sientes la molestia?',
-          options: [
-            { id: 'shoulder', label: 'Hombro' },
-            { id: 'back', label: 'Espalda' },
-            { id: 'knee', label: 'Rodilla' },
-            { id: 'other', label: 'Otra zona' },
-          ],
-        },
-      ],
-    };
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsLoading(true);
 
-    setMessages(responses[actionId] || []);
-  };
-
-  const handleOption = (optionId: string) => {
-    // Add user response
-    const newMessages = [...messages];
-
-    // Generate follow-up based on the action and option
-    let response = '';
-
-    if (activeAction === 'cant-train') {
-      if (optionId === 'move') {
-        response = 'He movido el entreno. Recuerda: no pasa nada por cambiar planes. Lo importante es seguir.';
-      } else {
-        response = 'Perfecto, lo dejamos pasar. Descansa y vuelve cuando puedas. Sin presión.';
+    try {
+      const history = messages.slice(-20).map(m => ({ role: m.role, content: m.content }));
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: trimmed, history }),
+      });
+      const data = await res.json();
+      if (data.response) {
+        const aiMsg: ChatMessage = {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          content: data.response,
+          workout: data.workout ?? undefined,
+          nutritionPlan: data.nutritionPlan ?? undefined,
+        };
+        setMessages(prev => [...prev, aiMsg]);
       }
-    } else if (activeAction === 'short-time') {
-      response = `Perfecto. He creado una versión de ${optionId} minutos manteniendo los ejercicios clave. Menos series, pero igual de efectivo.`;
-    } else if (activeAction === 'intensity') {
-      if (optionId === 'softer') {
-        response = 'Hecho. He reducido peso sugerido y volumen. Escucha a tu cuerpo.';
-      } else {
-        response = 'Bien. He añadido una serie extra a los ejercicios principales. ¡A por ello!';
-      }
-    } else if (activeAction === 'discomfort') {
-      response = 'Gracias por avisar. He adaptado los ejercicios que podrían afectar esa zona. Si la molestia persiste, considera consultar a un profesional.';
-    } else if (activeAction === 'cant-exercise') {
-      response = 'Entendido. He sustituido ese ejercicio por una alternativa que trabaja los mismos músculos sin forzar.';
-    } else {
-      response = 'Listo, he hecho los ajustes. ¿Algo más?';
+    } catch {
+      setMessages(prev => [...prev, {
+        id: `err-${Date.now()}`,
+        role: 'assistant',
+        content: 'No pude conectarme. Revisa tu conexión e inténtalo de nuevo.',
+      }]);
+    } finally {
+      setIsLoading(false);
     }
+  }
 
-    newMessages.push({
-      id: `response-${Date.now()}`,
-      type: 'ai',
-      content: response,
-    });
+  function handleAddWorkout(msgId: string, workout: CoachWorkout) {
+    addSessionFromCoach(workout); // añade la sesión y navega al dashboard
+    setSavedWorkouts(prev => new Set(prev).add(msgId));
+  }
 
-    setMessages(newMessages);
-    setShowConfirmation(true);
-  };
+  async function handleSaveNutrition(msgId: string, plan: CoachNutritionPlan) {
+    setSavingPlan(msgId);
+    try {
+      const res = await fetch('/api/nutrition', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
+      if (res.ok) {
+        setSavedPlans(prev => new Set(prev).add(msgId));
+      }
+    } catch { /* ignore */ } finally {
+      setSavingPlan(null);
+    }
+  }
 
-  const resetChat = () => {
-    setActiveAction(null);
-    setMessages([]);
-    setShowConfirmation(false);
-  };
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  }
+
+  const showQuickActions = messages.length === 0 && !isLoadingHistory;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 flex flex-col pb-24">
+    <div className="min-h-dvh glass-bg flex flex-col">
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="px-6 pt-8 pb-6"
+        className="px-6 pt-8 pb-3 flex-shrink-0"
       >
-        <div className="flex items-center gap-4 mb-2">
-          <button
-            onClick={() => activeAction ? resetChat() : setScreen('dashboard')}
-            className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
-          >
-            <ArrowLeft className="w-5 h-5 text-stone-600" />
-          </button>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold text-stone-900">Asistente</h1>
-            <p className="text-stone-500 text-sm">Adapta tu plan cuando lo necesites</p>
+            <h1 className="text-xl font-bold text-stone-900">Coach K</h1>
+            <p className="text-stone-500 text-xs">Tu entrenador y nutricionista de IA</p>
+          </div>
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs text-emerald-600 font-medium">En línea</span>
           </div>
         </div>
       </motion.div>
 
-      {/* Content */}
-      <div className="flex-1 px-6">
-        <AnimatePresence mode="wait">
-          {!activeAction ? (
-            <motion.div
-              key="actions"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-3"
-            >
-              {/* Intro message */}
-              <Card className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 rounded-2xl mb-6">
-                <div className="flex gap-3">
-                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <p className="text-emerald-800 text-sm leading-relaxed">
-                    {isAdvanced
-                      ? 'Aquí puedes ajustar tu plan cuando lo necesites. Sin rodeos.'
-                      : 'No todos los días son iguales. Dime qué necesitas y adaptamos tu entreno.'}
-                  </p>
-                </div>
-              </Card>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
+        {/* Welcome message */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex gap-3 mt-2"
+        >
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 mt-1">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <div className="glass-card rounded-2xl rounded-tl-md px-4 py-3 max-w-[82%]">
+            <p className="text-stone-800 dark:text-stone-100 text-sm leading-relaxed">
+              {isAdvanced
+                ? `Soy tu coach IA. Puedo crearte entrenos y planes de comidas a medida, ajustar tu plan y resolver dudas. Conozco tu perfil. Dime qué necesitas.`
+                : `¡Hola, ${user.profile.name}! Soy tu coach personal de IA. Puedo crearte entrenos, planes de comidas, adaptar tu plan… y guardarlos directamente en tu app. ¿Qué necesitas hoy?`}
+            </p>
+          </div>
+        </motion.div>
 
-              {/* Action buttons */}
-              {CHAT_ACTIONS.map((action, i) => {
-                const Icon = ACTION_ICONS[action.id];
-                return (
-                  <motion.div
-                    key={action.id}
-                    initial={{ opacity: 0, x: -20 }}
+        {/* Loading history */}
+        {isLoadingHistory && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
+          </div>
+        )}
+
+        {/* Quick action chips */}
+        <AnimatePresence>
+          {showQuickActions && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="pl-11"
+            >
+              <p className="text-xs text-stone-400 mb-2 font-medium">Prueba con:</p>
+              <div className="flex flex-col gap-2">
+                {QUICK_ACTIONS.map(({ id, label, icon: Icon }, i) => (
+                  <motion.button
+                    key={id}
+                    initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
+                    transition={{ delay: i * 0.04 }}
+                    onClick={() => sendMessage(QUICK_MESSAGES[id])}
+                    className="flex items-center gap-3 px-4 py-2.5 glass-card rounded-xl text-left hover:ring-1 hover:ring-emerald-400/40 transition-all group"
                   >
-                    <Card
-                      onClick={() => handleAction(action.id)}
-                      className="p-4 bg-white border-0 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                          <Icon className="w-5 h-5 text-stone-600 group-hover:text-emerald-600 transition-colors" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-stone-900">{action.label}</p>
-                          <p className="text-stone-400 text-sm">{action.description}</p>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-stone-300 group-hover:text-emerald-500 transition-colors" />
-                      </div>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="chat"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-4"
-            >
-              {/* User action */}
-              <div className="flex justify-end">
-                <div className="bg-emerald-500 text-white rounded-2xl rounded-tr-md px-4 py-3 max-w-[80%]">
-                  {CHAT_ACTIONS.find(a => a.id === activeAction)?.label}
-                </div>
+                    <Icon className="w-4 h-4 text-stone-400 group-hover:text-emerald-500 transition-colors flex-shrink-0" />
+                    <span className="text-sm text-stone-700 dark:text-stone-200">{label}</span>
+                  </motion.button>
+                ))}
               </div>
-
-              {/* AI responses */}
-              {messages.map((message, i) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.2 }}
-                >
-                  {message.type === 'ai' && (
-                    <div className="space-y-3">
-                      <div className="flex gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <Sparkles className="w-4 h-4 text-white" />
-                        </div>
-                        <div className="bg-white rounded-2xl rounded-tl-md px-4 py-3 shadow-sm max-w-[80%]">
-                          <p className="text-stone-800">{message.content}</p>
-                        </div>
-                      </div>
-
-                      {/* Options */}
-                      {message.options && !showConfirmation && (
-                        <div className="pl-11 flex flex-wrap gap-2">
-                          {message.options.map(option => (
-                            <Button
-                              key={option.id}
-                              onClick={() => handleOption(option.id)}
-                              variant="outline"
-                              className="rounded-full px-4 py-2 text-sm border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300"
-                            >
-                              {option.label}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-
-              {/* Confirmation */}
-              {showConfirmation && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="pt-4"
-                >
-                  <Button
-                    onClick={resetChat}
-                    className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600"
-                  >
-                    <Check className="w-5 h-5 mr-2" />
-                    Entendido
-                  </Button>
-                </motion.div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Chat history */}
+        {messages.map(msg => (
+          <motion.div
+            key={msg.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            {msg.role === 'assistant' && (
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 mt-1">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+            )}
+            <div className={`max-w-[82%] ${msg.role === 'user' ? '' : 'flex-1'}`}>
+              <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                msg.role === 'user'
+                  ? 'bg-emerald-500 text-white rounded-tr-md'
+                  : 'glass-card text-stone-800 dark:text-stone-100 rounded-tl-md'
+              }`}>
+                {msg.content}
+              </div>
+
+              {/* Tarjeta de entreno creado */}
+              {msg.workout && (
+                <WorkoutCard
+                  workout={msg.workout}
+                  saved={savedWorkouts.has(msg.id)}
+                  onAdd={() => handleAddWorkout(msg.id, msg.workout!)}
+                />
+              )}
+
+              {/* Tarjeta de plan nutricional */}
+              {msg.nutritionPlan && (
+                <NutritionCard
+                  plan={msg.nutritionPlan}
+                  saved={savedPlans.has(msg.id)}
+                  saving={savingPlan === msg.id}
+                  onSave={() => handleSaveNutrition(msg.id, msg.nutritionPlan!)}
+                  onView={() => setScreen('nutrition')}
+                />
+              )}
+            </div>
+          </motion.div>
+        ))}
+
+        {/* Typing indicator */}
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex gap-3"
+          >
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 mt-1">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <div className="glass-card rounded-2xl rounded-tl-md px-4 py-3 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-stone-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 rounded-full bg-stone-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 rounded-full bg-stone-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </motion.div>
+        )}
+
+        <div ref={bottomRef} />
       </div>
 
-      {/* Bottom Navigation - 4 Tabs */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-stone-200 px-4 py-3">
-        <div className="max-w-md mx-auto flex justify-around">
+      {/* Input bar */}
+      <div className="flex-shrink-0 px-4 pb-36">
+        <div className="glass-card rounded-2xl flex items-end gap-2 p-2">
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Escribe tu pregunta…"
+            rows={1}
+            style={{ resize: 'none', maxHeight: 96 }}
+            className="flex-1 bg-transparent px-2 py-2 text-stone-800 dark:text-stone-100 placeholder-stone-400 outline-none text-sm leading-relaxed"
+          />
           <button
-            onClick={() => setScreen('dashboard')}
-            className="flex flex-col items-center gap-1 px-4 py-1"
+            onClick={() => sendMessage(input)}
+            disabled={!input.trim() || isLoading}
+            className="w-9 h-9 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
           >
-            <Home className="w-6 h-6 text-stone-400" />
-            <span className="text-xs text-stone-400">Inicio</span>
-          </button>
-          <button
-            onClick={() => setScreen('chat')}
-            className="flex flex-col items-center gap-1 px-4 py-1"
-          >
-            <MessageCircle className="w-6 h-6 text-emerald-500" />
-            <span className="text-xs text-emerald-600 font-medium">Asistente</span>
-          </button>
-          <button
-            onClick={() => setScreen('nutrition')}
-            className="flex flex-col items-center gap-1 px-4 py-1"
-          >
-            <Apple className="w-6 h-6 text-stone-400" />
-            <span className="text-xs text-stone-400">Nutrición</span>
-          </button>
-          <button
-            onClick={() => setScreen('profile')}
-            className="flex flex-col items-center gap-1 px-4 py-1"
-          >
-            <User className="w-6 h-6 text-stone-400" />
-            <span className="text-xs text-stone-400">Perfil</span>
+            {isLoading
+              ? <Loader2 className="w-4 h-4 text-white animate-spin" />
+              : <Send className="w-4 h-4 text-white" />}
           </button>
         </div>
+        <p className="text-center text-[10px] text-stone-400 mt-2">
+          Respuestas generadas por IA. Consulta a un profesional para decisiones médicas.
+        </p>
       </div>
+
+      <BottomNav active="chat" />
     </div>
+  );
+}
+
+// ─── Tarjeta de entreno generado ──────────────────────────────────────
+function WorkoutCard({ workout, saved, onAdd }: { workout: CoachWorkout; saved: boolean; onAdd: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-2 glass-card rounded-2xl overflow-hidden border border-emerald-200/50 dark:border-emerald-500/20"
+    >
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3 flex items-center gap-2">
+        <Dumbbell className="w-4 h-4 text-white" />
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-bold text-sm truncate">{workout.name}</p>
+          <p className="text-white/80 text-[11px]">{workout.targetMuscles} · {workout.duration} min</p>
+        </div>
+      </div>
+      <div className="p-3 space-y-1.5">
+        {workout.exercises.slice(0, 5).map((ex, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <span className="text-xs text-stone-700 dark:text-stone-200 truncate flex-1">{ex.name}</span>
+            <span className="text-[11px] text-stone-400 flex-shrink-0 ml-2">{ex.sets}×{ex.reps.join('/')}</span>
+          </div>
+        ))}
+        {workout.exercises.length > 5 && (
+          <p className="text-[11px] text-stone-400">+{workout.exercises.length - 5} ejercicios más</p>
+        )}
+        <button
+          onClick={onAdd}
+          disabled={saved}
+          className={`w-full mt-2 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors ${
+            saved
+              ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+              : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+          }`}
+        >
+          {saved
+            ? <><Check className="w-4 h-4" /> Añadido a tus sesiones</>
+            : <><Plus className="w-4 h-4" /> Añadir a mis sesiones</>}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Tarjeta de plan nutricional generado ─────────────────────────────
+function NutritionCard({ plan, saved, saving, onSave, onView }: {
+  plan: CoachNutritionPlan; saved: boolean; saving: boolean; onSave: () => void; onView: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-2 glass-card rounded-2xl overflow-hidden border border-orange-200/50 dark:border-orange-500/20"
+    >
+      <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3 flex items-center gap-2">
+        <Apple className="w-4 h-4 text-white" />
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-bold text-sm truncate">Plan de comidas</p>
+          <p className="text-white/80 text-[11px]">{plan.dailyCalories} kcal · {plan.meals.length} comidas</p>
+        </div>
+      </div>
+      <div className="p-3 space-y-2">
+        {/* Macros */}
+        <div className="flex gap-2">
+          {[
+            { l: 'Proteína', v: plan.macros.protein, c: 'text-emerald-600 dark:text-emerald-400' },
+            { l: 'Carbos', v: plan.macros.carbs, c: 'text-blue-600 dark:text-blue-400' },
+            { l: 'Grasas', v: plan.macros.fats, c: 'text-amber-600 dark:text-amber-400' },
+          ].map(m => (
+            <div key={m.l} className="flex-1 text-center bg-stone-50 dark:bg-white/5 rounded-lg py-1.5">
+              <p className={`text-sm font-bold ${m.c}`}>{m.v}g</p>
+              <p className="text-[9px] text-stone-400">{m.l}</p>
+            </div>
+          ))}
+        </div>
+        {/* Comidas */}
+        <div className="space-y-1">
+          {plan.meals.slice(0, 4).map((meal, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <span className="text-xs text-stone-700 dark:text-stone-200">{meal.name}</span>
+              <span className="text-[11px] text-stone-400">{meal.calories} kcal</span>
+            </div>
+          ))}
+        </div>
+        {saved ? (
+          <button
+            onClick={onView}
+            className="w-full mt-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-400"
+          >
+            <Check className="w-4 h-4" /> Guardado · Ver en Nutrición <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        ) : (
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="w-full mt-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60 transition-colors"
+          >
+            {saving
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando…</>
+              : <><Plus className="w-4 h-4" /> Guardar en Nutrición</>}
+          </button>
+        )}
+      </div>
+    </motion.div>
   );
 }
