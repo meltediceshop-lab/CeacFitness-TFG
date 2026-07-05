@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ClientBody from "./ClientBody";
 
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -15,13 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FitMente",
+  title: "Fit K",
   description: "Entrena tu cuerpo. Cuida tu cabeza.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "FitMente",
+    title: "Fit K",
   },
   other: {
     "mobile-web-app-capable": "yes",
@@ -37,10 +36,8 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#10b981" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
+        <meta name="theme-color" content="#06b6d4" />
         <link rel="manifest" href="/manifest.json" />
-
       </head>
       <body suppressHydrationWarning className="antialiased">
         <ClientBody>{children}</ClientBody>

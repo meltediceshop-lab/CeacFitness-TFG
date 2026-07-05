@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const url = `https://es.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,brands,nutriments`;
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'FitMente/1.0 (TFG educational app)' },
+      headers: { 'User-Agent': 'FitK/1.0 (educational app)' },
     });
     clearTimeout(timeout);
     if (res.ok) {

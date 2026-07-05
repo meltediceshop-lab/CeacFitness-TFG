@@ -45,7 +45,7 @@ function buildSystemPrompt(
   const excluded = (profile.excluded_exercises as string[]) || [];
   const nutritionProfile = profile.nutrition_profile as Record<string, unknown> | null;
 
-  let prompt = `Eres FitMente Coach, el entrenador personal de IA de ${name}. Actúas como un coach personal experto en fitness y nutrición, con un tono ${isAdvanced ? 'directo, técnico y sin rodeos' : 'cercano, motivador y sin tecnicismos innecesarios'}.
+  let prompt = `Eres Fit K Coach, el entrenador personal de IA de ${name}. Actúas como un coach personal experto en fitness y nutrición, con un tono ${isAdvanced ? 'directo, técnico y sin rodeos' : 'cercano, motivador y sin tecnicismos innecesarios'}.
 
 PERFIL DE ${name.toUpperCase()}:
 - Género: ${profile.biological_profile === 'male' ? 'Hombre' : 'Mujer'}
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
     if (messages.length === 0) {
       messages.push({
         role: 'system',
-        content: 'Eres FitMente Coach, un entrenador personal de IA experto en fitness y nutrición. Responde siempre en español, de forma concisa y motivadora.',
+        content: 'Eres Fit K Coach, un entrenador personal de IA experto en fitness y nutrición. Responde siempre en español, de forma concisa y motivadora.',
       });
     }
 

@@ -33,7 +33,7 @@ export function WelcomeScreen() {
             </svg>
           </div>
           <h1 className="text-2xl font-semibold text-stone-800 tracking-tight">
-            FitMente
+            Fit K
           </h1>
         </div>
 
