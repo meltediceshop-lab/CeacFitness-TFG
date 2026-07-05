@@ -17,12 +17,10 @@ export function WelcomeScreen() {
       >
         {/* Logo / Brand */}
         <div className="space-y-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/icon.svg"
-            alt="Fit K"
-            className="w-20 h-20 mx-auto rounded-3xl shadow-lg shadow-emerald-200"
-          />
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-white shadow-lg shadow-emerald-200 p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="Fit K" className="w-full h-full object-contain" />
+          </div>
           <h1 className="text-2xl font-semibold text-stone-800 tracking-tight">
             Fit K
           </h1>
