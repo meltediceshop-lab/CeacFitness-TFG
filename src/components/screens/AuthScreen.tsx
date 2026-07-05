@@ -43,7 +43,7 @@ export function AuthScreen() {
       >
         {/* Logo */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-white shadow-lg shadow-emerald-200 p-3.5">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-white shadow-lg shadow-emerald-200 p-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon.svg" alt="Fit K" className="w-full h-full object-contain" />
           </div>
