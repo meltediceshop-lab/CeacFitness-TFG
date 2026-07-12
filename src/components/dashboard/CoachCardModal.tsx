@@ -87,7 +87,7 @@ export function CoachCardModal({ weekNumber }: { weekNumber: number }) {
                 Seguimos construyendo sobre lo que ya has conseguido.
               </p>
               <Button onClick={dismiss} className="w-full py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-base font-semibold shadow-lg shadow-emerald-200">
-                Empezar semana
+                Tu Plan
               </Button>
             </>
           )}
