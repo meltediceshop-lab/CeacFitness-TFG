@@ -22,17 +22,6 @@ import {
 } from 'lucide-react';
 import type { WorkoutMode, Exercise } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
-import type { Equipment } from '@/lib/exerciseImages';
-
-// Variantes universales por equipamiento — válidas para cualquier ejercicio
-const EQUIPMENT_VARIANTS: { id: Equipment; label: string }[] = [
-  { id: undefined, label: 'Recomendada' },
-  { id: 'barbell', label: 'Barra' },
-  { id: 'dumbbells', label: 'Mancuernas' },
-  { id: 'machine', label: 'Máquina' },
-  { id: 'cable', label: 'Cable' },
-  { id: 'bodyweight', label: 'Sin peso' },
-];
 
 export function WorkoutPreviewScreen() {
   const {
@@ -46,7 +35,6 @@ export function WorkoutPreviewScreen() {
   } = useApp();
   const [showModeModal, setShowModeModal] = useState(false);
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment>(undefined);
   const [showSessionOptions, setShowSessionOptions] = useState(false);
 
   if (!selectedWeeklySession) {
@@ -152,10 +140,7 @@ export function WorkoutPreviewScreen() {
                   transition={{ delay: 0.1 + index * 0.05 }}
                 >
                   <Card
-                    onClick={() => {
-                      setShowExerciseDetail(exercise);
-                      setSelectedEquipment(undefined);
-                    }}
+                    onClick={() => setShowExerciseDetail(exercise)}
                     className="glass-card p-3 border-0 rounded-2xl hover:shadow-md transition-all cursor-pointer"
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -384,7 +369,6 @@ export function WorkoutPreviewScreen() {
                 <ExercisePreview
                   name={showExerciseDetail.name}
                   muscle={showExerciseDetail.targetMuscle}
-                  equipment={selectedEquipment}
                   className="w-full h-full"
                   rounded="rounded-none"
                 />
@@ -400,26 +384,6 @@ export function WorkoutPreviewScreen() {
                 <h2 className="text-xl font-bold text-stone-900 dark:text-white mb-4">
                   {showExerciseDetail.name}
                 </h2>
-
-                {/* Selector de variante por equipamiento (universal) */}
-                <div className="mb-6">
-                  <p className="text-stone-600 dark:text-white/60 text-sm font-medium mb-3">Variante:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {EQUIPMENT_VARIANTS.map(variant => (
-                      <button
-                        key={variant.label}
-                        onClick={() => setSelectedEquipment(variant.id)}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                          selectedEquipment === variant.id
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
-                            : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200'
-                        }`}
-                      >
-                        {variant.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Exercise Info */}
                 <div className="bg-emerald-50 rounded-2xl p-4 mb-6">
@@ -500,7 +464,6 @@ export function WorkoutPreviewScreen() {
 
                             // 3. Forzamos la actualización de React
                             setShowExerciseDetail(newExercise);
-                            setSelectedEquipment(undefined);
                           }}
                           className="w-full h-auto min-h-[3rem] py-3 justify-start px-4 text-left font-normal text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl border-none shadow-none text-base transition-colors"
                         >

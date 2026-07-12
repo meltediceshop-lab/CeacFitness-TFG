@@ -21,17 +21,6 @@ import {
 } from 'lucide-react';
 import type { Exercise, ExerciseVariation, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
-import type { Equipment } from '@/lib/exerciseImages';
-
-// Variantes universales por equipamiento — válidas para cualquier ejercicio
-const EQUIPMENT_VARIANTS: { id: Equipment; label: string }[] = [
-  { id: undefined, label: 'Recomendada' },
-  { id: 'barbell', label: 'Barra' },
-  { id: 'dumbbells', label: 'Mancuernas' },
-  { id: 'machine', label: 'Máquina' },
-  { id: 'cable', label: 'Cable' },
-  { id: 'bodyweight', label: 'Sin peso' },
-];
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
@@ -139,7 +128,6 @@ export function WorkoutScreen() {
   // 1. Estado del Modal (Compartido para Modo Simple y Guiado)
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
   const [selectedVariation, setSelectedVariation] = useState<ExerciseVariation | null>(null);
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment>(undefined);
 
   // 2. Estado del Modo Guiado
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -378,7 +366,6 @@ export function WorkoutScreen() {
               <ExercisePreview
                 name={showExerciseDetail.name}
                 muscle={showExerciseDetail.targetMuscle}
-                equipment={selectedEquipment}
                 className="w-full h-52"
                 rounded="rounded-t-3xl"
               />
@@ -392,26 +379,6 @@ export function WorkoutScreen() {
 
             <div className="p-6">
               <h2 className="text-xl font-bold text-stone-900 dark:text-white mb-4">{showExerciseDetail.name}</h2>
-
-              {/* Selector de variante por equipamiento (universal) */}
-              <div className="mb-6">
-                <p className="text-stone-600 dark:text-white/60 text-sm font-medium mb-3">Variante:</p>
-                <div className="flex flex-wrap gap-2">
-                  {EQUIPMENT_VARIANTS.map(variant => (
-                    <button
-                      key={variant.label}
-                      onClick={() => setSelectedEquipment(variant.id)}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                        selectedEquipment === variant.id
-                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
-                          : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200'
-                      }`}
-                    >
-                      {variant.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Exercise Info */}
               <div className="bg-emerald-50 rounded-2xl p-4 mb-6">
@@ -707,7 +674,6 @@ export function WorkoutScreen() {
                   onClick={() => {
                     setShowExerciseDetail(exercise);
                     setSelectedVariation(exercise.variations?.[0] || null);
-                    setSelectedEquipment(undefined);
                   }}
                   className={`p-4 border-0 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-all ${done ? 'bg-emerald-50 dark:bg-emerald-500/15' : 'glass-card'}`}
                 >
@@ -887,7 +853,6 @@ export function WorkoutScreen() {
                     onClick={() => {
                       setShowExerciseDetail(currentExercise);
                       setSelectedVariation(currentExercise.variations?.[0] || null);
-                      setSelectedEquipment(undefined);
                     }}
                     className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 transition-colors ml-3 flex-shrink-0"
                   >
