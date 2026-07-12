@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import type { WorkoutMode, Exercise } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
+import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 
 export function WorkoutPreviewScreen() {
   const {
@@ -42,12 +43,6 @@ export function WorkoutPreviewScreen() {
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
   const [showSessionOptions, setShowSessionOptions] = useState(false);
   const [showWarmupInfo, setShowWarmupInfo] = useState(false);
-
-  const WARMUP_STEPS = [
-    'Movilidad articular: hombros, cadera y rodillas (1 min)',
-    'Cardio ligero: marcha o jumping jacks suaves (2 min)',
-    'Activación con peso corporal de los músculos de hoy (2 min)',
-  ];
 
   if (!selectedWeeklySession) {
     return null;
@@ -167,11 +162,14 @@ export function WorkoutPreviewScreen() {
                       {includeWarmup ? <><Check className="w-3.5 h-3.5" /> Añadido</> : 'Añadir'}
                     </button>
                   </div>
-                  <ul className="space-y-1.5">
-                    {WARMUP_STEPS.map((step, i) => (
-                      <li key={i} className="text-stone-500 text-xs flex items-start gap-2">
-                        <span className="w-1 h-1 rounded-full bg-orange-400 mt-1.5 flex-shrink-0" />
-                        {step}
+                  <ul className="space-y-2">
+                    {WARMUP_EXERCISES.map((step, i) => (
+                      <li key={step.name} className="flex items-center gap-2.5">
+                        <ExercisePreview name={step.name} muscle={step.targetMuscle} className="w-10 h-10 flex-shrink-0" rounded="rounded-lg" />
+                        <div className="min-w-0">
+                          <p className="text-stone-700 dark:text-stone-200 text-xs font-medium truncate">{step.name}</p>
+                          <p className="text-stone-400 text-[11px]">{step.duration}</p>
+                        </div>
                       </li>
                     ))}
                   </ul>

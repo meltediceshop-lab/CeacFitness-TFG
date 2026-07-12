@@ -23,6 +23,8 @@ import {
 import type { Exercise, ExerciseVariation, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { WorkoutCoachChat } from '@/components/workout/WorkoutCoachChat';
+import { WarmupModal } from '@/components/workout/WarmupModal';
+import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
@@ -133,6 +135,7 @@ export function WorkoutScreen() {
   const [selectedVariation, setSelectedVariation] = useState<ExerciseVariation | null>(null);
   const [warmupDone, setWarmupDone] = useState(false);
   const [showGuidedWarmup, setShowGuidedWarmup] = useState(includeWarmup);
+  const [showWarmupModal, setShowWarmupModal] = useState(false);
 
   // 2. Estado del Modo Guiado
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -672,7 +675,10 @@ export function WorkoutScreen() {
         <div className="flex-1 px-6 pb-32 overflow-y-auto">
           <div className="space-y-4">
             {includeWarmup && (
-              <Card className={`p-4 border-0 rounded-2xl shadow-sm ${warmupDone ? 'bg-orange-50 dark:bg-orange-500/15' : 'glass-card'}`}>
+              <Card
+                onClick={() => setShowWarmupModal(true)}
+                className={`p-4 border-0 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-all ${warmupDone ? 'bg-orange-50 dark:bg-orange-500/15' : 'glass-card'}`}
+              >
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-xl bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center flex-shrink-0">
                     <Flame className="w-7 h-7 text-orange-500" />
@@ -682,7 +688,10 @@ export function WorkoutScreen() {
                     <p className={`font-medium ${warmupDone ? 'text-stone-300' : 'text-orange-600'}`}>5 min · movilidad + cardio ligero</p>
                   </div>
                   <button
-                    onClick={() => setWarmupDone(v => !v)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setWarmupDone(v => !v);
+                    }}
                     className={`w-9 h-9 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${warmupDone ? 'border-orange-500 bg-orange-500' : 'border-stone-300 hover:border-orange-400'}`}
                   >
                     <Check className={`w-5 h-5 ${warmupDone ? 'text-white' : 'text-stone-300'}`} />
@@ -787,6 +796,10 @@ export function WorkoutScreen() {
 
         <WorkoutCoachChat sessionName={selectedWeeklySession.name} />
 
+        <AnimatePresence>
+          {showWarmupModal && <WarmupModal onClose={() => setShowWarmupModal(false)} />}
+        </AnimatePresence>
+
         {/* INYECTAMOS EL MODAL AQUÍ */}
         {ExerciseDetailModal}
       </div>
@@ -806,10 +819,18 @@ export function WorkoutScreen() {
         <h1 className="text-2xl font-bold text-stone-900 dark:text-white mb-2">Calentamiento</h1>
         <p className="text-stone-500 mb-8">5 minutos antes de empezar {selectedWeeklySession.name}</p>
         <ul className="space-y-3 mb-10 w-full max-w-sm text-left">
-          {['Movilidad articular: hombros, cadera y rodillas (1 min)', 'Cardio ligero: marcha o jumping jacks suaves (2 min)', 'Activación con peso corporal de los músculos de hoy (2 min)'].map((step, i) => (
-            <li key={i} className="flex items-start gap-3 glass-card rounded-2xl p-4">
-              <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
-              <span className="text-stone-700 dark:text-stone-200 text-sm">{step}</span>
+          {WARMUP_EXERCISES.map((step, i) => (
+            <li key={step.name} className="flex items-center gap-3 glass-card rounded-2xl p-3">
+              <div className="relative flex-shrink-0">
+                <ExercisePreview name={step.name} muscle={step.targetMuscle} className="w-14 h-14" rounded="rounded-xl" />
+                <span className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-orange-500 text-white text-[10px] font-bold rounded-lg flex items-center justify-center shadow">
+                  {i + 1}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-stone-800 dark:text-stone-100 text-sm font-semibold">{step.name}</p>
+                <p className="text-orange-600 dark:text-orange-400 text-xs font-medium">{step.duration}</p>
+              </div>
             </li>
           ))}
         </ul>
