@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MetricsModal } from './MetricsModal';
 import { WeekPlannerModal } from './WeekPlannerModal';
+import { CoachCardModal } from '@/components/dashboard/CoachCardModal';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { SparkLine } from '@/components/metrics/LineChart';
 import type { BodyMeasurementRecord } from '@/types/user';
@@ -1069,6 +1070,9 @@ export function DashboardScreen() {
           />
         )}
       </AnimatePresence>
+
+      {/* Tarjeta institucional del Coach (primera semana / nueva semana) */}
+      {!showWeekPlanner && <CoachCardModal weekNumber={user.currentWeek} />}
 
       {/* Planificador semanal */}
       <AnimatePresence>
