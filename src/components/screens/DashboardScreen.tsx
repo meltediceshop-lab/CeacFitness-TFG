@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MetricsModal } from './MetricsModal';
 import { WeekPlannerModal } from './WeekPlannerModal';
 import { CoachCardModal } from '@/components/dashboard/CoachCardModal';
+import { WelcomeGuideAccess } from '@/components/dashboard/WelcomeGuideAccess';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { SparkLine } from '@/components/metrics/LineChart';
 import type { BodyMeasurementRecord } from '@/types/user';
@@ -504,6 +505,13 @@ export function DashboardScreen() {
             </div>
           </motion.button>
         )}
+
+        {/* Tarjeta institucional del Coach (primera semana / nueva semana) */}
+        <CoachCardModal weekNumber={user.currentWeek} />
+
+        <div className="flex justify-end mb-1.5">
+          <WelcomeGuideAccess />
+        </div>
 
         <Card className="p-5 glass-card border-0 rounded-2xl">
           <div className="flex items-center justify-between mb-3">
@@ -1070,9 +1078,6 @@ export function DashboardScreen() {
           />
         )}
       </AnimatePresence>
-
-      {/* Tarjeta institucional del Coach (primera semana / nueva semana) */}
-      {!showWeekPlanner && <CoachCardModal weekNumber={user.currentWeek} />}
 
       {/* Planificador semanal */}
       <AnimatePresence>
