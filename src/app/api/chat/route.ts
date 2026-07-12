@@ -7,7 +7,28 @@ const deepseek = new OpenAI({
   apiKey: process.env.GROQ_API_KEY!,
 });
 
-function getModeInstructions(mode?: string): string {
+type ExerciseContext = {
+  sessionName?: string;
+  exerciseName?: string;
+  sets?: number;
+  reps?: number[];
+  targetMuscle?: string;
+};
+
+function getModeInstructions(mode?: string, exerciseContext?: ExerciseContext): string {
+  if (mode === 'session') {
+    const ex = exerciseContext;
+    let instructions = `\n\nMODO ACTIVO: CHAT EN MITAD DE UN ENTRENAMIENTO EN DIRECTO
+Sesión actual: ${ex?.sessionName || 'entreno de hoy'}`;
+    if (ex?.exerciseName) {
+      instructions += `\nEjercicio actual: ${ex.exerciseName}${ex.sets ? ` — ${ex.sets} series x ${(ex.reps || []).join('/')} reps` : ''}${ex.targetMuscle ? ` (músculo: ${ex.targetMuscle})` : ''}`;
+    }
+    instructions += `\nRESTRICCIÓN DE TEMA OBLIGATORIA: SOLO puedes ayudar con: técnica del ejercicio actual, variantes o alternativas (por lesión, falta de material, incomodidad), ajustar series/reps/peso/descanso, o dudas puntuales del entreno de hoy.
+- Sé MUY breve: 1-3 frases máximo, el usuario está entrenando ahora mismo y no puede leer mucho.
+- Si preguntan cualquier otra cosa (nutrición, otro día, temas ajenos al fitness), responde EXACTAMENTE: "Ahora mismo solo puedo ayudarte con el ejercicio de hoy. ¡Sigue así! 💪"`;
+    return instructions;
+  }
+
   const envMap: Record<string, string> = {
     nutrition: 'NUTRICIÓN deportiva',
     gym: 'ENTRENAMIENTO EN GIMNASIO (pesas, máquinas, mancuernas)',
@@ -49,6 +70,7 @@ function buildSystemPrompt(
   context?: { sessions?: Record<string, unknown>[]; lastMeasurement?: Record<string, unknown> | null },
   mode?: string,
   knowledge?: KnowledgeEntry[],
+  exerciseContext?: ExerciseContext,
 ): string {
   const name = (profile.name as string) || 'Usuario';
   const isAdvanced = onboarding.level === 'advanced';
@@ -166,7 +188,7 @@ PERFIL DE ${name.toUpperCase()}:
 - Si hay lesiones, recomienda consultar a un médico además de dar consejos adaptados
 - Tono: ${isAdvanced ? 'directo, sin rodeos, técnico cuando proceda' : 'motivador, cercano, sin agobiar con datos'}`;
 
-  prompt += getModeInstructions(mode);
+  prompt += getModeInstructions(mode, exerciseContext);
   prompt += buildKnowledgeSection(knowledge ?? []);
 
   return prompt;
@@ -177,10 +199,11 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { message, history, mode } = await req.json() as {
+    const { message, history, mode, context: exerciseContext } = await req.json() as {
       message: string;
       history?: { role: string; content: string }[];
       mode?: string;
+      context?: ExerciseContext;
     };
 
     if (!message?.trim()) {
@@ -223,7 +246,7 @@ export async function POST(req: NextRequest) {
           content: buildSystemPrompt(onboarding, profile, {
             sessions: sessions ?? [],
             lastMeasurement: measurements?.[0] ?? null,
-          }, mode, knowledge),
+          }, mode, knowledge, exerciseContext),
         });
       }
     }
@@ -232,6 +255,7 @@ export async function POST(req: NextRequest) {
       messages.push({
         role: 'system',
         content: 'Eres Fit K Coach, un entrenador personal de IA experto en fitness y nutrición. Responde siempre en español, de forma concisa y motivadora.'
+          + getModeInstructions(mode, exerciseContext)
           + buildKnowledgeSection(knowledge),
       });
     }

@@ -18,9 +18,11 @@ import {
   Info,
   Watch,
   Hash,
+  Flame,
 } from 'lucide-react';
 import type { Exercise, ExerciseVariation, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
+import { WorkoutCoachChat } from '@/components/workout/WorkoutCoachChat';
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
@@ -118,6 +120,7 @@ export function WorkoutScreen() {
     user,
     selectedWeeklySession,
     workoutMode,
+    includeWarmup,
     setScreen,
     setUser,
     completeWeeklySession,
@@ -128,6 +131,8 @@ export function WorkoutScreen() {
   // 1. Estado del Modal (Compartido para Modo Simple y Guiado)
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
   const [selectedVariation, setSelectedVariation] = useState<ExerciseVariation | null>(null);
+  const [warmupDone, setWarmupDone] = useState(false);
+  const [showGuidedWarmup, setShowGuidedWarmup] = useState(includeWarmup);
 
   // 2. Estado del Modo Guiado
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -666,6 +671,25 @@ export function WorkoutScreen() {
 
         <div className="flex-1 px-6 pb-32 overflow-y-auto">
           <div className="space-y-4">
+            {includeWarmup && (
+              <Card className={`p-4 border-0 rounded-2xl shadow-sm ${warmupDone ? 'bg-orange-50 dark:bg-orange-500/15' : 'glass-card'}`}>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <Flame className="w-7 h-7 text-orange-500" />
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-semibold ${warmupDone ? 'text-stone-400 line-through' : 'text-stone-900'}`}>Calentamiento</p>
+                    <p className={`font-medium ${warmupDone ? 'text-stone-300' : 'text-orange-600'}`}>5 min · movilidad + cardio ligero</p>
+                  </div>
+                  <button
+                    onClick={() => setWarmupDone(v => !v)}
+                    className={`w-9 h-9 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${warmupDone ? 'border-orange-500 bg-orange-500' : 'border-stone-300 hover:border-orange-400'}`}
+                  >
+                    <Check className={`w-5 h-5 ${warmupDone ? 'text-white' : 'text-stone-300'}`} />
+                  </button>
+                </div>
+              </Card>
+            )}
             {exercises.map((exercise, index) => {
               const done = simpleDone.has(exercise.id);
               return (
@@ -761,6 +785,8 @@ export function WorkoutScreen() {
           )}
         </AnimatePresence>
 
+        <WorkoutCoachChat sessionName={selectedWeeklySession.name} />
+
         {/* INYECTAMOS EL MODAL AQUÍ */}
         {ExerciseDetailModal}
       </div>
@@ -770,6 +796,30 @@ export function WorkoutScreen() {
   // -------------------------
   // MODO GUIADO
   // -------------------------
+
+  if (showGuidedWarmup) {
+    return (
+      <div className="min-h-screen glass-bg flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-20 h-20 rounded-3xl bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center mb-6">
+          <Flame className="w-10 h-10 text-orange-500" />
+        </div>
+        <h1 className="text-2xl font-bold text-stone-900 dark:text-white mb-2">Calentamiento</h1>
+        <p className="text-stone-500 mb-8">5 minutos antes de empezar {selectedWeeklySession.name}</p>
+        <ul className="space-y-3 mb-10 w-full max-w-sm text-left">
+          {['Movilidad articular: hombros, cadera y rodillas (1 min)', 'Cardio ligero: marcha o jumping jacks suaves (2 min)', 'Activación con peso corporal de los músculos de hoy (2 min)'].map((step, i) => (
+            <li key={i} className="flex items-start gap-3 glass-card rounded-2xl p-4">
+              <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+              <span className="text-stone-700 dark:text-stone-200 text-sm">{step}</span>
+            </li>
+          ))}
+        </ul>
+        <Button onClick={() => setShowGuidedWarmup(false)} className="w-full max-w-sm py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200">
+          Continuar al entreno
+        </Button>
+        <button onClick={() => setScreen('dashboard')} className="mt-4 text-stone-400 text-sm">Cancelar</button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen glass-bg flex flex-col">
@@ -974,6 +1024,8 @@ export function WorkoutScreen() {
           />
         )}
       </AnimatePresence>
+
+      <WorkoutCoachChat sessionName={selectedWeeklySession.name} currentExercise={currentExercise} />
 
       {/* INYECTAMOS EL MODAL AQUÍ (Compartido) */}
       {ExerciseDetailModal}

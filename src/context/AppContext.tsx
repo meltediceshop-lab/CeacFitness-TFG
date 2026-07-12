@@ -346,6 +346,8 @@ interface AppContextType {
   setSelectedWeeklySession: (session: WeeklySession | null) => void;
   workoutMode: WorkoutMode | null;
   setWorkoutMode: (mode: WorkoutMode | null) => void;
+  includeWarmup: boolean;
+  setIncludeWarmup: (include: boolean) => void;
   showWeeklyCheckIn: boolean;
   setShowWeeklyCheckIn: (show: boolean) => void;
   exerciseLogs: ExerciseLog[];
@@ -390,6 +392,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentSession, setCurrentSession] = useState<WorkoutSession | null>(null);
   const [selectedWeeklySession, setSelectedWeeklySession] = useState<WeeklySession | null>(null);
   const [workoutMode, setWorkoutMode] = useState<WorkoutMode | null>(null);
+  const [includeWarmup, setIncludeWarmup] = useState(false);
   const [showWeeklyCheckIn, setShowWeeklyCheckIn] = useState(false);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
@@ -1153,6 +1156,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSelectedWeeklySession,
         workoutMode,
         setWorkoutMode,
+        includeWarmup,
+        setIncludeWarmup,
         showWeeklyCheckIn,
         setShowWeeklyCheckIn,
         exerciseLogs,

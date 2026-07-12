@@ -14,11 +14,14 @@ import {
   Timer,
   X,
   ChevronRight,
+  ChevronDown,
   Info,
   TrendingUp,
   Trash2,
   MoveRight,
-  AlertCircle
+  AlertCircle,
+  Flame,
+  Check,
 } from 'lucide-react';
 import type { WorkoutMode, Exercise } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
@@ -31,11 +34,20 @@ export function WorkoutPreviewScreen() {
     removeSession,
     getExerciseHistory,
     user,
-    getExerciseByName
+    getExerciseByName,
+    includeWarmup,
+    setIncludeWarmup,
   } = useApp();
   const [showModeModal, setShowModeModal] = useState(false);
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
   const [showSessionOptions, setShowSessionOptions] = useState(false);
+  const [showWarmupInfo, setShowWarmupInfo] = useState(false);
+
+  const WARMUP_STEPS = [
+    'Movilidad articular: hombros, cadera y rodillas (1 min)',
+    'Cardio ligero: marcha o jumping jacks suaves (2 min)',
+    'Activación con peso corporal de los músculos de hoy (2 min)',
+  ];
 
   if (!selectedWeeklySession) {
     return null;
@@ -100,7 +112,7 @@ export function WorkoutPreviewScreen() {
 
         {/* Session Info Card */}
         <Card className="p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-stone-500 text-sm">{selectedWeeklySession.targetMuscles}</p>
               <div className="flex items-center gap-4 mt-2">
@@ -114,7 +126,59 @@ export function WorkoutPreviewScreen() {
                 </div>
               </div>
             </div>
+
+            {/* Botón/desplegable de calentamiento */}
+            <button
+              onClick={() => setShowWarmupInfo(v => !v)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                includeWarmup
+                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400'
+                  : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5" />
+              {includeWarmup ? 'Calentamiento' : '+ Calentamiento'}
+              <ChevronDown className={`w-3 h-3 transition-transform ${showWarmupInfo ? 'rotate-180' : ''}`} />
+            </button>
           </div>
+
+          {/* Panel desplegable de calentamiento */}
+          <AnimatePresence>
+            {showWarmupInfo && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-4 pt-4 border-t border-stone-200/60 dark:border-stone-700/60">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-stone-800 dark:text-white flex items-center gap-1.5">
+                      <Flame className="w-4 h-4 text-orange-500" /> Calentamiento (5 min)
+                    </p>
+                    <button
+                      onClick={() => setIncludeWarmup(!includeWarmup)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        includeWarmup
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                      }`}
+                    >
+                      {includeWarmup ? <><Check className="w-3.5 h-3.5" /> Añadido</> : 'Añadir'}
+                    </button>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {WARMUP_STEPS.map((step, i) => (
+                      <li key={i} className="text-stone-500 text-xs flex items-start gap-2">
+                        <span className="w-1 h-1 rounded-full bg-orange-400 mt-1.5 flex-shrink-0" />
+                        {step}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
       </motion.div>
 
@@ -125,6 +189,18 @@ export function WorkoutPreviewScreen() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
+          {includeWarmup && (
+            <div className="mb-4 p-4 rounded-2xl bg-orange-50 dark:bg-orange-500/10 border border-orange-200/60 dark:border-orange-500/20 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                <Flame className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-stone-800 dark:text-white text-sm">Calentamiento</p>
+                <p className="text-stone-500 text-xs">5 min · movilidad + cardio ligero</p>
+              </div>
+            </div>
+          )}
+
           <h2 className="text-lg font-semibold text-stone-900 mb-4">
             Ejercicios
           </h2>
