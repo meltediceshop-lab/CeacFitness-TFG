@@ -8,6 +8,7 @@ import { MetricsModal } from './MetricsModal';
 import { WeekPlannerModal } from './WeekPlannerModal';
 import { CoachCardModal } from '@/components/dashboard/CoachCardModal';
 import { WelcomeGuideAccess } from '@/components/dashboard/WelcomeGuideAccess';
+import { ReviewBanner } from '@/components/dashboard/ReviewBanner';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { SparkLine } from '@/components/metrics/LineChart';
 import type { BodyMeasurementRecord } from '@/types/user';
@@ -508,6 +509,9 @@ export function DashboardScreen() {
 
         {/* Tarjeta institucional del Coach (primera semana / nueva semana) */}
         <CoachCardModal weekNumber={user.currentWeek} />
+
+        {/* Revisión periódica (cada ~4-6 semanas) */}
+        <ReviewBanner />
 
         <div className="flex justify-end mb-1.5">
           <WelcomeGuideAccess />

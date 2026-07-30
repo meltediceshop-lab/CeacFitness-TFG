@@ -18,6 +18,7 @@ import { ProfileScreen } from '@/components/screens/ProfileScreen';
 import { NutritionScreen } from '@/components/screens/NutritionScreen';
 import { CommunityScreen } from '@/components/screens/CommunityScreen';
 import { WeeklyCheckInScreen } from '@/components/screens/WeeklyCheckInScreen';
+import { ReviewScreen } from '@/components/screens/ReviewScreen';
 
 export default function Home() {
   const { screen, showWeeklyCheckIn, authLoading } = useApp();
@@ -74,6 +75,8 @@ export default function Home() {
         return <CommunityScreen />;
       case 'weekly-checkin':
         return <WeeklyCheckInScreen />;
+      case 'review':
+        return <ReviewScreen />;
       default:
         return <AuthScreen />;
     }

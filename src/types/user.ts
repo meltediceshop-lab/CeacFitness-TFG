@@ -238,7 +238,8 @@ export type AppScreen =
   | 'profile'
   | 'nutrition'
   | 'weekly-checkin'
-  | 'community';
+  | 'community'
+  | 'review';
 
 // ── Community ─────────────────────────────────────────────────────
 export interface CommunityPost {
