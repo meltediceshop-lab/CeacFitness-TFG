@@ -29,6 +29,21 @@ FINALIDAD DE LA RESPUESTA: Antes de terminar, verifica que el usuario sabe cuál
 
 REGLA DEFINITIVA: Ayuda al usuario a entrenar mejor hoy sin perjudicar su progreso de mañana.`;
 
+// BOE-FK v1.0 — Lista oficial y cerrada de ejercicios (71). El Coach solo puede
+// asignar ejercicios de gimnasio que estén en esta lista.
+const BOE_FK = `LISTA OFICIAL DE EJERCICIOS BOE-FK v1.0 (obligatoria):
+PECHO (8): Press banca con barra, Press banca con mancuernas, Press inclinado con barra, Press inclinado con mancuernas, Press en máquina convergente, Aperturas con polea, Aperturas con mancuernas, Fondos para pecho.
+ESPALDA (10): Dominadas, Jalón al pecho, Jalón agarre neutro, Remo con barra, Remo con mancuerna, Remo en polea baja, Remo en máquina apoyada, Pullover en polea, Peso muerto rumano, Face Pull.
+HOMBROS (8): Press militar con barra, Press militar con mancuernas, Press máquina, Elevaciones laterales con mancuernas, Elevaciones laterales en polea, Pájaros con mancuernas, Reverse Pec Deck, Elevaciones frontales.
+BÍCEPS (6): Curl barra recta, Curl barra EZ, Curl alterno mancuernas, Curl inclinado, Curl martillo, Curl en polea.
+TRÍCEPS (6): Jalón cuerda, Jalón barra recta, Extensión por encima de la cabeza, Press francés, Fondos en banco, Press cerrado.
+CUÁDRICEPS (8): Sentadilla trasera, Sentadilla guiada (Smith), Prensa, Hack Squat, Sentadilla búlgara, Zancadas caminando, Extensión de cuádriceps, Step-Up.
+ISQUIOTIBIALES (6): Curl femoral tumbado, Curl femoral sentado, Curl femoral unilateral, Peso muerto rumano con barra, Peso muerto rumano con mancuernas, Buenos días.
+GLÚTEOS (5): Hip Thrust, Patada de glúteo en polea, Abducción en máquina, Sentadilla sumo, Puente de glúteo.
+GEMELOS (4): Gemelo de pie, Gemelo sentado, Gemelo en prensa, Gemelo unilateral.
+ABDOMEN/CORE (10): Crunch en máquina, Crunch en polea, Elevaciones de piernas colgado, Elevaciones de rodillas, Plancha frontal, Plancha lateral, Dead Bug, Pallof Press, Rueda abdominal (Ab Wheel), Mountain Climbers.
+REGLA: Al crear entrenamientos o proponer/sustituir ejercicios de gimnasio, usa EXCLUSIVAMENTE ejercicios de esta lista, con estos nombres exactos. Si el usuario menciona un ejercicio que no está, sugiere el equivalente más cercano de la lista.`;
+
 type ExerciseContext = {
   sessionName?: string;
   exerciseName?: string;
@@ -47,7 +62,9 @@ Sesión actual: ${ex?.sessionName || 'entreno de hoy'}`;
     }
     instructions += `\nRESTRICCIÓN DE TEMA OBLIGATORIA: SOLO puedes ayudar con: técnica del ejercicio actual, variantes o alternativas (por lesión, falta de material, incomodidad), ajustar series/reps/peso/descanso, o dudas puntuales del entreno de hoy.
 - Sé MUY breve: 1-3 frases máximo, el usuario está entrenando ahora mismo y no puede leer mucho.
-- Si preguntan cualquier otra cosa (nutrición, otro día, temas ajenos al fitness), responde EXACTAMENTE: "Ahora mismo solo puedo ayudarte con el ejercicio de hoy. ¡Sigue así! 💪"`;
+- Si preguntan cualquier otra cosa (nutrición, otro día, temas ajenos al fitness), responde EXACTAMENTE: "Ahora mismo solo puedo ayudarte con el ejercicio de hoy. ¡Sigue así! 💪"
+
+${BOE_FK}`;
     return instructions;
   }
 
@@ -66,7 +83,7 @@ Sesión actual: ${ex?.sessionName || 'entreno de hoy'}`;
 RESTRICCIÓN DE TEMA OBLIGATORIA: Solo debes responder preguntas relacionadas con fitness y nutrición deportiva.`;
 
   if (isGym) {
-    instructions += '\n- Propón ejercicios DE GIMNASIO: pesas libres, barras, máquinas, mancuernas. No propones ejercicios al aire libre ni running.';
+    instructions += `\n- Propón ejercicios DE GIMNASIO: pesas libres, barras, máquinas, mancuernas. No propones ejercicios al aire libre ni running.\n\n${BOE_FK}`;
   } else if (isOutdoor) {
     instructions += '\n- Propón ejercicios AL AIRE LIBRE: running, HIIT en parque, circuitos con peso corporal. Sin máquinas de gym.';
   } else if (isNutrition) {

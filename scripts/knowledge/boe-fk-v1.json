@@ -1,0 +1,62 @@
+[
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de PECHO",
+    "content": "Lista oficial y cerrada de ejercicios de pecho que el Coach puede asignar (8): Press banca con barra, Press banca con mancuernas, Press inclinado con barra, Press inclinado con mancuernas, Press en máquina convergente, Aperturas con polea, Aperturas con mancuernas, Fondos para pecho. No asignar ejercicios de pecho fuera de esta lista.",
+    "tags": ["boe-fk", "pecho", "chest", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de ESPALDA",
+    "content": "Lista oficial y cerrada de ejercicios de espalda que el Coach puede asignar (10): Dominadas, Jalón al pecho, Jalón agarre neutro, Remo con barra, Remo con mancuerna, Remo en polea baja, Remo en máquina apoyada, Pullover en polea, Peso muerto rumano, Face Pull. No asignar ejercicios de espalda fuera de esta lista.",
+    "tags": ["boe-fk", "espalda", "back", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de HOMBROS",
+    "content": "Lista oficial y cerrada de ejercicios de hombros que el Coach puede asignar (8): Press militar con barra, Press militar con mancuernas, Press máquina, Elevaciones laterales con mancuernas, Elevaciones laterales en polea, Pájaros con mancuernas, Reverse Pec Deck, Elevaciones frontales. No asignar ejercicios de hombros fuera de esta lista.",
+    "tags": ["boe-fk", "hombros", "shoulders", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de BÍCEPS",
+    "content": "Lista oficial y cerrada de ejercicios de bíceps que el Coach puede asignar (6): Curl barra recta, Curl barra EZ, Curl alterno mancuernas, Curl inclinado, Curl martillo, Curl en polea. No asignar ejercicios de bíceps fuera de esta lista.",
+    "tags": ["boe-fk", "biceps", "brazos", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de TRÍCEPS",
+    "content": "Lista oficial y cerrada de ejercicios de tríceps que el Coach puede asignar (6): Jalón cuerda, Jalón barra recta, Extensión por encima de la cabeza, Press francés, Fondos en banco, Press cerrado. No asignar ejercicios de tríceps fuera de esta lista.",
+    "tags": ["boe-fk", "triceps", "brazos", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de CUÁDRICEPS",
+    "content": "Lista oficial y cerrada de ejercicios de cuádriceps que el Coach puede asignar (8): Sentadilla trasera, Sentadilla guiada (Smith), Prensa, Hack Squat, Sentadilla búlgara, Zancadas caminando, Extensión de cuádriceps, Step-Up. No asignar ejercicios de cuádriceps fuera de esta lista.",
+    "tags": ["boe-fk", "cuadriceps", "piernas", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de ISQUIOTIBIALES",
+    "content": "Lista oficial y cerrada de ejercicios de isquiotibiales que el Coach puede asignar (6): Curl femoral tumbado, Curl femoral sentado, Curl femoral unilateral, Peso muerto rumano con barra, Peso muerto rumano con mancuernas, Buenos días. No asignar ejercicios de isquiotibiales fuera de esta lista.",
+    "tags": ["boe-fk", "isquiotibiales", "femoral", "piernas", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de GLÚTEOS",
+    "content": "Lista oficial y cerrada de ejercicios de glúteos que el Coach puede asignar (5): Hip Thrust, Patada de glúteo en polea, Abducción en máquina, Sentadilla sumo, Puente de glúteo. No asignar ejercicios de glúteos fuera de esta lista.",
+    "tags": ["boe-fk", "gluteos", "piernas", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de GEMELOS",
+    "content": "Lista oficial y cerrada de ejercicios de gemelos que el Coach puede asignar (4): Gemelo de pie, Gemelo sentado, Gemelo en prensa, Gemelo unilateral. No asignar ejercicios de gemelos fuera de esta lista.",
+    "tags": ["boe-fk", "gemelos", "pantorrillas", "piernas", "ejercicios oficiales"]
+  },
+  {
+    "category": "gym",
+    "title": "BOE-FK v1.0 — Ejercicios oficiales de ABDOMEN/CORE",
+    "content": "Lista oficial y cerrada de ejercicios de abdomen y core que el Coach puede asignar (10): Crunch en máquina, Crunch en polea, Elevaciones de piernas colgado, Elevaciones de rodillas, Plancha frontal, Plancha lateral, Dead Bug, Pallof Press, Rueda abdominal (Ab Wheel), Mountain Climbers. No asignar ejercicios de core fuera de esta lista.",
+    "tags": ["boe-fk", "abdomen", "core", "abdominales", "ejercicios oficiales"]
+  }
+]
