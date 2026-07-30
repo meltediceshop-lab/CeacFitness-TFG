@@ -221,8 +221,10 @@ PERFIL DE ${name.toUpperCase()}:
   prompt += `\n\nINSTRUCCIONES IMPORTANTES:
 - Responde SIEMPRE en español
 - Sé conciso: máximo 3-4 párrafos por respuesta
+- Escribe en TEXTO PLANO: nada de Markdown, asteriscos (**), almohadillas ni listas con símbolos — la app muestra el texto tal cual
 - Usa siempre el nombre "${name}" al dirigirte al usuario
-- TIENES DOS HERRAMIENTAS: "create_workout_session" (crea un entreno que el usuario puede añadir a sus sesiones con un toque) y "create_nutrition_plan" (crea un plan de comidas que se guarda en la pestaña Nutrición). Úsalas SOLO cuando el usuario pida explícitamente un entreno/rutina o una dieta/plan de comidas. Adáptalas SIEMPRE a su perfil, objetivo, nivel, lesiones y preferencias.
+- TIENES DOS HERRAMIENTAS: "create_workout_session" (crea un entreno que el usuario puede añadir a sus sesiones con un toque) y "create_nutrition_plan" (crea un plan de comidas que se guarda en la pestaña Nutrición). Úsalas cuando el usuario pida un entreno/rutina o una dieta/plan de comidas. Adáptalas SIEMPRE a su perfil, objetivo, nivel, lesiones y preferencias.
+- Si el usuario pide AÑADIR, GUARDAR o METER en sus entrenamientos/sesiones un entreno que le has descrito, DEBES llamar a "create_workout_session" con ese entreno exacto. NUNCA lo repitas solo en texto: sin la tarjeta el usuario no puede guardarlo.
 - Cuando uses una herramienta, en tu respuesta de texto explica brevemente qué le has preparado y anímale a guardarlo con el botón de la tarjeta. No repitas todos los datos: ya los verá en la tarjeta.
 - Para nutrición puedes crear el plan directamente con la herramienta aunque no haya completado el cuestionario, usando los datos de su perfil
 - NUNCA diagnostiques enfermedades ni recetes medicamentos
@@ -353,7 +355,7 @@ export async function POST(req: NextRequest) {
       type: 'function',
       function: {
         name: 'create_workout_session',
-        description: 'Crea una sesión de entrenamiento personalizada. Úsala SOLO cuando el usuario pida explícitamente un entrenamiento, rutina o sesión específica para hacer.',
+        description: 'Crea una sesión de entrenamiento personalizada que el usuario puede añadir a sus sesiones. Úsala cuando el usuario pida un entrenamiento, rutina o sesión, Y SIEMPRE que pida añadir/guardar/meter en sus entrenamientos un entreno ya comentado en la conversación.',
         parameters: {
           type: 'object',
           properties: {
@@ -381,13 +383,22 @@ export async function POST(req: NextRequest) {
       },
     };
 
+    // Si el usuario pide explícitamente añadir/guardar un entreno, forzamos la
+    // herramienta para que siempre salga la tarjeta con el botón de guardar.
+    const normalized = message.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const wantsWorkoutSaved =
+      /(anad|agreg|guard|apunt|\bmete)/.test(normalized) &&
+      /(entren|rutina|sesion)/.test(normalized);
+
     const completion = await deepseek.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages,
       max_tokens: 1200,
       temperature: 0.7,
       tools: [workoutTool, nutritionTool],
-      tool_choice: 'auto',
+      tool_choice: wantsWorkoutSaved
+        ? { type: 'function', function: { name: 'create_workout_session' } }
+        : 'auto',
     });
 
     const choice = completion.choices[0];
@@ -395,7 +406,7 @@ export async function POST(req: NextRequest) {
     let workoutData = null;
     let nutritionData = null;
 
-    if (choice.finish_reason === 'tool_calls' && choice.message.tool_calls?.length) {
+    if (choice.message.tool_calls?.length) {
       const toolCall = choice.message.tool_calls[0] as { id: string; type: string; function: { name: string; arguments: string } };
       const fnName = toolCall.function?.name;
 
