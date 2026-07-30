@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // ── Contexto que la app SÍ conoce ────────────────────────────────
     const [{ data: profile }, { data: onboarding }, { data: sessions }, { data: history }, { data: prevReview }, { data: lastMeasurements }] = await Promise.all([
-      supabase.from('user_profiles').select('name, weight').eq('user_id', user.id).single(),
+      supabase.from('user_profiles').select('name, weight').eq('id', user.id).single(),
       supabase.from('user_onboarding').select('*').eq('user_id', user.id).single(),
       supabase.from('weekly_sessions').select('status').eq('user_id', user.id),
       supabase.from('weekly_history').select('week_number, sessions').eq('user_id', user.id),
@@ -164,7 +164,7 @@ Responde SOLO con un JSON válido, sin nada más:
           thighs: answers.measurements?.thighs ?? null,
           calves: answers.measurements?.calves ?? null,
         }),
-        supabase.from('user_profiles').update({ weight: answers.weight }).eq('user_id', user.id),
+        supabase.from('user_profiles').update({ weight: answers.weight }).eq('id', user.id),
       ]);
     }
 

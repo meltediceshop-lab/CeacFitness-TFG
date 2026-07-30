@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
     if (user) {
       const [{ data: onboarding }, { data: profile }, { data: sessions }, { data: measurements }, { data: lastReview }] = await Promise.all([
         supabase.from('user_onboarding').select('*').eq('user_id', user.id).single(),
-        supabase.from('user_profiles').select('*').eq('user_id', user.id).single(),
+        supabase.from('user_profiles').select('*').eq('id', user.id).single(),
         supabase.from('weekly_sessions').select('session_number, name, duration, status').eq('user_id', user.id).order('sort_order'),
         supabase.from('body_measurements').select('*').eq('user_id', user.id).order('recorded_at', { ascending: false }).limit(1),
         supabase.from('user_reviews').select('answers, motor_action, coach_message, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1),
