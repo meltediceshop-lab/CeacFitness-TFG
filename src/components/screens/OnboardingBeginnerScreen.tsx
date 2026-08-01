@@ -477,6 +477,9 @@ export function OnboardingBeginnerScreen() {
                   { id: 'feel-better' as BeginnerGoal, label: 'Sentirme mejor conmigo mismo' },
                   { id: 'strength' as BeginnerGoal, label: 'Ganar fuerza poco a poco' },
                   { id: 'routine' as BeginnerGoal, label: 'Volver a tener una rutina' },
+                  { id: 'lose-weight' as BeginnerGoal, label: 'Perder peso', sublabel: 'Bajar el peso de la báscula' },
+                  { id: 'lose-fat' as BeginnerGoal, label: 'Perder grasa sin perder músculo', sublabel: 'Definir manteniendo lo ganado' },
+                  { id: 'recomp' as BeginnerGoal, label: 'Recomposición corporal', sublabel: 'Perder grasa y ganar músculo a la vez' },
                 ].map(option => (
                   <Card
                     key={option.id}
@@ -484,6 +487,9 @@ export function OnboardingBeginnerScreen() {
                     className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
                   >
                     <p className="font-medium text-stone-800">{option.label}</p>
+                    {'sublabel' in option && option.sublabel && (
+                      <p className="text-stone-400 text-sm mt-0.5">{option.sublabel}</p>
+                    )}
                   </Card>
                 ))}
               </div>

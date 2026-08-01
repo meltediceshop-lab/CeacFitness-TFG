@@ -4,13 +4,19 @@ export type BeginnerGoal =
   | 'energy'
   | 'feel-better'
   | 'strength'
-  | 'routine';
+  | 'routine'
+  | 'lose-weight'
+  | 'lose-fat'
+  | 'recomp';
 
 export type AdvancedGoal =
   | 'strength'
   | 'physique'
   | 'performance'
-  | 'maintain';
+  | 'maintain'
+  | 'lose-weight'
+  | 'lose-fat'
+  | 'recomp';
 
 export type GymComfort =
   | 'shy'

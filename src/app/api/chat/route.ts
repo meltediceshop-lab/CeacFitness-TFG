@@ -102,6 +102,9 @@ function buildSystemPrompt(
     physique: 'mejorar su físico',
     performance: 'mejorar rendimiento deportivo',
     maintain: 'mantener su forma',
+    'lose-weight': 'perder peso (bajar báscula)',
+    'lose-fat': 'perder grasa manteniendo el músculo',
+    recomp: 'recomposición corporal (perder grasa y ganar músculo)',
   };
 
   const ageLabels: Record<string, string> = {

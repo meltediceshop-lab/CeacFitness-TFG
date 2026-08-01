@@ -38,6 +38,9 @@ const GOAL_OPTIONS: { id: string; label: string }[] = [
   { id: 'physique',    label: 'Mejorar mi físico' },
   { id: 'performance', label: 'Rendimiento deportivo' },
   { id: 'maintain',    label: 'Mantener mi forma' },
+  { id: 'lose-weight', label: 'Perder peso' },
+  { id: 'lose-fat',    label: 'Perder grasa sin perder músculo' },
+  { id: 'recomp',      label: 'Recomposición corporal' },
 ];
 
 const MEASUREMENT_FIELDS: { key: 'waist' | 'chest' | 'arms' | 'thighs' | 'calves'; label: string }[] = [

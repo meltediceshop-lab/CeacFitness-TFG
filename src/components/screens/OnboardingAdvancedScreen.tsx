@@ -104,6 +104,9 @@ export function OnboardingAdvancedScreen() {
                   { id: 'physique' as AdvancedGoal, label: 'Mejorar el físico' },
                   { id: 'performance' as AdvancedGoal, label: 'Rendimiento general' },
                   { id: 'maintain' as AdvancedGoal, label: 'Mantenerme y optimizar' },
+                  { id: 'lose-weight' as AdvancedGoal, label: 'Perder peso', sublabel: 'Bajar el peso de la báscula' },
+                  { id: 'lose-fat' as AdvancedGoal, label: 'Perder grasa sin perder músculo', sublabel: 'Definir manteniendo lo ganado' },
+                  { id: 'recomp' as AdvancedGoal, label: 'Recomposición corporal', sublabel: 'Perder grasa y ganar músculo a la vez' },
                 ].map(option => (
                   <Card
                     key={option.id}
@@ -111,6 +114,9 @@ export function OnboardingAdvancedScreen() {
                     className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-teal-300 transition-all rounded-2xl"
                   >
                     <p className="font-medium text-stone-800">{option.label}</p>
+                    {'sublabel' in option && option.sublabel && (
+                      <p className="text-stone-400 text-sm mt-0.5">{option.sublabel}</p>
+                    )}
                   </Card>
                 ))}
               </div>

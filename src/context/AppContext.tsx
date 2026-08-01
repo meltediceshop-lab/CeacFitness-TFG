@@ -3,6 +3,7 @@
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { generatePlan, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import type {
   User,
   AppScreen,
@@ -276,33 +277,37 @@ function distributeDays(daysPerWeek: number): number[] {
   return PREFERRED[daysPerWeek] ?? [0, 2, 4].slice(0, daysPerWeek);
 }
 
-function generateWeeklySessions(daysPerWeek: number, workoutDuration: string, startFrom = 1, customDays?: number[]): WeeklySession[] {
-  const sessionTemplates = [
-    { name: 'Full Body', targetMuscles: 'Todo el cuerpo', exercises: SAMPLE_EXERCISES['full-body'] },
-    { name: 'Tren Superior', targetMuscles: 'Pecho, espalda, hombros', exercises: SAMPLE_EXERCISES['upper-body'] },
-    { name: 'Tren Inferior', targetMuscles: 'Piernas y core', exercises: SAMPLE_EXERCISES['lower-body'] },
-    { name: 'Full Body', targetMuscles: 'Todo el cuerpo', exercises: SAMPLE_EXERCISES['full-body'] },
-  ];
-
-  const duration = workoutDuration === '30min' ? 30 : workoutDuration === '45min' ? 45 : workoutDuration === '1hour' ? 60 : 45;
+// Motor Fit-K: genera el plan personalizado según objetivo (incl. pérdida
+// de peso/grasa/recomposición), nivel, lesiones, IMC, músculo prioritario…
+function generateWeeklySessions(
+  daysPerWeek: number,
+  workoutDuration: string,
+  startFrom = 1,
+  customDays?: number[],
+  personal?: Partial<MotorInput>,
+): WeeklySession[] {
   const days = customDays ?? distributeDays(daysPerWeek);
+  return generatePlan({
+    daysPerWeek,
+    workoutDuration,
+    startFrom,
+    customDays: days,
+    ...personal,
+  });
+}
 
-  const sessions: WeeklySession[] = [];
-  for (let i = 0; i < daysPerWeek; i++) {
-    const template = sessionTemplates[i % sessionTemplates.length];
-    sessions.push({
-      id: crypto.randomUUID(),
-      sessionNumber: startFrom + i,
-      name: template.name,
-      targetMuscles: template.targetMuscles,
-      duration,
-      exercises: template.exercises,
-      status: i === 0 ? 'available' : 'locked',
-      dayOfWeek: days[i] ?? i,
-    });
-  }
-
-  return sessions;
+// Extrae los datos personales del usuario actual para el Motor
+function motorInputFromUser(u: User): Partial<MotorInput> {
+  const ob = u.onboarding as Partial<BeginnerOnboarding & AdvancedOnboarding>;
+  return {
+    goal: ob.goal,
+    level: u.level ?? undefined,
+    priorityMuscle: ob.priorityMuscle,
+    injuries: u.profile?.injuries ?? [],
+    excludedExercises: u.profile?.excludedExercises ?? [],
+    weight: u.profile?.weight,
+    height: u.profile?.height,
+  };
 }
 
 // Check if it's a new week (Sunday or first app open of the week)
@@ -523,7 +528,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (weeklySessions.length === 0) {
           const daysPerWeek = ob.days_per_week as number ?? 3;
           const workoutDuration = ob.workout_duration as string ?? '45min';
-          weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration);
+          weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration, 1, undefined, {
+            goal: (ob.beginner_goal ?? ob.advanced_goal) as string | undefined,
+            level: ob.level as 'beginner' | 'advanced' | undefined,
+            priorityMuscle: ob.priority_muscle as import('@/types/user').MuscleGroup | undefined,
+            injuries: (profile.injuries as string[]) ?? [],
+            excludedExercises: (profile.excluded_exercises as string[]) ?? [],
+            weight: profile.weight as number | undefined,
+            height: profile.height as number | undefined,
+          });
           fetch('/api/sessions/weekly', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -684,10 +697,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const daysPerWeek = 'daysPerWeek' in onboarding ? onboarding.daysPerWeek : 3;
     const workoutDuration = 'workoutDuration' in onboarding ? onboarding.workoutDuration : '45min';
-    const weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration || '45min');
 
     // Use finalProfile if provided (avoids React state batching race condition)
     const resolvedProfile = finalProfile ?? userProfile;
+
+    const weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration || '45min', 1, undefined, {
+      goal: onboarding.goal,
+      level: userLevel ?? undefined,
+      priorityMuscle: 'priorityMuscle' in onboarding ? onboarding.priorityMuscle : undefined,
+      injuries: resolvedProfile.injuries ?? [],
+      excludedExercises: resolvedProfile.excludedExercises ?? [],
+      weight: resolvedProfile.weight,
+      height: resolvedProfile.height,
+    });
 
     const newUser: User = {
       id: supabaseUserId ?? `user-${Date.now()}`,
@@ -924,7 +946,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextStartFrom = lastSessionNum + 1;
 
     if (preference === 'same') {
-      const newSessions = generateWeeklySessions(daysPerWeek, workoutDuration, nextStartFrom);
+      const newSessions = generateWeeklySessions(daysPerWeek, workoutDuration, nextStartFrom, undefined, motorInputFromUser(user));
       setUser({
         ...user,
         weeklySessions: newSessions,
@@ -960,7 +982,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const daysPerWeek = onboarding.daysPerWeek || 3;
     const workoutDuration = onboarding.workoutDuration || '45min';
     const lastSessionNum = user.weeklySessions.reduce((max, s) => Math.max(max, s.sessionNumber), 0);
-    return generateWeeklySessions(daysPerWeek, workoutDuration, lastSessionNum + 1);
+    return generateWeeklySessions(daysPerWeek, workoutDuration, lastSessionNum + 1, undefined, motorInputFromUser(user));
   };
 
   // Archiva la semana actual y guarda el plan confirmado por el usuario
@@ -1070,13 +1092,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getExerciseByName = (name: string): Exercise | undefined => {
-    const allExercisesFlat = Object.values(SAMPLE_EXERCISES).flat();
+    const allExercisesFlat = [...motorCatalog(), ...Object.values(SAMPLE_EXERCISES).flat()];
     return allExercisesFlat.find(ex => ex.name === name);
   };
 
-  // Catálogo único de ejercicios (para añadir/cambiar en una sesión)
+  // Catálogo único de ejercicios (para añadir/cambiar en una sesión) —
+  // primero la lista oficial BOE-FK, después los legacy de muestra
   const getExerciseCatalog = (): Exercise[] => {
-    const flat = Object.values(SAMPLE_EXERCISES).flat();
+    const flat = [...motorCatalog(), ...Object.values(SAMPLE_EXERCISES).flat()];
     const seen = new Set<string>();
     return flat.filter(ex => {
       if (seen.has(ex.name)) return false;
