@@ -175,6 +175,8 @@ export interface Exercise {
   repRange?: [number, number];
   rirTarget?: [number, number];
   reasonCodes?: string[];   // trazabilidad de la decisión del Motor (debug, no UI)
+  suggestedWeightKg?: number; // estimación inicial según peso/altura/nivel (editable, no se auto-registra)
+  suggestedWeightUnit?: 'total' | 'per-dumbbell'; // cómo interpretar suggestedWeightKg
 }
 
 export interface ExerciseLog {

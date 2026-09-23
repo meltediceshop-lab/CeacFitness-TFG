@@ -70,5 +70,79 @@ const catalog = motorCatalog();
 check('motorCatalog expone 81 ejercicios', catalog.length === 81);
 check('motorCatalog conserva libraryId', catalog.every(e => !!e.libraryId));
 
+// ── Carga inicial estimada: perfiles extremos ────────────────────────
+console.log('\n--- Peso sugerido por perfil ---');
+
+function allExercises(plan: ReturnType<typeof generatePlan>) {
+  return plan.flatMap(s => s.exercises);
+}
+function withWeight(exs: ReturnType<typeof allExercises>) {
+  return exs.filter(e => e.suggestedWeightKg != null);
+}
+
+// Perfil A: muy delgada, principiante (debería sugerir cargas mínimas/ligeras)
+const flaca: MotorInput = {
+  daysPerWeek: 4, workoutDuration: '45min', level: 'beginner', goal: 'strength',
+  weight: 42, height: 158, biologicalProfile: 'female', userId: 'flaca', planVersion: 1,
+};
+const planFlaca = generatePlan(flaca);
+const pesosFlaca = withWeight(allExercises(planFlaca));
+check('Perfil delgado: todos los ejercicios con carga tienen peso sugerido > 0', pesosFlaca.every(e => (e.suggestedWeightKg ?? 0) > 0));
+check('Perfil delgado: ninguna barra sugiere menos de 20kg (barra oly vacía) o 10kg (EZ)', pesosFlaca.every(e => {
+  if (e.suggestedWeightUnit !== 'total') return true;
+  const eq = (e.equipmentCode ?? '').toLowerCase();
+  if (!eq.includes('barra')) return true;
+  const min = eq.includes('ez') ? 10 : 20;
+  return (e.suggestedWeightKg ?? 0) >= min;
+}));
+check('Perfil delgado: mancuernas sugeridas son ligeras (<= 8kg)', pesosFlaca.filter(e => e.suggestedWeightUnit === 'per-dumbbell').every(e => (e.suggestedWeightKg ?? 0) <= 8));
+const maxFlaca = Math.max(...pesosFlaca.map(e => e.suggestedWeightKg ?? 0));
+console.log(`  Flaca (42kg/158cm/beginner): máximo sugerido = ${maxFlaca}kg`);
+
+// Perfil B: 120kg y muy alto, principiante (debe ser prudente, no lineal con el peso)
+const grande: MotorInput = {
+  daysPerWeek: 4, workoutDuration: '45min', level: 'beginner', goal: 'strength',
+  weight: 120, height: 200, biologicalProfile: 'male', userId: 'grande', planVersion: 1,
+};
+const planGrande = generatePlan(grande);
+const pesosGrande = withWeight(allExercises(planGrande));
+const maxGrande = Math.max(...pesosGrande.map(e => e.suggestedWeightKg ?? 0));
+console.log(`  Grande (120kg/200cm/beginner): máximo sugerido = ${maxGrande}kg`);
+check('Perfil 120kg: no supera un techo prudente para un principiante (<=110kg en total, ningún ejercicio)', pesosGrande.filter(e => e.suggestedWeightUnit === 'total').every(e => (e.suggestedWeightKg ?? 0) <= 110));
+check('Perfil 120kg: el IMC alto amortigua la carga (no es lineal con el peso corporal bruto)', maxGrande < 120 * 0.9);
+
+// Mismo perfil grande pero avanzado: debe subir respecto al principiante, sin disparatarse
+const grandeAvanzado: MotorInput = { ...grande, level: 'advanced', userId: 'grande-avz' };
+const planGrandeAvz = generatePlan(grandeAvanzado);
+const pesosGrandeAvz = withWeight(allExercises(planGrandeAvz));
+const maxGrandeAvz = Math.max(...pesosGrandeAvz.map(e => e.suggestedWeightKg ?? 0));
+console.log(`  Grande avanzado (120kg/200cm): máximo sugerido = ${maxGrandeAvz}kg`);
+check('Avanzado sugiere más carga que principiante para el mismo cuerpo', maxGrandeAvz >= maxGrande);
+check('Avanzado 120kg tampoco se dispara (<=160kg techo total)', pesosGrandeAvz.filter(e => e.suggestedWeightUnit === 'total').every(e => (e.suggestedWeightKg ?? 0) <= 160));
+
+// Monotonía básica: a igualdad de ejercicio/nivel, el perfil más grande sugiere >= carga que el flaco
+const byLibId = (exs: ReturnType<typeof allExercises>) => new Map(exs.map(e => [e.libraryId, e.suggestedWeightKg]));
+const mapFlaca = byLibId(pesosFlaca);
+const mapGrande = byLibId(pesosGrande);
+let monotone = true;
+for (const [id, wFlaca] of mapFlaca) {
+  const wGrande = mapGrande.get(id);
+  if (wGrande != null && wFlaca != null && wGrande < wFlaca) monotone = false;
+}
+check('Monotonía: mismo ejercicio/nivel, perfil de 120kg nunca sugiere menos que el perfil delgado', monotone);
+
+// Ejercicios de peso corporal puro nunca llevan carga sugerida (no hay dato que inventar)
+const bodyweightOnly = LIBRARY.filter(l => l.loadSource !== 'Externa').map(l => l.id);
+const anyBodyweightWithLoad = allExercises(planGrande).some(e => bodyweightOnly.includes(e.libraryId ?? '') && e.suggestedWeightKg != null);
+check('Ejercicios de peso corporal no llevan carga externa inventada', !anyBodyweightWithLoad);
+
+// ── Variantes de equipo (family) y alternativas ──────────────────────
+console.log('\n--- Variantes y alternativas ---');
+const benchBarbell = catalog.find(e => e.name === 'Press banca barra');
+check('Press banca barra tiene variantes de equipo (mancuernas/máquina/corporal)', (benchBarbell?.variations?.length ?? 0) >= 2);
+check('Las variantes de Press banca barra incluyen distintos tipos de equipo', new Set(benchBarbell?.variations?.map(v => v.type)).size >= 2);
+const rdl = catalog.find(e => e.name === 'RDL barra');
+check('RDL barra tiene alternativas funcionales (no vacío)', (rdl?.alternatives?.length ?? 0) > 0);
+
 console.log(`\n${failures === 0 ? 'TODOS LOS CHECKS PASARON' : `${failures} CHECK(S) FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);

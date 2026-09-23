@@ -13,7 +13,7 @@
 // en el propio documento de especificación — aquí se fijan valores V1
 // razonables y documentados, no constantes fisiológicas.
 // ─────────────────────────────────────────────────────────────────────
-import type { Exercise, WeeklySession, MuscleGroup, EnergyLevel } from '@/types/user';
+import type { Exercise, WeeklySession, MuscleGroup, EnergyLevel, ExerciseVariation, ExerciseVariationType } from '@/types/user';
 import { LIBRARY, type LibraryExercise } from '@/lib/fitkLibrary';
 
 // ── Utilidades ───────────────────────────────────────────────────────
@@ -79,6 +79,53 @@ const SLOT_TO_LIBRARY_BLOCKS: Record<SlotBlock, string[]> = {
 function candidatesForSlot(slot: SlotBlock): LibraryExercise[] {
   const blocks = SLOT_TO_LIBRARY_BLOCKS[slot];
   return LIBRARY.filter(e => blocks.includes(e.block));
+}
+
+// LIB-VARIANT-001 — un ejercicio "alternativo" debe ser funcionalmente
+// equivalente, no solo del mismo bloque muscular amplio. "Elevación
+// escapular" (trapecio) NO es alternativa válida de "Remo con barra"
+// (espalda) aunque compartan slot. Prioridad: misma `family` (variante de
+// EQUIPO del mismo movimiento exacto — máquina/mancuernas/polea/libre, que
+// es justo lo que el usuario pide poder elegir) → `substitutionFamily`
+// (sustituto funcional más amplio) → mismo patrón de movimiento → bloque.
+function alternativePool(ex: LibraryExercise): LibraryExercise[] {
+  const seen = new Set([ex.id]);
+  const tiers = [
+    LIBRARY.filter(o => o.family === ex.family),
+    LIBRARY.filter(o => o.substitutionFamily === ex.substitutionFamily),
+    LIBRARY.filter(o => o.movementPattern === ex.movementPattern),
+    LIBRARY.filter(o => o.block === ex.block),
+  ];
+  const pool: LibraryExercise[] = [];
+  for (const tier of tiers) {
+    for (const o of tier) {
+      if (seen.has(o.id)) continue;
+      seen.add(o.id);
+      pool.push(o);
+    }
+  }
+  return pool;
+}
+
+function alternativesFor(ex: LibraryExercise, count = 2): string[] {
+  return alternativePool(ex).slice(0, count).map(o => o.name);
+}
+
+// Tipo de equipo real (para que el usuario elija máquina/mancuernas/polea/libre).
+function equipmentType(equipment: string): ExerciseVariationType {
+  const e = normalize(equipment);
+  if (e.includes('mancuerna')) return 'dumbbells';
+  if (e.includes('polea')) return 'cable';
+  if (e.includes('maquina') || e.includes('smith') || e.includes('prensa') || e.includes('t-bar')) return 'machine';
+  if (e.includes('barra')) return 'barbell';
+  return 'bodyweight';
+}
+
+// Variantes de EQUIPO del mismo movimiento exacto (misma `family`), con su
+// tipo, para que la UI ofrezca "máquina / mancuernas / polea / libre".
+function variationsFor(ex: LibraryExercise): ExerciseVariation[] {
+  return LIBRARY.filter(o => o.family === ex.family && o.id !== ex.id)
+    .map(o => ({ id: `fk-${o.id}`, name: o.name, type: equipmentType(o.equipment) }));
 }
 
 // ── Divisiones semanales (igual estructura que v0, ahora sobre slots) ──
@@ -327,6 +374,7 @@ export interface MotorInput {
   excludedExercises?: string[];
   weight?: number;
   height?: number;
+  biologicalProfile?: 'male' | 'female';
   startFrom?: number;
   customDays?: number[];
   /** GUARD-STATE: id estable del usuario, para selección determinista reproducible. */
@@ -337,12 +385,67 @@ export interface MotorInput {
   previousPlan?: WeeklySession[];
 }
 
-function toExercise(pick: MotorExercise, role: string, level_: 'beginner' | 'advanced', sessionNumber: number, slot: number, alternatives: string[]): Exercise {
+// ── Carga inicial estimada (peso/altura/nivel) ───────────────────────
+// MOTOR-LOAD 🟡 — el spec deja "carga inicial" como parámetro abierto
+// ("no inventarla sin datos; calibrar primera ejecución"). Esta heurística
+// V1 da un punto de partida editable a partir del peso/altura/nivel del
+// usuario, coherente con esa misma filosofía: es una ESTIMACIÓN inicial
+// que el usuario ajusta en el campo de peso, nunca un valor fijo.
+const PATTERN_LOAD_FACTOR: Record<string, number> = {
+  'Sentadilla': 0.5, 'Sentadilla unilateral': 0.25, 'Sentadilla/prensa': 0.7, 'Prensa': 0.9,
+  'Zancada': 0.25, 'Step': 0.2,
+  'Bisagra': 0.6, 'Bisagra/extensión': 0.55,
+  'Extensión cadera': 0.5, 'Extensión rodilla': 0.25, 'Flexión rodilla': 0.2,
+  'Empuje horizontal': 0.35, 'Empuje inclinado': 0.3, 'Empuje vertical': 0.2, 'Empuje': 0.3,
+  'Tirón horizontal': 0.35, 'Tirón vertical': 0.35, 'Tirón alto': 0.15,
+  'Aducción horizontal': 0.12, 'Abducción horizontal': 0.1, 'Abducción hombro': 0.06, 'Abducción': 0.15,
+  'Extensión hombro': 0.1, 'Elevación escapular': 0.25,
+  'Flexión codo': 0.08, 'Extensión codo': 0.08,
+  'Flexión plantar': 0.4,
+  'Flexión tronco': 0.2, 'Elevación piernas': 0,
+  'Flexión muñeca': 0.03, 'Extensión muñeca': 0.02,
+  'Estabilidad': 0,
+};
+const ROLE_LOAD_FACTOR: Record<string, number> = { 'Principal': 1, 'Complementario': 0.75, 'Aislamiento': 0.55, 'Estabilidad': 0.4, 'Control': 0.4 };
+
+const roundTo = (n: number, step: number) => Math.round(n / step) * step;
+
+interface LoadProfile { weight?: number; height?: number; biologicalProfile?: 'male' | 'female'; }
+
+function estimateStartingLoad(ex: LibraryExercise, role: string, level_: 'beginner' | 'advanced', profile: LoadProfile): { kg: number; unit: 'total' | 'per-dumbbell' } | null {
+  if (ex.loadSource !== 'Externa' || !profile.weight) return null; // peso corporal / asistida: sin carga numérica que inventar
+
+  const heightM = profile.height ? profile.height / 100 : null;
+  const bmi = heightM ? profile.weight / (heightM * heightM) : null;
+  // IMC alto: el exceso no es masa funcional para estimar fuerza de arranque
+  // (mismo criterio que preferLowImpact más abajo).
+  let effectiveBw = profile.weight;
+  if (bmi && bmi > 27 && heightM) {
+    const refWeight = 24 * heightM * heightM;
+    effectiveBw = refWeight + (profile.weight - refWeight) * 0.4;
+  }
+
+  const patternFactor = PATTERN_LOAD_FACTOR[ex.movementPattern] ?? 0.2;
+  const levelFactor = level_ === 'advanced' ? 1.4 : 1;
+  const sexFactor = profile.biologicalProfile === 'female' ? 0.75 : 1;
+  const roleFactor = ROLE_LOAD_FACTOR[role] ?? 0.6;
+
+  const raw = effectiveBw * patternFactor * levelFactor * sexFactor * roleFactor;
+  const eq = normalize(ex.equipment);
+
+  if (eq.includes('mancuerna')) return { kg: Math.max(1, roundTo(raw / 2, 1)), unit: 'per-dumbbell' };
+  if (eq.includes('ez')) return { kg: Math.max(10, roundTo(raw, 2.5)), unit: 'total' };
+  if (eq.includes('barra')) return { kg: Math.max(20, roundTo(raw, 2.5)), unit: 'total' };
+  return { kg: Math.max(5, roundTo(raw, 2.5)), unit: 'total' }; // máquina / polea / prensa / smith / t-bar / cajón
+}
+
+function toExercise(pick: MotorExercise, role: string, level_: 'beginner' | 'advanced', alternatives: string[], loadProfile: LoadProfile = {}): Exercise {
   const { ex, reasonCodes } = pick;
   const timed = ex.family.includes('Anti-') || ex.name.toLowerCase().includes('plancha') || ex.name.toLowerCase().includes('dead bug');
   const p = prescribe(ex, role, level_, timed);
+  const load = timed ? null : estimateStartingLoad(ex, role, level_, loadProfile);
   return {
-    id: `fk-${sessionNumber}-${slot}-${ex.id}`,
+    id: `fk-${ex.id}`,
     name: ex.name,
     targetMuscle: BLOCK_TO_MUSCLE[ex.block] ?? 'none',
     sets: p.sets,
@@ -350,6 +453,7 @@ function toExercise(pick: MotorExercise, role: string, level_: 'beginner' | 'adv
     restSeconds: p.restSeconds,
     instructions: ex.motorNotes ? `${ex.family}. ${ex.motorNotes}` : ex.family,
     alternatives,
+    variations: variationsFor(ex),
     // Campos aditivos del Motor v1.0 (no rompen la UI actual, que sigue leyendo
     // sets/reps/restSeconds como antes):
     libraryId: ex.id,
@@ -358,6 +462,8 @@ function toExercise(pick: MotorExercise, role: string, level_: 'beginner' | 'adv
     repRange: p.repRange,
     rirTarget: p.rirTarget,
     reasonCodes,
+    suggestedWeightKg: load?.kg,
+    suggestedWeightUnit: load?.unit,
   };
 }
 
@@ -426,12 +532,9 @@ export function generatePlan(input: MotorInput): WeeklySession[] {
       }
     }
 
-    const exercises: Exercise[] = picks.map((pk, idx) => {
-      const alternatives = candidatesForSlot(
-        (Object.entries(SLOT_TO_LIBRARY_BLOCKS).find(([, blocks]) => blocks.includes(pk.ex.block))?.[0] as SlotBlock) ?? 'core',
-      ).filter(o => o.id !== pk.ex.id).slice(0, 2).map(o => o.name);
-      return toExercise({ ex: pk.ex, reasonCodes: pk.reasonCodes }, pk.role, userLevel, startFrom + i, idx, alternatives);
-    });
+    const loadProfile: LoadProfile = { weight: input.weight, height: input.height, biologicalProfile: input.biologicalProfile };
+    const exercises: Exercise[] = picks.map(pk =>
+      toExercise({ ex: pk.ex, reasonCodes: pk.reasonCodes }, pk.role, userLevel, alternativesFor(pk.ex), loadProfile));
 
     sessions.push({
       id: crypto.randomUUID(),
@@ -450,12 +553,9 @@ export function generatePlan(input: MotorInput): WeeklySession[] {
 
 // ── Catálogo completo como Exercise[] (búsquedas del Coach) ──────────
 export function motorCatalog(): Exercise[] {
-  return LIBRARY.map((ex, i) => {
+  return LIBRARY.map((ex) => {
     const role = ex.compatibleRoles[0] ?? 'Complementario';
-    const timed = ex.family.includes('Anti-') || ex.name.toLowerCase().includes('plancha') || ex.name.toLowerCase().includes('dead bug');
-    const p = prescribe(ex, role, 'beginner', timed);
-    return toExercise({ ex, reasonCodes: ['CATALOG'] }, role, 'beginner', 0, i,
-      LIBRARY.filter(o => o.block === ex.block && o.id !== ex.id).slice(0, 2).map(o => o.name));
+    return toExercise({ ex, reasonCodes: ['CATALOG'] }, role, 'beginner', alternativesFor(ex));
   });
 }
 

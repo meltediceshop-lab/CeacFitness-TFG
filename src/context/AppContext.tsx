@@ -307,6 +307,7 @@ function motorInputFromUser(u: User): Partial<MotorInput> {
     excludedExercises: u.profile?.excludedExercises ?? [],
     weight: u.profile?.weight,
     height: u.profile?.height,
+    biologicalProfile: u.profile?.biologicalProfile,
   };
 }
 

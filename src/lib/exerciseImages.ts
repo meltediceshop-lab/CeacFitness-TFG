@@ -25,16 +25,20 @@ const LUNGE = fam({ dumbbells: 'Dumbbell_Lunges', barbell: 'Barbell_Lunge', defa
 
 // Reglas ordenadas de más específica a más general
 interface Rule { kw: string[]; pick: (eq: Equipment) => string; }
-const RULES: Rule[] = [
+export const RULES: Rule[] = [
   { kw: ['goblet'], pick: () => 'Goblet_Squat' },
   { kw: ['femoral', 'curl de pierna', 'curl femoral', 'leg curl'], pick: () => 'Lying_Leg_Curls' },
   { kw: ['martillo', 'hammer'], pick: () => 'Hammer_Curls' },
-  { kw: ['rumano', 'romanian'], pick: () => 'Romanian_Deadlift' },
+  { kw: ['curl muñeca', 'curl de muñeca', 'wrist curl'], pick: () => 'Seated_Dumbbell_Palms-Up_Wrist_Curl' },
+  { kw: ['rdl', 'rumano', 'romanian'], pick: () => 'Romanian_Deadlift' },
   { kw: ['peso muerto', 'deadlift'], pick: DEADLIFT },
   { kw: ['prensa', 'leg press'], pick: () => 'Leg_Press' },
   { kw: ['extension de cuadriceps', 'extension de pierna', 'extensiones', 'leg extension', 'cuadriceps'], pick: () => 'Leg_Extensions' },
   { kw: ['gemelo', 'pantorrilla', 'calf', 'soleo'], pick: () => 'Standing_Calf_Raises' },
   { kw: ['hip thrust', 'empuje de cadera', 'puente de gluteo', 'glute bridge', 'gluteo'], pick: () => 'Barbell_Hip_Thrust' },
+  { kw: ['abduccion', 'abduction'], pick: () => 'Thigh_Abductor' },
+  { kw: ['extension lumbar', 'lumbar', 'hiperextension', 'hyperextension'], pick: () => 'Hyperextensions_Back_Extensions' },
+  { kw: ['step-up', 'step up', 'subida al cajon'], pick: () => 'Dumbbell_Step_Ups' },
   { kw: ['zancada', 'lunge', 'desplante', 'bulgara', 'split squat', 'estocada'], pick: LUNGE },
   { kw: ['sentadilla', 'squat'], pick: SQUAT },
   { kw: ['press inclinado', 'incline'], pick: () => 'Incline_Dumbbell_Press' },
@@ -46,6 +50,9 @@ const RULES: Rule[] = [
   { kw: ['jalon', 'lat pulldown', 'polea al pecho', 'dorsal en polea', 'pulldown'], pick: () => 'Wide-Grip_Lat_Pulldown' },
   { kw: ['dominada', 'pull up', 'pull-up', 'pullup', 'jalon dominada'], pick: () => 'Pullups' },
   { kw: ['remo', 'row'], pick: ROW },
+  { kw: ['cerrado', 'close grip', 'close-grip'], pick: () => 'Close-Grip_Barbell_Bench_Press' },
+  { kw: ['pullover'], pick: () => 'Straight-Arm_Dumbbell_Pullover' },
+  { kw: ['overhead'], pick: () => 'Standing_Dumbbell_Triceps_Extension' },
   { kw: ['press frances', 'frances', 'skull', 'patada de triceps', 'patada triceps'], pick: () => 'Triceps_Pushdown' },
   { kw: ['extension de triceps', 'triceps', 'pushdown', 'jalon de triceps'], pick: () => 'Triceps_Pushdown' },
   { kw: ['fondos', 'dips', 'fondo'], pick: () => 'Dips_-_Triceps_Version' },
@@ -53,9 +60,9 @@ const RULES: Rule[] = [
   { kw: ['flexion', 'flexiones', 'push up', 'push-up', 'pushup', 'lagartija'], pick: () => 'Pushups' },
   { kw: ['plancha', 'plank'], pick: () => 'Plank' },
   { kw: ['crunch', 'abdominal', 'encogimiento', 'abdominales'], pick: () => 'Crunches' },
-  { kw: ['elevacion de piernas', 'leg raise', 'elevaciones de pierna'], pick: () => 'Crunches' },
+  { kw: ['elevacion de piernas', 'leg raise', 'elevaciones de pierna', 'elevacion de rodillas', 'rodillas/piernas'], pick: () => 'Crunches' },
   { kw: ['mountain climber', 'escalador', 'burpee', 'jumping jack', 'saltos'], pick: () => 'Pushups' },
-  { kw: ['aperturas', 'apertura', 'fly', 'contractor', 'pec deck'], pick: () => 'Dumbbell_Bench_Press' },
+  { kw: ['aperturas', 'apertura', 'fly', 'contractor', 'pec deck', 'peck deck'], pick: () => 'Butterfly' },
 ];
 
 const MUSCLE_FALLBACK: Record<string, string> = {

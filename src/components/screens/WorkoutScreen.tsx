@@ -1010,7 +1010,7 @@ export function WorkoutScreen() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-stone-600 text-sm">Peso usado (kg) - opcional</label>
-                    {getLastWeight(currentExercise.id) && (
+                    {getLastWeight(currentExercise.id) ? (
                       <button
                         type="button"
                         onClick={() => setWeight(String(getLastWeight(currentExercise.id)))}
@@ -1018,9 +1018,17 @@ export function WorkoutScreen() {
                       >
                         <TrendingUp className="w-3 h-3" /> Última vez: {getLastWeight(currentExercise.id)} kg
                       </button>
+                    ) : currentExercise.suggestedWeightKg != null && (
+                      <button
+                        type="button"
+                        onClick={() => setWeight(String(currentExercise.suggestedWeightKg))}
+                        className="text-xs font-medium text-stone-500 bg-stone-100 px-2.5 py-1 rounded-full flex items-center gap-1"
+                      >
+                        Sugerido: {currentExercise.suggestedWeightKg} kg{currentExercise.suggestedWeightUnit === 'per-dumbbell' ? '/mancuerna' : ''}
+                      </button>
                     )}
                   </div>
-                  <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={getLastWeight(currentExercise.id) ? String(getLastWeight(currentExercise.id)) : 'Ej: 20'} className="py-5 px-4 rounded-xl bg-white border-stone-200 text-lg" />
+                  <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={String(getLastWeight(currentExercise.id) ?? currentExercise.suggestedWeightKg ?? 'Ej: 20')} className="py-5 px-4 rounded-xl bg-white border-stone-200 text-lg" />
                 </div>
                 <div>
                   <label className="text-stone-600 text-sm mb-2 block">Repeticiones hechas (si diferente)</label>
