@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { MASTER_PROMPT } from '@/lib/coachPrompt';
+import { decideSupervisorAction } from '@/lib/fitkSupervisor';
 import OpenAI from 'openai';
 
 const groq = new OpenAI({
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
     const answers = await req.json() as ReviewAnswers;
 
     // ── Contexto que la app SÍ conoce ────────────────────────────────
-    const [{ data: profile }, { data: onboarding }, { data: sessions }, { data: history }, { data: prevReview }, { data: lastMeasurements }] = await Promise.all([
+    const [{ data: profile }, { data: onboarding }, { data: sessions }, { data: history }, { data: prevReview }, { data: lastMeasurements }, safetyEventsResult] = await Promise.all([
       supabase.from('user_profiles').select('name, weight').eq('id', user.id).single(),
       supabase.from('user_onboarding').select('*').eq('user_id', user.id).single(),
       supabase.from('weekly_sessions').select('status').eq('user_id', user.id),
@@ -73,7 +74,11 @@ export async function POST(req: NextRequest) {
         .order('created_at', { ascending: false }).limit(1),
       supabase.from('body_measurements').select('weight, recorded_at').eq('user_id', user.id)
         .order('recorded_at', { ascending: false }).limit(1),
+      // Best-effort: la tabla safety_events puede no existir aún (falta
+      // scripts/setup-safety-events.sql) — si falla (error), se trata como "sin eventos".
+      supabase.from('safety_events').select('id').eq('user_id', user.id).is('reviewed_at', null),
     ]);
+    const pendingSafetyEvents = safetyEventsResult.error ? 0 : (safetyEventsResult.data?.length ?? 0);
 
     // Estadísticas de asistencia (historial archivado + semana en curso)
     let planned = sessions?.length ?? 0;
@@ -90,57 +95,63 @@ export async function POST(req: NextRequest) {
       ?? profile?.weight
       ?? null;
 
-    // ── Motor Fit-K: decide con TODO el contexto, mínimo cambio ─────
-    const motorPrompt = `${MASTER_PROMPT}
+    // ── Supervisor Fit-K: decisión DETERMINISTA (fitkSupervisor.ts) ──
+    // ARCH-COACH-001 / GUARD-ARCH-001 🔒 — el Motor decide, el Coach solo
+    // acompaña. Groq ya NO elige la acción: solo redacta el mensaje a
+    // partir de la acción y los motivos que decidió el Supervisor.
+    const { action: motorAction, reasons: motorReasons } = decideSupervisorAction({
+      attendancePct,
+      plannedSessions: planned,
+      goalChanged: answers.goal === 'change',
+      availabilityChanged: answers.availability === 'change',
+      hasDiscomfort: !!answers.discomfort?.trim(),
+      pendingSafetyEvents,
+      strength: answers.strength,
+      energy: answers.energy,
+      recovery: answers.recovery,
+      sleep: answers.sleep,
+      stress: answers.stress,
+      motivation: answers.motivation,
+    });
 
-Actúas ahora como el MOTOR FIT-K procesando la revisión periódica de ${profile?.name ?? 'el usuario'} (se hace cada 4-6 semanas).
+    const copyPrompt = `${MASTER_PROMPT}
+
+Actúas ahora como el COACH FIT-K redactando el mensaje de la revisión periódica de ${profile?.name ?? 'el usuario'} (cada 4-6 semanas). El MOTOR ya decidió la acción — tu única tarea es explicarla con cercanía, NUNCA elegir ni cambiar la acción.
+
+ACCIÓN YA DECIDIDA POR EL MOTOR (no la cuestiones, no la cambies): "${motorAction}"
+MOTIVOS internos del Motor: ${motorReasons.join(', ')}
 
 DATOS QUE LA APP CONOCE:
 - Objetivo actual: ${onboarding?.beginner_goal ?? onboarding?.advanced_goal ?? 'desconocido'}
-- Días de entrenamiento/semana: ${onboarding?.days_per_week ?? '?'}
 - Sesiones planificadas (histórico): ${planned} | Completadas: ${completed} | Asistencia: ${attendancePct}%
-- Peso anterior registrado: ${prevWeight ?? 'sin datos'} kg
+- Peso anterior registrado: ${prevWeight ?? 'sin datos'} kg | Peso actual: ${answers.weight ?? 'no indicado'} kg
 
 RESPUESTAS DE LA REVISIÓN:
-- Objetivo: ${answers.goal === 'same' ? 'mantiene el mismo' : `quiere cambiarlo a: ${answers.newGoal}`}
-- Peso actual: ${answers.weight ?? 'no indicado'} kg
-- Evolución de fuerza: ${answers.strength}
-- Energía en entrenos: ${answers.energy}
-- Recuperación entre sesiones: ${answers.recovery}
-- Sueño: ${answers.sleep}
-- Estrés: ${answers.stress}
-- Motivación: ${answers.motivation}
-- Disponibilidad: ${answers.availability === 'same' ? 'los mismos días' : `cambia a ${answers.newDaysPerWeek} días/semana`}
+- Fuerza: ${answers.strength} | Energía: ${answers.energy} | Recuperación: ${answers.recovery} | Sueño: ${answers.sleep} | Estrés: ${answers.stress} | Motivación: ${answers.motivation}
 - Molestias o lesiones: ${answers.discomfort?.trim() || 'ninguna'}
 
-REGLAS DEL MOTOR (obligatorias):
-- Esta revisión existe para conocer mejor al usuario, NO para cambiar la rutina automáticamente.
-- Aplica siempre el MENOR cambio necesario. Nunca cambies nada solo por variedad.
-- Si los datos indican que el plan funciona, la acción es "mantener".
-- Acciones posibles (elige UNA): "mantener" | "ajustar_volumen" | "ajustar_intensidad" | "cambiar_ejercicio" | "semana_descarga" | "adaptar_objetivo_disponibilidad".
-- Si hay molestias/lesiones, prioriza seguridad y recomienda consultar a un profesional, sin diagnosticar.
-- El mensaje al usuario: cercano, sin alarmismo, sin culpa, reforzando el acompañamiento. 2-4 frases, texto plano sin Markdown. Explica qué se mantiene o se ajusta y por qué, y cuál es el siguiente paso.
+INSTRUCCIONES:
+- Escribe el mensaje al usuario: cercano, sin alarmismo, sin culpa, reforzando el acompañamiento. 2-4 frases, texto plano sin Markdown.
+- Explica qué se mantiene o se ajusta y por qué (usa los motivos, en lenguaje natural), y cuál es el siguiente paso.
+- Si la acción es "cambiar_ejercicio" por molestias, recomienda consultar a un profesional sanitario si persiste, SIN diagnosticar.
 
 Responde SOLO con un JSON válido, sin nada más:
-{"action": "...", "message": "..."}`;
+{"message": "..."}`;
 
-    let motorAction = 'mantener';
     let coachMessage = 'Todo apunta a que el plan sigue funcionando bien, así que lo mantenemos tal cual. Sigue a tu ritmo y nos vemos en la próxima revisión.';
     try {
       const completion = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'system', content: motorPrompt }],
-        max_tokens: 400,
+        messages: [{ role: 'system', content: copyPrompt }],
+        max_tokens: 300,
         temperature: 0.4,
         response_format: { type: 'json_object' },
       });
       const raw = completion.choices[0]?.message?.content ?? '';
-      const parsed = JSON.parse(raw) as { action?: string; message?: string };
-      const validActions = ['mantener', 'ajustar_volumen', 'ajustar_intensidad', 'cambiar_ejercicio', 'semana_descarga', 'adaptar_objetivo_disponibilidad'];
-      if (parsed.action && validActions.includes(parsed.action)) motorAction = parsed.action;
+      const parsed = JSON.parse(raw) as { message?: string };
       if (parsed.message?.trim()) coachMessage = parsed.message.trim();
     } catch (e) {
-      console.error('[review] Motor fallback:', e);
+      console.error('[review] Redacción del Coach falló, se usa mensaje por defecto:', e);
     }
 
     // ── Persistencia ────────────────────────────────────────────────

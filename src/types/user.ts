@@ -168,6 +168,15 @@ export interface Exercise {
   alternatives?: string[]; // Alternative exercise names
   instructions?: string;
   imageUrl?: string; // GIF demonstration URL
+  // ── Campos del Motor Fit-K v1.0 (aditivos, opcionales) ──────────────
+  libraryId?: string;       // id real en la Biblioteca Inteligente (fitkLibrary.ts)
+  movementPattern?: string;
+  equipmentCode?: string;
+  repRange?: [number, number];
+  rirTarget?: [number, number];
+  reasonCodes?: string[];   // trazabilidad de la decisión del Motor (debug, no UI)
+  suggestedWeightKg?: number; // estimación inicial según peso/altura/nivel (editable, no se auto-registra)
+  suggestedWeightUnit?: 'total' | 'per-dumbbell'; // cómo interpretar suggestedWeightKg
 }
 
 export interface ExerciseLog {
@@ -234,6 +243,7 @@ export type AppScreen =
   | 'onboarding-beginner'
   | 'onboarding-advanced'
   | 'profile-setup'
+  | 'plan-choice'
   | 'check-in'
   | 'dashboard'
   | 'workout-preview'

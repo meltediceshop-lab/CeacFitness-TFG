@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { MASTER_PROMPT } from '@/lib/coachPrompt';
+import { libraryPromptSummary } from '@/lib/fitkLibrary';
 import OpenAI from 'openai';
 
 const deepseek = new OpenAI({
@@ -8,20 +9,10 @@ const deepseek = new OpenAI({
   apiKey: process.env.GROQ_API_KEY!,
 });
 
-// BOE-FK v1.0 — Lista oficial y cerrada de ejercicios (71). El Coach solo puede
-// asignar ejercicios de gimnasio que estén en esta lista.
-const BOE_FK = `LISTA OFICIAL DE EJERCICIOS BOE-FK v1.0 (obligatoria):
-PECHO (8): Press banca con barra, Press banca con mancuernas, Press inclinado con barra, Press inclinado con mancuernas, Press en máquina convergente, Aperturas con polea, Aperturas con mancuernas, Fondos para pecho.
-ESPALDA (10): Dominadas, Jalón al pecho, Jalón agarre neutro, Remo con barra, Remo con mancuerna, Remo en polea baja, Remo en máquina apoyada, Pullover en polea, Peso muerto rumano, Face Pull.
-HOMBROS (8): Press militar con barra, Press militar con mancuernas, Press máquina, Elevaciones laterales con mancuernas, Elevaciones laterales en polea, Pájaros con mancuernas, Reverse Pec Deck, Elevaciones frontales.
-BÍCEPS (6): Curl barra recta, Curl barra EZ, Curl alterno mancuernas, Curl inclinado, Curl martillo, Curl en polea.
-TRÍCEPS (6): Jalón cuerda, Jalón barra recta, Extensión por encima de la cabeza, Press francés, Fondos en banco, Press cerrado.
-CUÁDRICEPS (8): Sentadilla trasera, Sentadilla guiada (Smith), Prensa, Hack Squat, Sentadilla búlgara, Zancadas caminando, Extensión de cuádriceps, Step-Up.
-ISQUIOTIBIALES (6): Curl femoral tumbado, Curl femoral sentado, Curl femoral unilateral, Peso muerto rumano con barra, Peso muerto rumano con mancuernas, Buenos días.
-GLÚTEOS (5): Hip Thrust, Patada de glúteo en polea, Abducción en máquina, Sentadilla sumo, Puente de glúteo.
-GEMELOS (4): Gemelo de pie, Gemelo sentado, Gemelo en prensa, Gemelo unilateral.
-ABDOMEN/CORE (10): Crunch en máquina, Crunch en polea, Elevaciones de piernas colgado, Elevaciones de rodillas, Plancha frontal, Plancha lateral, Dead Bug, Pallof Press, Rueda abdominal (Ab Wheel), Mountain Climbers.
-REGLA: Al crear entrenamientos o proponer/sustituir ejercicios de gimnasio, usa EXCLUSIVAMENTE ejercicios de esta lista, con estos nombres exactos. Si el usuario menciona un ejercicio que no está, sugiere el equivalente más cercano de la lista.`;
+// Biblioteca Fit-K v1.0 (81 ejercicios) — misma fuente de verdad que el
+// Motor (fitkLibrary.ts/fitkMotor.ts). Antes el chat tenía su propia copia
+// hardcodeada de 71 ejercicios, desincronizada del catálogo real.
+const BOE_FK = libraryPromptSummary();
 
 type ExerciseContext = {
   sessionName?: string;
