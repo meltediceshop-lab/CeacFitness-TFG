@@ -496,17 +496,18 @@ export function adaptSessionForToday(session: WeeklySession, adapt: DailyAdapter
   if (adapt.minutesAvailable) {
     const budgetSeconds = adapt.minutesAvailable * 60;
     const sorted = [...exercises].sort((a, b) => exerciseRolePriority(a) - exerciseRolePriority(b));
-    const kept: Exercise[] = [];
+    const kept: { ex: Exercise; lib: LibraryExercise }[] = [];
     for (const ex of sorted) {
       const lib = LIBRARY.find(l => l.id === ex.libraryId);
+      if (!lib) continue;
       const projected = estimateSessionSeconds([
-        ...kept.map(k => ({ ex: LIBRARY.find(l => l.id === k.libraryId)!, sets: k.sets, restSeconds: k.restSeconds })),
-        ...(lib ? [{ ex: lib, sets: ex.sets, restSeconds: ex.restSeconds }] : []),
+        ...kept.map(k => ({ ex: k.lib, sets: k.ex.sets, restSeconds: k.ex.restSeconds })),
+        { ex: lib, sets: ex.sets, restSeconds: ex.restSeconds },
       ]);
-      if (!lib || (kept.length > 0 && projected > budgetSeconds * 0.98)) continue;
-      kept.push(ex);
+      if (kept.length > 0 && projected > budgetSeconds * 0.98) continue;
+      kept.push({ ex, lib });
     }
-    exercises = kept.length > 0 ? kept : exercises.slice(0, 1);
+    exercises = kept.length > 0 ? kept.map(k => k.ex) : exercises.slice(0, 1);
   }
 
   return {

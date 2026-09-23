@@ -947,3 +947,18 @@ export const LIBRARY: LibraryExercise[] = [
 export const libraryById = new Map(LIBRARY.map(e => [e.id, e]));
 export const libraryByBlock = (block: string) => LIBRARY.filter(e => e.block === block);
 
+// Resumen en texto para el system prompt del Coach — única fuente de verdad
+// (antes el chat tenía su propia copia hardcodeada de la lista, desincronizada
+// del Motor). Se regenera siempre desde LIBRARY, nunca se edita a mano.
+export function libraryPromptSummary(): string {
+  const byBlock = new Map<string, string[]>();
+  for (const ex of LIBRARY) {
+    if (!byBlock.has(ex.block)) byBlock.set(ex.block, []);
+    byBlock.get(ex.block)!.push(ex.name);
+  }
+  const lines = Array.from(byBlock.entries())
+    .map(([block, names]) => `${block.toUpperCase()} (${names.length}): ${names.join(', ')}.`)
+    .join('\n');
+  return `LISTA OFICIAL DE EJERCICIOS — BIBLIOTECA FIT-K v1.0 (obligatoria, ${LIBRARY.length} ejercicios):\n${lines}\nREGLA: Al crear entrenamientos o proponer/sustituir ejercicios de gimnasio, usa EXCLUSIVAMENTE ejercicios de esta lista, con estos nombres exactos. Si el usuario menciona un ejercicio que no está, sugiere el equivalente más cercano de la lista.`;
+}
+
