@@ -3,7 +3,7 @@
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { generatePlan, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
+import { generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import type {
   User,
   AppScreen,
@@ -18,7 +18,9 @@ import type {
   WorkoutMode,
   Exercise,
   ExerciseVariation,
-  ExerciseLog
+  ExerciseLog,
+  TrainingDay,
+  DayOfWeek
 } from '@/types/user';
 
 // Exercise variations with demonstration GIFs
@@ -365,6 +367,8 @@ interface AppContextType {
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: (finalProfile?: Partial<UserProfile>) => void;
+  planOptions: WeeklySession[][] | null;
+  choosePlanOption: (index: number) => void;
   completeWeeklySession: (sessionId: string, logs?: ExerciseLog[]) => void;
   moveSession: (sessionId: string, toSessionNumber: number) => void;
   removeSession: (sessionId: string) => void;
@@ -404,6 +408,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
+  // Sección 7 del Motor: para 3-4 días/semana hay 2 opciones válidas de plan.
+  const [planOptions, setPlanOptions] = useState<WeeklySession[][] | null>(null);
+  const [pendingOnboarding, setPendingOnboarding] = useState<{
+    onboarding: BeginnerOnboarding | AdvancedOnboarding;
+    resolvedProfile: Partial<UserProfile>;
+  } | null>(null);
 
   const supabase = createClient();
 
@@ -702,7 +712,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Use finalProfile if provided (avoids React state batching race condition)
     const resolvedProfile = finalProfile ?? userProfile;
 
-    const weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration || '45min', 1, undefined, {
+    const motorInput: Partial<MotorInput> = {
       goal: onboarding.goal,
       level: userLevel ?? undefined,
       priorityMuscle: 'priorityMuscle' in onboarding ? onboarding.priorityMuscle : undefined,
@@ -710,8 +720,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       excludedExercises: resolvedProfile.excludedExercises ?? [],
       weight: resolvedProfile.weight,
       height: resolvedProfile.height,
-    });
+      biologicalProfile: resolvedProfile.biologicalProfile,
+    };
 
+    // MOTOR sección 7: 3-4 días/semana tienen 2 opciones técnicamente válidas;
+    // el usuario elige. No se decide por él ni se degrada ninguna.
+    if (planOptionCount(daysPerWeek) > 1) {
+      const days = customDaysFromTrainingDays('trainingDays' in onboarding ? onboarding.trainingDays : undefined, daysPerWeek);
+      const options = generatePlanOptions({
+        daysPerWeek, workoutDuration: workoutDuration || '45min', startFrom: 1, customDays: days, ...motorInput,
+      });
+      setPlanOptions(options);
+      setPendingOnboarding({ onboarding, resolvedProfile });
+      setScreen('plan-choice');
+      return;
+    }
+
+    const weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration || '45min', 1, undefined, motorInput);
+    finalizeOnboarding(onboarding, resolvedProfile, daysPerWeek, weeklySessions);
+  };
+
+  // Distribución de días reales si el usuario ya los eligió en el wizard
+  // (beginner con trainingDays); si no, usa la distribución equidistante.
+  function customDaysFromTrainingDays(trainingDays: TrainingDay[] | undefined, daysPerWeek: number): number[] | undefined {
+    if (!trainingDays || trainingDays.length === 0) return undefined;
+    const order: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const days = trainingDays.map(td => order.indexOf(td.day)).filter(i => i >= 0).sort((a, b) => a - b);
+    return days.length === daysPerWeek ? days : undefined;
+  }
+
+  const choosePlanOption = (index: number) => {
+    if (!planOptions || !pendingOnboarding) return;
+    const chosen = planOptions[index] ?? planOptions[0];
+    const { onboarding, resolvedProfile } = pendingOnboarding;
+    finalizeOnboarding(onboarding, resolvedProfile, chosen.length, chosen);
+    setPlanOptions(null);
+    setPendingOnboarding(null);
+  };
+
+  const finalizeOnboarding = (
+    onboarding: BeginnerOnboarding | AdvancedOnboarding,
+    resolvedProfile: Partial<UserProfile>,
+    daysPerWeek: number,
+    weeklySessions: WeeklySession[],
+  ) => {
+    const workoutDuration = 'workoutDuration' in onboarding ? onboarding.workoutDuration : '45min';
     const newUser: User = {
       id: supabaseUserId ?? `user-${Date.now()}`,
       level: userLevel!,
@@ -1196,6 +1249,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         completeOnboarding,
+        planOptions,
+        choosePlanOption,
         completeWeeklySession,
         moveSession,
         removeSession,

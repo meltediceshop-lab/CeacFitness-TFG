@@ -153,6 +153,24 @@ const SPLITS: Record<number, SessionTemplate[]> = {
   7: [T.push, T.pull, T.legs, T.upperA, T.lowerB, T.fullA, T.fullB],
 };
 
+// Sección 7 del spec: "3–4 días: dos opciones técnicamente válidas; el
+// usuario elige. No se degrada una opción para crear contraste." Para
+// 2 días o 5+ solo hay un plan válido (SPLITS de arriba).
+const SPLIT_OPTIONS: Partial<Record<number, SessionTemplate[][]>> = {
+  3: [
+    [T.fullA, T.upperA, T.lowerA],   // Opción A: híbrido full body + upper/lower
+    [T.fullA, T.fullB, T.fullA],     // Opción B: full body x3
+  ],
+  4: [
+    [T.upperA, T.lowerA, T.upperB, T.lowerB], // Opción A: upper/lower x2
+    [T.push, T.pull, T.legs, T.upperA],       // Opción B: push/pull/legs + upper extra
+  ],
+};
+
+export function planOptionCount(daysPerWeek: number): number {
+  return SPLIT_OPTIONS[daysPerWeek]?.length ?? 1;
+}
+
 // ── Hard Filters: lesión / exclusión explícita ──────────────────────
 // MOTOR-HARD-001 🔒 — se resuelven antes del scoring, no negociables.
 const INJURY_RULES: { keywords: string[]; excludeIds: (ex: LibraryExercise) => boolean }[] = [
@@ -383,6 +401,8 @@ export interface MotorInput {
   planVersion?: number;
   /** Semana anterior, para aplicar continuidad (MOTOR-STATE-MASTER). */
   previousPlan?: WeeklySession[];
+  /** Para 3-4 días: qué opción de las 2 válidas usar (sección 7). Default 0. */
+  planOption?: number;
 }
 
 // ── Carga inicial estimada (peso/altura/nivel) ───────────────────────
@@ -472,7 +492,7 @@ export function generatePlan(input: MotorInput): WeeklySession[] {
   const duration = input.workoutDuration === '30min' ? 30 : input.workoutDuration === '1hour' ? 60 : 45;
   const targetSeconds = duration * 60;
   const userLevel = input.level ?? 'beginner';
-  const templates = SPLITS[days];
+  const templates = SPLIT_OPTIONS[days]?.[input.planOption ?? 0] ?? SPLITS[days];
   const startFrom = input.startFrom ?? 1;
   const dayList = input.customDays;
   const planVersion = input.planVersion ?? 1;
@@ -549,6 +569,13 @@ export function generatePlan(input: MotorInput): WeeklySession[] {
   }
 
   return sessions;
+}
+
+// Sección 7: para 3-4 días devuelve las 2 opciones válidas; para el resto,
+// un único plan. Ninguna opción se degrada para "marcar un ganador".
+export function generatePlanOptions(input: MotorInput): WeeklySession[][] {
+  const count = planOptionCount(input.daysPerWeek);
+  return Array.from({ length: count }, (_, i) => generatePlan({ ...input, planOption: i }));
 }
 
 // ── Catálogo completo como Exercise[] (búsquedas del Coach) ──────────

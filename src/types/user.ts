@@ -243,6 +243,7 @@ export type AppScreen =
   | 'onboarding-beginner'
   | 'onboarding-advanced'
   | 'profile-setup'
+  | 'plan-choice'
   | 'check-in'
   | 'dashboard'
   | 'workout-preview'

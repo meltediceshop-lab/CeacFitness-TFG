@@ -1,6 +1,6 @@
 // Suite de verificación del Motor Fit-K v1.0 (offline, sin DB/env).
 // Uso: npx tsx scripts/verify-fitk-motor.ts
-import { generatePlan, motorCatalog, adaptSessionForToday, type MotorInput } from '../src/lib/fitkMotor';
+import { generatePlan, generatePlanOptions, planOptionCount, motorCatalog, adaptSessionForToday, type MotorInput } from '../src/lib/fitkMotor';
 import { LIBRARY } from '../src/lib/fitkLibrary';
 
 let failures = 0;
@@ -143,6 +143,28 @@ check('Press banca barra tiene variantes de equipo (mancuernas/máquina/corporal
 check('Las variantes de Press banca barra incluyen distintos tipos de equipo', new Set(benchBarbell?.variations?.map(v => v.type)).size >= 2);
 const rdl = catalog.find(e => e.name === 'RDL barra');
 check('RDL barra tiene alternativas funcionales (no vacío)', (rdl?.alternatives?.length ?? 0) > 0);
+
+// ── Sección 7: 2 opciones de plan para 3-4 días ──────────────────────
+console.log('\n--- Opciones de plan (3-4 días) ---');
+check('1 día -> 1 sola opción', planOptionCount(1) === 1);
+check('2 días -> 1 sola opción', planOptionCount(2) === 1);
+check('3 días -> 2 opciones', planOptionCount(3) === 2);
+check('4 días -> 2 opciones', planOptionCount(4) === 2);
+check('5 días -> 1 sola opción', planOptionCount(5) === 1);
+check('6 días -> 1 sola opción', planOptionCount(6) === 1);
+check('7 días -> 1 sola opción', planOptionCount(7) === 1);
+
+const opts3 = generatePlanOptions({ daysPerWeek: 3, workoutDuration: '45min', level: 'beginner', userId: 'opt3', planVersion: 1 });
+check('generatePlanOptions(3 días) devuelve 2 planes', opts3.length === 2);
+check('Las 2 opciones de 3 días tienen nombres de sesión distintos', JSON.stringify(opts3[0].map(s => s.name)) !== JSON.stringify(opts3[1].map(s => s.name)));
+check('Ambas opciones de 3 días generan sesiones con ejercicios', opts3.every(plan => plan.every(s => s.exercises.length > 0)));
+
+const opts4 = generatePlanOptions({ daysPerWeek: 4, workoutDuration: '45min', level: 'beginner', userId: 'opt4', planVersion: 1 });
+check('generatePlanOptions(4 días) devuelve 2 planes', opts4.length === 2);
+check('Las 2 opciones de 4 días tienen nombres de sesión distintos', JSON.stringify(opts4[0].map(s => s.name)) !== JSON.stringify(opts4[1].map(s => s.name)));
+
+const opts5 = generatePlanOptions({ daysPerWeek: 5, workoutDuration: '45min', level: 'beginner', userId: 'opt5', planVersion: 1 });
+check('generatePlanOptions(5 días) devuelve 1 solo plan', opts5.length === 1);
 
 console.log(`\n${failures === 0 ? 'TODOS LOS CHECKS PASARON' : `${failures} CHECK(S) FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);
