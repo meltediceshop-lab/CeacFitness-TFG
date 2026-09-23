@@ -815,6 +815,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             energyLevel: todayEnergy,
             completed: true,
             mode: workoutMode,
+            // Ejercicios realmente presentados hoy (Session Instance ya
+            // adaptada por energía en EnergyCheckScreen, si aplicó).
+            sessionInstance: selectedWeeklySession?.id === sessionId ? selectedWeeklySession.exercises : undefined,
           }),
         })
           .then(res => res.json())

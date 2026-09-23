@@ -19,6 +19,7 @@ import {
   Watch,
   Hash,
   Flame,
+  AlertTriangle,
 } from 'lucide-react';
 import type { Exercise, ExerciseVariation, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
@@ -27,6 +28,7 @@ import { WarmupModal } from '@/components/workout/WarmupModal';
 import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
 import { useScrollLock } from '@/hooks/useScrollLock';
+import { handleDiscomfort } from '@/lib/fitkSafety';
 
 interface ExerciseLog {
   exerciseId: string;
@@ -127,7 +129,8 @@ export function WorkoutScreen() {
     setUser,
     completeWeeklySession,
     getExerciseHistory,
-    getExerciseByName
+    getExerciseByName,
+    supabaseUserId,
   } = useApp();
 
   // 1. Estado del Modal (Compartido para Modo Simple y Guiado)
@@ -163,6 +166,9 @@ export function WorkoutScreen() {
   const [showDurationBanner, setShowDurationBanner] = useState(false);
   const [showClockPicker, setShowClockPicker] = useState(false);
   const [showClockExpanded, setShowClockExpanded] = useState(false);
+
+  // 5. Safety Flow (SAFE-001): molestia declarada por el usuario
+  const [discomfortMessage, setDiscomfortMessage] = useState<string | null>(null);
 
   // Limpieza del temporizador de descanso
   useEffect(() => {
@@ -262,6 +268,32 @@ export function WorkoutScreen() {
     if (restIntervalRef.current) clearInterval(restIntervalRef.current);
     setIsResting(false);
     setRestTime(0);
+  };
+
+  // Safety Flow (SAFE-001 🔒): cancela el ejercicio actual sin bajar carga
+  // ni sustituir automáticamente; registra el evento y deja continuar el
+  // resto de la sesión con normalidad.
+  const handleReportDiscomfort = () => {
+    if (!currentExercise) return;
+    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    setIsResting(false);
+    setRestTime(0);
+
+    const { message, event } = handleDiscomfort(currentExercise);
+    setDiscomfortMessage(message);
+
+    if (supabaseUserId) {
+      fetch('/api/safety-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(event),
+      }).catch(() => { /* silently ignore */ });
+    }
+
+    if (currentExerciseIndex < exercises.length - 1) {
+      setCurrentExerciseIndex(currentExerciseIndex + 1);
+      setCurrentSetIndex(0);
+    }
   };
 
   const handleCompleteSet = () => {
@@ -872,8 +904,32 @@ export function WorkoutScreen() {
           </button>
         </div>
         <Progress value={progress} className="h-2 bg-stone-200" />
-        <p className="text-right text-sm text-stone-400 mt-1">{completedSets.size}/{totalSets} series</p>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-sm text-stone-400">{completedSets.size}/{totalSets} series</p>
+          <button
+            onClick={handleReportDiscomfort}
+            className="flex items-center gap-1 text-xs text-stone-400 hover:text-amber-600 transition-colors"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Tengo molestias
+          </button>
+        </div>
       </div>
+
+      <AnimatePresence>
+        {discomfortMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mx-6 mb-3 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3"
+          >
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800 flex-1">{discomfortMessage}</p>
+            <button onClick={() => setDiscomfortMessage(null)}><X className="w-4 h-4 text-amber-600" /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 px-6 flex flex-col">
         <AnimatePresence mode="wait">
