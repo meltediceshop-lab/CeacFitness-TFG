@@ -168,6 +168,13 @@ export interface Exercise {
   alternatives?: string[]; // Alternative exercise names
   instructions?: string;
   imageUrl?: string; // GIF demonstration URL
+  // ── Campos del Motor Fit-K v1.0 (aditivos, opcionales) ──────────────
+  libraryId?: string;       // id real en la Biblioteca Inteligente (fitkLibrary.ts)
+  movementPattern?: string;
+  equipmentCode?: string;
+  repRange?: [number, number];
+  rirTarget?: [number, number];
+  reasonCodes?: string[];   // trazabilidad de la decisión del Motor (debug, no UI)
 }
 
 export interface ExerciseLog {

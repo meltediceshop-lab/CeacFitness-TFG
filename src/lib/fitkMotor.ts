@@ -1,128 +1,88 @@
 // ─────────────────────────────────────────────────────────────────────
-// Motor Fit-K — generación de planes de entrenamiento personalizados.
-// Usa EXCLUSIVAMENTE la lista oficial BOE-FK v1.0 (71 ejercicios) y
-// decide según TODAS las variables del usuario: objetivo (incl. pérdida
-// de peso vs pérdida de grasa vs recomposición), nivel, días/semana,
-// duración, peso/altura (IMC), lesiones, músculo prioritario y
-// ejercicios excluidos. Determinista: mismo perfil → mismo plan.
+// Motor Fit-K v1.0 — Hard Filters → Scoring ponderado → banda equivalente
+// → selección estable → construcción secuencial con recálculo de contexto
+// → prescripción → estimador de duración → guardrails ligeros.
+//
+// Implementa FIT-K_Especificacion_Tecnica_Motor_Biblioteca_v1.0 y
+// FIT-K_Motor_v1.0_Especificacion_Implementacion sobre la Biblioteca real
+// de 81 ejercicios (fitkLibrary.ts). Determinista: mismo perfil + misma
+// planVersion → mismo plan (selección estable por hash, sin Math.random).
+//
+// Los parámetros numéricos exactos del scoring (sub-pesos dentro de cada
+// factor, umbrales de estancamiento, etc.) están marcados como abiertos 🟡
+// en el propio documento de especificación — aquí se fijan valores V1
+// razonables y documentados, no constantes fisiológicas.
 // ─────────────────────────────────────────────────────────────────────
-import type { Exercise, WeeklySession, MuscleGroup } from '@/types/user';
+import type { Exercise, WeeklySession, MuscleGroup, EnergyLevel } from '@/types/user';
+import { LIBRARY, type LibraryExercise } from '@/lib/fitkLibrary';
 
-type BoeGroup =
+// ── Utilidades ───────────────────────────────────────────────────────
+const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+function fnv1a(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+function stablePick<T>(pool: T[], seedParts: (string | number)[]): T {
+  if (pool.length === 1) return pool[0];
+  const h = fnv1a(seedParts.join('|'));
+  return pool[h % pool.length];
+}
+
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+// Escala discreta 0..1 sobre los niveles cualitativos de la Biblioteca.
+// MOTOR-SCORE-LEVELS 🟡 — pesos exactos abiertos; niveles V1 documentados.
+const LEVEL_MAP: Record<string, number> = {
+  'Mínimo': 0,
+  'Bajo': 0, 'Baja': 0,
+  'Bajo-Medio': 0.25, 'Baja-Media': 0.25,
+  'Medio': 0.5, 'Media': 0.5,
+  'Medio-Alto': 0.75, 'Media-Alta': 0.75,
+  'Alto': 1, 'Alta': 1,
+  'Variable': 0.5,
+};
+const level = (raw: string | undefined) => (raw ? LEVEL_MAP[raw.trim()] ?? 0.5 : 0.5);
+
+// ── Bloques de la Biblioteca → agrupación de la App (6 categorías UI) ──
+const BLOCK_TO_MUSCLE: Record<string, MuscleGroup> = {
+  'Pecho': 'chest', 'Espalda': 'back', 'Hombro': 'shoulders', 'Trapecio': 'back',
+  'Bíceps': 'arms', 'Tríceps': 'arms', 'Antebrazo': 'arms',
+  'Pierna': 'legs', 'Isquios': 'legs', 'Glúteos': 'legs', 'Gemelos': 'legs',
+  'Core': 'core',
+};
+
+// Un slot lógico "pecho" incluye Pecho; "espalda" arrastra Trapecio;
+// "biceps"/"triceps" arrastran Antebrazo como accesorio ocasional.
+type SlotBlock =
   | 'pecho' | 'espalda' | 'hombros' | 'biceps' | 'triceps'
   | 'cuadriceps' | 'isquios' | 'gluteos' | 'gemelos' | 'core';
 
-interface MotorExercise {
-  name: string;
-  group: BoeGroup;
-  muscle: MuscleGroup;
-  machine?: boolean;  // bajo impacto articular / guiado
-  timed?: boolean;    // se mide en segundos (planchas, etc.)
-  cue: string;
-}
-
-// ── Catálogo BOE-FK v1.0 (71) ────────────────────────────────────────
-const CATALOG: MotorExercise[] = [
-  // PECHO (8)
-  { name: 'Press banca con barra',           group: 'pecho', muscle: 'chest', cue: 'Baja la barra controlada hasta el pecho' },
-  { name: 'Press banca con mancuernas',      group: 'pecho', muscle: 'chest', cue: 'Codos a unos 45º del cuerpo' },
-  { name: 'Press inclinado con barra',       group: 'pecho', muscle: 'chest', cue: 'Banco a 30-45º, baja al pecho superior' },
-  { name: 'Press inclinado con mancuernas',  group: 'pecho', muscle: 'chest', cue: 'No choques las mancuernas arriba' },
-  { name: 'Press en máquina convergente',    group: 'pecho', muscle: 'chest', machine: true, cue: 'Espalda pegada al respaldo' },
-  { name: 'Aperturas con polea',             group: 'pecho', muscle: 'chest', machine: true, cue: 'Abraza un barril imaginario' },
-  { name: 'Aperturas con mancuernas',        group: 'pecho', muscle: 'chest', cue: 'Codos ligeramente flexionados siempre' },
-  { name: 'Fondos para pecho',               group: 'pecho', muscle: 'chest', cue: 'Inclínate hacia delante para cargar el pecho' },
-  // ESPALDA (10)
-  { name: 'Dominadas',                       group: 'espalda', muscle: 'back', cue: 'Pecho hacia la barra, sin balanceo' },
-  { name: 'Jalón al pecho',                  group: 'espalda', muscle: 'back', machine: true, cue: 'Lleva la barra a la clavícula' },
-  { name: 'Jalón agarre neutro',             group: 'espalda', muscle: 'back', machine: true, cue: 'Codos pegados al torso al bajar' },
-  { name: 'Remo con barra',                  group: 'espalda', muscle: 'back', cue: 'Espalda recta, tira hacia el ombligo' },
-  { name: 'Remo con mancuerna',              group: 'espalda', muscle: 'back', cue: 'Aprieta el omóplato arriba' },
-  { name: 'Remo en polea baja',              group: 'espalda', muscle: 'back', machine: true, cue: 'Pecho alto, tira hacia el abdomen' },
-  { name: 'Remo en máquina apoyada',         group: 'espalda', muscle: 'back', machine: true, cue: 'Pecho apoyado, sin impulso' },
-  { name: 'Pullover en polea',               group: 'espalda', muscle: 'back', machine: true, cue: 'Brazos casi rectos, arco amplio' },
-  { name: 'Peso muerto rumano',              group: 'espalda', muscle: 'back', cue: 'Cadera atrás, espalda neutra' },
-  { name: 'Face Pull',                       group: 'espalda', muscle: 'back', machine: true, cue: 'Tira hacia la cara con codos altos' },
-  // HOMBROS (8)
-  { name: 'Press militar con barra',         group: 'hombros', muscle: 'shoulders', cue: 'No arquees la zona lumbar' },
-  { name: 'Press militar con mancuernas',    group: 'hombros', muscle: 'shoulders', cue: 'Sube sin chocar arriba' },
-  { name: 'Press máquina',                   group: 'hombros', muscle: 'shoulders', machine: true, cue: 'Recorrido completo y controlado' },
-  { name: 'Elevaciones laterales con mancuernas', group: 'hombros', muscle: 'shoulders', cue: 'Sube hasta la altura del hombro' },
-  { name: 'Elevaciones laterales en polea',  group: 'hombros', muscle: 'shoulders', machine: true, cue: 'Tensión constante, sin impulso' },
-  { name: 'Pájaros con mancuernas',          group: 'hombros', muscle: 'shoulders', cue: 'Torso inclinado, abre en arco' },
-  { name: 'Reverse Pec Deck',                group: 'hombros', muscle: 'shoulders', machine: true, cue: 'Aprieta la parte posterior del hombro' },
-  { name: 'Elevaciones frontales',           group: 'hombros', muscle: 'shoulders', cue: 'Alterna brazos, sin balanceo' },
-  // BÍCEPS (6)
-  { name: 'Curl barra recta',                group: 'biceps', muscle: 'arms', cue: 'Codos fijos junto al torso' },
-  { name: 'Curl barra EZ',                   group: 'biceps', muscle: 'arms', cue: 'Agarre cómodo, baja controlado' },
-  { name: 'Curl alterno mancuernas',         group: 'biceps', muscle: 'arms', cue: 'Gira la muñeca al subir' },
-  { name: 'Curl inclinado',                  group: 'biceps', muscle: 'arms', cue: 'Banco a 45º, estira bien abajo' },
-  { name: 'Curl martillo',                   group: 'biceps', muscle: 'arms', cue: 'Agarre neutro, sin balanceo' },
-  { name: 'Curl en polea',                   group: 'biceps', muscle: 'arms', machine: true, cue: 'Tensión constante todo el recorrido' },
-  // TRÍCEPS (6)
-  { name: 'Jalón cuerda',                    group: 'triceps', muscle: 'arms', machine: true, cue: 'Separa la cuerda abajo' },
-  { name: 'Jalón barra recta',               group: 'triceps', muscle: 'arms', machine: true, cue: 'Codos pegados, extiende del todo' },
-  { name: 'Extensión por encima de la cabeza', group: 'triceps', muscle: 'arms', cue: 'Codos apuntando al techo' },
-  { name: 'Press francés',                   group: 'triceps', muscle: 'arms', cue: 'Baja la barra hacia la frente' },
-  { name: 'Fondos en banco',                 group: 'triceps', muscle: 'arms', cue: 'Codos hacia atrás, no abras' },
-  { name: 'Press cerrado',                   group: 'triceps', muscle: 'arms', cue: 'Agarre al ancho de hombros' },
-  // CUÁDRICEPS (8)
-  { name: 'Sentadilla trasera',              group: 'cuadriceps', muscle: 'legs', cue: 'Rompe la paralela si puedes, espalda neutra' },
-  { name: 'Sentadilla guiada (Smith)',       group: 'cuadriceps', muscle: 'legs', machine: true, cue: 'Pies ligeramente adelantados' },
-  { name: 'Prensa',                          group: 'cuadriceps', muscle: 'legs', machine: true, cue: 'No bloquees las rodillas arriba' },
-  { name: 'Hack Squat',                      group: 'cuadriceps', muscle: 'legs', machine: true, cue: 'Baja profundo y controlado' },
-  { name: 'Sentadilla búlgara',              group: 'cuadriceps', muscle: 'legs', cue: 'Pie trasero elevado, torso erguido' },
-  { name: 'Zancadas caminando',              group: 'cuadriceps', muscle: 'legs', cue: 'Pasos amplios, rodilla al suelo' },
-  { name: 'Extensión de cuádriceps',         group: 'cuadriceps', muscle: 'legs', machine: true, cue: 'Aguanta 1s arriba' },
-  { name: 'Step-Up',                         group: 'cuadriceps', muscle: 'legs', cue: 'Empuja con la pierna de arriba' },
-  // ISQUIOTIBIALES (6)
-  { name: 'Curl femoral tumbado',            group: 'isquios', muscle: 'legs', machine: true, cue: 'Cadera pegada al banco' },
-  { name: 'Curl femoral sentado',            group: 'isquios', muscle: 'legs', machine: true, cue: 'Aprieta abajo 1 segundo' },
-  { name: 'Curl femoral unilateral',         group: 'isquios', muscle: 'legs', machine: true, cue: 'Una pierna cada vez, controla la bajada' },
-  { name: 'Peso muerto rumano con barra',    group: 'isquios', muscle: 'legs', cue: 'Cadera atrás, siente el estiramiento' },
-  { name: 'Peso muerto rumano con mancuernas', group: 'isquios', muscle: 'legs', cue: 'Mancuernas pegadas a las piernas' },
-  { name: 'Buenos días',                     group: 'isquios', muscle: 'legs', cue: 'Barra apoyada, bisagra de cadera' },
-  // GLÚTEOS (5)
-  { name: 'Hip Thrust',                      group: 'gluteos', muscle: 'legs', cue: 'Aprieta el glúteo arriba 1s' },
-  { name: 'Patada de glúteo en polea',       group: 'gluteos', muscle: 'legs', machine: true, cue: 'Extiende sin arquear la lumbar' },
-  { name: 'Abducción en máquina',            group: 'gluteos', muscle: 'legs', machine: true, cue: 'Abre controlado, sin rebotes' },
-  { name: 'Sentadilla sumo',                 group: 'gluteos', muscle: 'legs', cue: 'Pies anchos, puntas hacia fuera' },
-  { name: 'Puente de glúteo',                group: 'gluteos', muscle: 'legs', machine: true, cue: 'Sube la cadera y aprieta arriba' },
-  // GEMELOS (4)
-  { name: 'Gemelo de pie',                   group: 'gemelos', muscle: 'legs', machine: true, cue: 'Sube hasta la punta, baja lento' },
-  { name: 'Gemelo sentado',                  group: 'gemelos', muscle: 'legs', machine: true, cue: 'Estira bien abajo en cada rep' },
-  { name: 'Gemelo en prensa',                group: 'gemelos', muscle: 'legs', machine: true, cue: 'Solo la punta del pie en la plataforma' },
-  { name: 'Gemelo unilateral',               group: 'gemelos', muscle: 'legs', cue: 'Una pierna, rango completo' },
-  // CORE (10)
-  { name: 'Crunch en máquina',               group: 'core', muscle: 'core', machine: true, cue: 'Exhala al contraer' },
-  { name: 'Crunch en polea',                 group: 'core', muscle: 'core', machine: true, cue: 'Flexiona desde el abdomen, no los brazos' },
-  { name: 'Elevaciones de piernas colgado',  group: 'core', muscle: 'core', cue: 'Sin balanceo, sube con el abdomen' },
-  { name: 'Elevaciones de rodillas',         group: 'core', muscle: 'core', cue: 'Lleva las rodillas al pecho' },
-  { name: 'Plancha frontal',                 group: 'core', muscle: 'core', timed: true, cue: 'Core apretado, cuerpo en línea' },
-  { name: 'Plancha lateral',                 group: 'core', muscle: 'core', timed: true, cue: 'Cadera alta, no la dejes caer' },
-  { name: 'Dead Bug',                        group: 'core', muscle: 'core', timed: true, cue: 'Lumbar pegada al suelo' },
-  { name: 'Pallof Press',                    group: 'core', muscle: 'core', machine: true, cue: 'Resiste la rotación' },
-  { name: 'Rueda abdominal (Ab Wheel)',      group: 'core', muscle: 'core', cue: 'No arquees la lumbar al estirar' },
-  { name: 'Mountain Climbers',               group: 'core', muscle: 'core', timed: true, cue: 'Ritmo constante, cadera baja' },
-];
-
-const byGroup = (g: BoeGroup) => CATALOG.filter(e => e.group === g);
-
-// ── Parámetros de entrenamiento según objetivo ───────────────────────
-interface GoalParams { sets: number; reps: number[]; rest: number; }
-const GOAL_PARAMS: Record<string, GoalParams> = {
-  strength:      { sets: 4, reps: [8, 6, 6, 6],    rest: 120 },
-  'lose-weight': { sets: 3, reps: [15, 15, 12],    rest: 45 },
-  'lose-fat':    { sets: 3, reps: [12, 12, 12],    rest: 60 },
-  recomp:        { sets: 3, reps: [12, 10, 8],     rest: 75 },
-  physique:      { sets: 3, reps: [12, 10, 8],     rest: 75 },
-  performance:   { sets: 3, reps: [10, 8, 8],      rest: 90 },
-  maintain:      { sets: 3, reps: [10, 10, 10],    rest: 75 },
-  default:       { sets: 3, reps: [12, 10, 10],    rest: 60 },
+const SLOT_TO_LIBRARY_BLOCKS: Record<SlotBlock, string[]> = {
+  pecho: ['Pecho'],
+  espalda: ['Espalda', 'Trapecio'],
+  hombros: ['Hombro'],
+  biceps: ['Bíceps', 'Antebrazo'],
+  triceps: ['Tríceps'],
+  cuadriceps: ['Pierna'],
+  isquios: ['Isquios'],
+  gluteos: ['Glúteos'],
+  gemelos: ['Gemelos'],
+  core: ['Core'],
 };
 
-// ── Divisiones por días/semana ───────────────────────────────────────
-interface SessionTemplate { name: string; targetMuscles: string; slots: BoeGroup[]; }
+function candidatesForSlot(slot: SlotBlock): LibraryExercise[] {
+  const blocks = SLOT_TO_LIBRARY_BLOCKS[slot];
+  return LIBRARY.filter(e => blocks.includes(e.block));
+}
+
+// ── Divisiones semanales (igual estructura que v0, ahora sobre slots) ──
+interface SessionTemplate { name: string; targetMuscles: string; slots: SlotBlock[]; }
 
 const T: Record<string, SessionTemplate> = {
   fullA:  { name: 'Full Body',      targetMuscles: 'Todo el cuerpo',           slots: ['cuadriceps', 'pecho', 'espalda', 'hombros', 'core', 'biceps', 'triceps'] },
@@ -146,136 +106,332 @@ const SPLITS: Record<number, SessionTemplate[]> = {
   7: [T.push, T.pull, T.legs, T.upperA, T.lowerB, T.fullA, T.fullB],
 };
 
-// ── Exclusiones por lesión (búsqueda por palabra clave) ──────────────
-const INJURY_RULES: { keywords: string[]; exclude: string[] }[] = [
+// ── Hard Filters: lesión / exclusión explícita ──────────────────────
+// MOTOR-HARD-001 🔒 — se resuelven antes del scoring, no negociables.
+const INJURY_RULES: { keywords: string[]; excludeIds: (ex: LibraryExercise) => boolean }[] = [
   {
     keywords: ['rodilla', 'knee', 'menisco', 'ligamento'],
-    exclude: ['Sentadilla trasera', 'Sentadilla guiada (Smith)', 'Hack Squat', 'Sentadilla búlgara', 'Zancadas caminando', 'Step-Up', 'Sentadilla sumo'],
+    excludeIds: ex => ex.block === 'Pierna' && level(ex.stability) < 1,
   },
   {
     keywords: ['hombro', 'shoulder', 'manguito'],
-    exclude: ['Press militar con barra', 'Press militar con mancuernas', 'Fondos para pecho', 'Elevaciones frontales', 'Press inclinado con barra'],
+    excludeIds: ex => (ex.block === 'Hombro' && ex.family === 'Press vertical') || ex.family === 'Press inclinado' || ex.name === 'Fondos para pecho',
   },
   {
     keywords: ['espalda', 'lumbar', 'lumbago', 'hernia', 'ciatica', 'ciática'],
-    exclude: ['Peso muerto rumano', 'Peso muerto rumano con barra', 'Peso muerto rumano con mancuernas', 'Buenos días', 'Remo con barra', 'Sentadilla trasera', 'Rueda abdominal (Ab Wheel)'],
+    excludeIds: ex => ex.family === 'Bisagra cadera' || ex.name === 'Buenos días' || ex.name === 'Remo con barra' || (ex.block === 'Pierna' && ex.family === 'Dominante rodilla' && ex.name.toLowerCase().includes('trasera')) || ex.family === 'Anti-extensión',
   },
   {
     keywords: ['muñeca', 'wrist', 'codo', 'epicondilitis'],
-    exclude: ['Curl barra recta', 'Press francés', 'Fondos en banco'],
+    excludeIds: ex => ex.block === 'Antebrazo' || ex.family === 'Extensión codo overhead' || ex.family === 'Empuje corporal',
   },
   {
     keywords: ['cadera', 'hip'],
-    exclude: ['Sentadilla sumo', 'Zancadas caminando', 'Sentadilla búlgara', 'Buenos días'],
+    excludeIds: ex => ex.family === 'Abducción cadera' || ex.name === 'Buenos días' || ex.name.toLowerCase().includes('sumo') || ex.name.toLowerCase().includes('búlgara'),
   },
 ];
 
-const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function hardFilter(pool: LibraryExercise[], input: MotorInput): LibraryExercise[] {
+  const injuryText = normalize((input.injuries ?? []).join(' '));
+  const excludedNames = (input.excludedExercises ?? []).map(normalize).filter(Boolean);
+  return pool.filter(ex => {
+    for (const rule of INJURY_RULES) {
+      if (rule.keywords.some(k => injuryText.includes(k)) && rule.excludeIds(ex)) return false;
+    }
+    if (excludedNames.some(x => normalize(ex.name).includes(x))) return false;
+    return true;
+  });
+}
+
+// ── Scoring contextual (0-100, pesos 30/25/15/15/10/5) ──────────────
+// SCORE-MISSING/APPLICABILITY 🔒 — factor no aplicable se excluye y se
+// normaliza sobre el peso disponible; no se inventa una puntuación neutral.
+interface SessionContext {
+  usedThisSession: Set<string>;          // library ids
+  patternCountSession: Map<string, number>;
+  muscleCountWeek: Map<string, number>;   // primaryMuscle -> nº de veces esta semana
+  usedThisWeek: Map<string, number>;      // library id -> veces esta semana
+}
+
+function newWeekContext(): { muscleCountWeek: Map<string, number>; usedThisWeek: Map<string, number> } {
+  return { muscleCountWeek: new Map(), usedThisWeek: new Map() };
+}
+function newSessionContext(week: { muscleCountWeek: Map<string, number>; usedThisWeek: Map<string, number> }): SessionContext {
+  return { usedThisSession: new Set(), patternCountSession: new Map(), ...week };
+}
+
+interface ScoreBreakdown { score: number; reasonCodes: string[]; }
+
+function scoreCandidate(
+  ex: LibraryExercise,
+  input: MotorInput,
+  ctx: SessionContext,
+): ScoreBreakdown {
+  const reasonCodes: string[] = ['FUNCTION_MATCH'];
+  const factors: { weight: number; value: number | null }[] = [];
+
+  // 1) Adecuación usuario/ejercicio (30)
+  const acc = level(ex.accessibility);
+  const strengthReq = level(ex.strengthRequirement);
+  const stab = level(ex.stability);
+  const scal = level(ex.scalability);
+  const fit = input.level === 'advanced'
+    ? clamp01(0.25 * acc + 0.25 * stab + 0.20 * scal + 0.30 * (0.5 + strengthReq * 0.5))
+    : clamp01(0.35 * acc + 0.30 * stab + 0.20 * scal + 0.15 * (1 - strengthReq));
+  factors.push({ weight: 30, value: fit });
+
+  // 2) Complementariedad sesión/semana (25) — penaliza redundancia de patrón
+  const patternUses = ctx.patternCountSession.get(ex.movementPattern) ?? 0;
+  const complementarity = clamp01(1 - patternUses * 0.4);
+  factors.push({ weight: 25, value: complementarity });
+  if (complementarity >= 1) reasonCodes.push('COMPLEMENTARY_SLOT');
+
+  // 3) Preferencias conocidas (15) — sin señal de preferencia positiva/negativa
+  // por ejercicio en el modelo de datos actual (más allá de exclusiones, que ya
+  // son Hard Filter). No se inventa un valor neutral: factor no aplicable.
+  factors.push({ weight: 15, value: null });
+
+  // 4) Prioridad muscular (15) — solo aplica si el usuario tiene una definida
+  const priority = input.priorityMuscle;
+  if (priority && priority !== 'none') {
+    const primaryMatches = BLOCK_TO_MUSCLE[ex.block] === priority;
+    const secondaryMatches = ex.secondaryMuscles.some(s => normalize(s.muscle).includes(normalize(priority)));
+    const value = primaryMatches ? 1 : secondaryMatches ? 0.5 : 0;
+    factors.push({ weight: 15, value });
+    if (primaryMatches) reasonCodes.push('PRIORITY_PROTECTED');
+  } else {
+    factors.push({ weight: 15, value: null });
+  }
+
+  // 5) Logística/tiempo (10) — coste de setup + ejecución, invertido
+  const logistics = clamp01(1 - (level(ex.setupCost) * 0.5 + level(ex.executionTimeCost) * 0.5));
+  factors.push({ weight: 10, value: logistics });
+
+  // 6) Variedad controlada (5) — penaliza repetir el mismo ejercicio ya usado
+  const usesThisWeek = ctx.usedThisWeek.get(ex.id) ?? 0;
+  const variety = clamp01(1 - usesThisWeek * 0.5);
+  factors.push({ weight: 5, value: variety });
+
+  let raw = 0;
+  let availableWeight = 0;
+  for (const f of factors) {
+    if (f.value === null) continue;
+    raw += f.weight * f.value;
+    availableWeight += f.weight;
+  }
+  const normalizedScore = availableWeight > 0 ? (raw / availableWeight) * 100 : 50;
+  return { score: normalizedScore, reasonCodes };
+}
+
+// ── Construcción secuencial de una sesión ────────────────────────────
+interface MotorExercise {
+  ex: LibraryExercise;
+  reasonCodes: string[];
+}
+
+function pickForSlot(
+  slot: SlotBlock,
+  input: MotorInput,
+  ctx: SessionContext,
+  seedParts: (string | number)[],
+  previousExerciseId?: string,
+): MotorExercise | null {
+  let pool = hardFilter(candidatesForSlot(slot), input);
+  if (pool.length === 0) pool = hardFilter(candidatesForSlot('core'), input);
+  if (pool.length === 0) return null;
+
+  // IMC alto + objetivo de pérdida: prioriza ejercicios guiados/estables en tren inferior
+  const bmi = input.weight && input.height ? input.weight / Math.pow(input.height / 100, 2) : null;
+  const preferLowImpact = bmi != null && bmi >= 32 && ['lose-weight', 'lose-fat'].includes(input.goal ?? '');
+  if (preferLowImpact && ['cuadriceps', 'isquios', 'gluteos'].includes(slot)) {
+    const stable = pool.filter(e => level(e.stability) >= 0.75);
+    if (stable.length > 0) pool = stable;
+  }
+
+  const scored = pool.map(ex => ({ ex, ...scoreCandidate(ex, input, ctx) }));
+  const top = Math.max(...scored.map(s => s.score));
+  // MOTOR-SELECT-011 🔒 — banda equivalente ±5 antes de elegir
+  let equivalentPool = scored.filter(s => s.score >= top - 5);
+
+  // MOTOR-STATE-MASTER / histéresis: mantiene continuidad salvo ventaja ~+8
+  if (previousExerciseId) {
+    const prev = scored.find(s => s.ex.id === previousExerciseId);
+    if (prev && top - prev.score < 8) {
+      equivalentPool = [prev];
+    }
+  }
+
+  const chosen = stablePick(equivalentPool, seedParts);
+  return { ex: chosen.ex, reasonCodes: [...chosen.reasonCodes, equivalentPool.length > 1 ? 'EQUIVALENT_POOL' : 'STABLE_SELECTION'] };
+}
+
+// ── Prescripción: series/reps/RIR por rol y experiencia (sección 7) ──
+interface Prescription { sets: number; repRange: [number, number]; rirTarget: [number, number]; restSeconds: number; }
+
+function prescribe(ex: LibraryExercise, role: string, level_: 'beginner' | 'advanced', timed: boolean): Prescription {
+  const isPrincipal = role === 'Principal';
+  const isAccesorio = role === 'Aislamiento' || role === 'Control' || role === 'Estabilidad';
+  const sets = timed ? 3 : isPrincipal ? (level_ === 'beginner' ? 3 : 4) : isAccesorio ? 2 : 3;
+  const repRange: [number, number] = timed ? [30, 45] : ex.repRangeV1;
+  const rirTarget: [number, number] = level_ === 'beginner' ? [2, 3] : isPrincipal ? [1, 3] : [1, 2];
+  const restSeconds = timed ? 45 : Math.round((ex.restRangeSeconds[0] + ex.restRangeSeconds[1]) / 2);
+  return { sets, repRange, rirTarget, restSeconds };
+}
+
+function repsArrayFromRange(range: [number, number], sets: number): number[] {
+  // Double progression: primera serie hacia el techo, luego decrece levemente.
+  const [lo, hi] = range;
+  const arr: number[] = [];
+  for (let i = 0; i < sets; i++) {
+    arr.push(i === 0 ? hi : Math.max(lo, hi - i));
+  }
+  return arr;
+}
+
+// ── Estimador de duración v1.0 (sección 9) ───────────────────────────
+const EXEC_SECONDS = { corta: 25, normal: 35, larga: 45 };
+const SETUP_SECONDS = { bajo: 20, medio: 45, alto: 90 };
+const TRANSITION_SECONDS = { mismaZona: 25, normal: 55, costosa: 85 };
+const BUFFER = 1.12;
+
+function estimateExerciseSeconds(ex: LibraryExercise, sets: number, restSeconds: number): number {
+  const execLevel = level(ex.executionTimeCost);
+  const execPerSet = execLevel <= 0.25 ? EXEC_SECONDS.corta : execLevel <= 0.6 ? EXEC_SECONDS.normal : EXEC_SECONDS.larga;
+  const setupLevel = level(ex.setupCost);
+  const setup = setupLevel <= 0.25 ? SETUP_SECONDS.bajo : setupLevel <= 0.6 ? SETUP_SECONDS.medio : SETUP_SECONDS.alto;
+  const unilateralExtra = ex.laterality.toLowerCase().includes('unilateral') || ex.laterality.toLowerCase().includes('lado') ? 10 * sets : 0;
+  return setup + sets * (execPerSet + restSeconds) + unilateralExtra;
+}
+
+function estimateSessionSeconds(picks: { ex: LibraryExercise; sets: number; restSeconds: number }[]): number {
+  let total = 0;
+  for (let i = 0; i < picks.length; i++) {
+    total += estimateExerciseSeconds(picks[i].ex, picks[i].sets, picks[i].restSeconds);
+    if (i > 0) {
+      const sameZone = picks[i].ex.block === picks[i - 1].ex.block;
+      const costly = level(picks[i].ex.setupCost) >= 1;
+      total += sameZone ? TRANSITION_SECONDS.mismaZona : costly ? TRANSITION_SECONDS.costosa : TRANSITION_SECONDS.normal;
+    }
+  }
+  return total * BUFFER;
+}
 
 // ── Entrada del Motor ────────────────────────────────────────────────
 export interface MotorInput {
   daysPerWeek: number;
   workoutDuration: string;             // '30min' | '45min' | '1hour' | 'depends'
-  goal?: string;                       // BeginnerGoal | AdvancedGoal
+  goal?: string;
   level?: 'beginner' | 'advanced';
   priorityMuscle?: MuscleGroup;
   injuries?: string[];
   excludedExercises?: string[];
-  weight?: number;                     // kg
-  height?: number;                     // cm
+  weight?: number;
+  height?: number;
   startFrom?: number;
   customDays?: number[];
+  /** GUARD-STATE: id estable del usuario, para selección determinista reproducible. */
+  userId?: string;
+  /** Se incrementa en cada regeneración deliberada de la semana (histéresis). */
+  planVersion?: number;
+  /** Semana anterior, para aplicar continuidad (MOTOR-STATE-MASTER). */
+  previousPlan?: WeeklySession[];
 }
 
-const MUSCLE_TO_GROUPS: Partial<Record<MuscleGroup, BoeGroup[]>> = {
-  chest: ['pecho'], back: ['espalda'], shoulders: ['hombros'],
-  arms: ['biceps', 'triceps'], legs: ['cuadriceps', 'gluteos'], core: ['core'],
-};
+function toExercise(pick: MotorExercise, role: string, level_: 'beginner' | 'advanced', sessionNumber: number, slot: number, alternatives: string[]): Exercise {
+  const { ex, reasonCodes } = pick;
+  const timed = ex.family.includes('Anti-') || ex.name.toLowerCase().includes('plancha') || ex.name.toLowerCase().includes('dead bug');
+  const p = prescribe(ex, role, level_, timed);
+  return {
+    id: `fk-${sessionNumber}-${slot}-${ex.id}`,
+    name: ex.name,
+    targetMuscle: BLOCK_TO_MUSCLE[ex.block] ?? 'none',
+    sets: p.sets,
+    reps: timed ? Array(p.sets).fill(p.repRange[0]) : repsArrayFromRange(p.repRange, p.sets),
+    restSeconds: p.restSeconds,
+    instructions: ex.motorNotes ? `${ex.family}. ${ex.motorNotes}` : ex.family,
+    alternatives,
+    // Campos aditivos del Motor v1.0 (no rompen la UI actual, que sigue leyendo
+    // sets/reps/restSeconds como antes):
+    libraryId: ex.id,
+    movementPattern: ex.movementPattern,
+    equipmentCode: ex.equipment,
+    repRange: p.repRange,
+    rirTarget: p.rirTarget,
+    reasonCodes,
+  };
+}
 
 export function generatePlan(input: MotorInput): WeeklySession[] {
   const days = Math.min(Math.max(input.daysPerWeek || 3, 1), 7);
   const duration = input.workoutDuration === '30min' ? 30 : input.workoutDuration === '1hour' ? 60 : 45;
-  const exerciseCount = duration === 30 ? 4 : duration === 60 ? 6 : 5;
-  const params = GOAL_PARAMS[input.goal ?? ''] ?? GOAL_PARAMS.default;
-
-  // IMC: con sobrepeso alto + objetivo de pérdida, prioriza máquinas /
-  // bajo impacto articular en el tren inferior.
-  const bmi = input.weight && input.height ? input.weight / Math.pow(input.height / 100, 2) : null;
-  const preferLowImpact = bmi != null && bmi >= 32 && ['lose-weight', 'lose-fat'].includes(input.goal ?? '');
-
-  // Exclusiones: lesiones declaradas + ejercicios vetados por el usuario
-  const injuryText = normalize((input.injuries ?? []).join(' '));
-  const excluded = new Set<string>();
-  for (const rule of INJURY_RULES) {
-    if (rule.keywords.some(k => injuryText.includes(k))) rule.exclude.forEach(n => excluded.add(n));
-  }
-  const userExcluded = (input.excludedExercises ?? []).map(normalize);
-
-  const isAllowed = (e: MotorExercise) =>
-    !excluded.has(e.name) && !userExcluded.some(x => x && normalize(e.name).includes(x));
-
-  // Rotación por grupo: sesiones distintas usan ejercicios distintos
-  const cursor = new Map<BoeGroup, number>();
-  function pick(group: BoeGroup): MotorExercise | null {
-    let pool = byGroup(group).filter(isAllowed);
-    if (pool.length === 0) pool = byGroup('core').filter(isAllowed);
-    if (pool.length === 0) return null;
-    if (preferLowImpact && ['cuadriceps', 'isquios', 'gluteos'].includes(group)) {
-      const machines = pool.filter(e => e.machine);
-      if (machines.length > 0) pool = machines;
-    }
-    const idx = cursor.get(group) ?? 0;
-    cursor.set(group, idx + 1);
-    return pool[idx % pool.length];
-  }
-
-  function toExercise(e: MotorExercise, sessionNumber: number, slot: number): Exercise {
-    const others = byGroup(e.group).filter(o => o.name !== e.name && isAllowed(o)).slice(0, 2).map(o => o.name);
-    return {
-      id: `boe-${sessionNumber}-${slot}-${normalize(e.name).replace(/[^a-z0-9]+/g, '-')}`,
-      name: e.name,
-      targetMuscle: e.muscle,
-      sets: e.timed ? 3 : params.sets,
-      reps: e.timed ? [30, 30, 30] : params.reps,
-      restSeconds: e.timed ? 45 : params.rest,
-      instructions: e.timed ? `${e.cue} (segundos por serie)` : e.cue,
-      alternatives: others,
-    };
-  }
-
+  const targetSeconds = duration * 60;
+  const userLevel = input.level ?? 'beginner';
   const templates = SPLITS[days];
   const startFrom = input.startFrom ?? 1;
   const dayList = input.customDays;
+  const planVersion = input.planVersion ?? 1;
+  const userSeed = input.userId ?? 'anon';
 
-  // Músculo prioritario (avanzado): un ejercicio extra por sesión
-  const priorityGroups = input.priorityMuscle && input.priorityMuscle !== 'none'
-    ? MUSCLE_TO_GROUPS[input.priorityMuscle] ?? []
-    : [];
+  const weekCtx = newWeekContext();
+  const priorityGroups = input.priorityMuscle && input.priorityMuscle !== 'none' ? [input.priorityMuscle] : [];
 
   const sessions: WeeklySession[] = [];
   for (let i = 0; i < days; i++) {
     const template = templates[i];
-    const exercises: Exercise[] = [];
-    const used = new Set<string>();
+    const sessionCtx = newSessionContext(weekCtx);
+    const picks: { ex: LibraryExercise; sets: number; restSeconds: number; role: string; reasonCodes: string[] }[] = [];
+    const previousSession = input.previousPlan?.[i];
 
+    let slotIndex = 0;
     for (const slotGroup of template.slots) {
-      if (exercises.length >= exerciseCount) break;
-      const ex = pick(slotGroup);
-      if (ex && !used.has(ex.name)) {
-        used.add(ex.name);
-        exercises.push(toExercise(ex, startFrom + i, exercises.length));
+      const seedParts = [userSeed, planVersion, startFrom + i, slotIndex];
+      const previousExId = previousSession?.exercises?.[slotIndex]?.libraryId;
+      const result = pickForSlot(slotGroup, input, sessionCtx, seedParts, previousExId);
+      slotIndex++;
+      if (!result || sessionCtx.usedThisSession.has(result.ex.id)) continue;
+
+      const role = result.ex.compatibleRoles[0] ?? 'Complementario';
+      const timed = result.ex.family.includes('Anti-') || result.ex.name.toLowerCase().includes('plancha') || result.ex.name.toLowerCase().includes('dead bug');
+      const p = prescribe(result.ex, role, userLevel, timed);
+      const candidate = { ex: result.ex, sets: p.sets, restSeconds: p.restSeconds, role, reasonCodes: result.reasonCodes };
+
+      // GUARD-TIME-001 🔒 — no seguir añadiendo si ya se excede el presupuesto
+      const projected = estimateSessionSeconds([...picks, candidate]);
+      if (picks.length > 0 && projected > targetSeconds * 0.98) break;
+
+      picks.push(candidate);
+      sessionCtx.usedThisSession.add(result.ex.id);
+      sessionCtx.patternCountSession.set(result.ex.movementPattern, (sessionCtx.patternCountSession.get(result.ex.movementPattern) ?? 0) + 1);
+      weekCtx.muscleCountWeek.set(result.ex.primaryMuscle, (weekCtx.muscleCountWeek.get(result.ex.primaryMuscle) ?? 0) + 1);
+      weekCtx.usedThisWeek.set(result.ex.id, (weekCtx.usedThisWeek.get(result.ex.id) ?? 0) + 1);
+    }
+
+    // Ejercicio extra de prioridad muscular si aún cabe en el presupuesto de tiempo
+    if (priorityGroups.length > 0) {
+      const pGroup = Object.entries(SLOT_TO_LIBRARY_BLOCKS).find(([, blocks]) =>
+        blocks.some(b => BLOCK_TO_MUSCLE[b] === priorityGroups[0]))?.[0] as SlotBlock | undefined;
+      if (pGroup) {
+        const seedParts = [userSeed, planVersion, startFrom + i, 'priority'];
+        const extra = pickForSlot(pGroup, input, sessionCtx, seedParts);
+        if (extra && !sessionCtx.usedThisSession.has(extra.ex.id)) {
+          const role = extra.ex.compatibleRoles[0] ?? 'Complementario';
+          const p = prescribe(extra.ex, role, userLevel, false);
+          const candidate = { ex: extra.ex, sets: p.sets, restSeconds: p.restSeconds, role, reasonCodes: [...extra.reasonCodes, 'PRIORITY_PROTECTED'] };
+          const projected = estimateSessionSeconds([...picks, candidate]);
+          if (projected <= targetSeconds * 1.02) {
+            picks.push(candidate);
+            sessionCtx.usedThisSession.add(extra.ex.id);
+          }
+        }
       }
     }
 
-    // Ejercicio extra del músculo prioritario si no está ya bien cubierto
-    if (priorityGroups.length > 0 && exercises.length <= exerciseCount) {
-      const pGroup = priorityGroups[i % priorityGroups.length];
-      const extra = pick(pGroup);
-      if (extra && !used.has(extra.name)) {
-        used.add(extra.name);
-        exercises.push(toExercise(extra, startFrom + i, exercises.length));
-      }
-    }
+    const exercises: Exercise[] = picks.map((pk, idx) => {
+      const alternatives = candidatesForSlot(
+        (Object.entries(SLOT_TO_LIBRARY_BLOCKS).find(([, blocks]) => blocks.includes(pk.ex.block))?.[0] as SlotBlock) ?? 'core',
+      ).filter(o => o.id !== pk.ex.id).slice(0, 2).map(o => o.name);
+      return toExercise({ ex: pk.ex, reasonCodes: pk.reasonCodes }, pk.role, userLevel, startFrom + i, idx, alternatives);
+    });
 
     sessions.push({
       id: crypto.randomUUID(),
@@ -292,16 +448,71 @@ export function generatePlan(input: MotorInput): WeeklySession[] {
   return sessions;
 }
 
-// Catálogo BOE-FK como Exercise[] (para búsquedas por nombre del Coach)
+// ── Catálogo completo como Exercise[] (búsquedas del Coach) ──────────
 export function motorCatalog(): Exercise[] {
-  return CATALOG.map((e, i) => ({
-    id: `boe-cat-${i}`,
-    name: e.name,
-    targetMuscle: e.muscle,
-    sets: 3,
-    reps: e.timed ? [30, 30, 30] : [12, 10, 10],
-    restSeconds: e.timed ? 45 : 60,
-    instructions: e.cue,
-    alternatives: byGroup(e.group).filter(o => o.name !== e.name).slice(0, 2).map(o => o.name),
-  }));
+  return LIBRARY.map((ex, i) => {
+    const role = ex.compatibleRoles[0] ?? 'Complementario';
+    const timed = ex.family.includes('Anti-') || ex.name.toLowerCase().includes('plancha') || ex.name.toLowerCase().includes('dead bug');
+    const p = prescribe(ex, role, 'beginner', timed);
+    return toExercise({ ex, reasonCodes: ['CATALOG'] }, role, 'beginner', 0, i,
+      LIBRARY.filter(o => o.block === ex.block && o.id !== ex.id).slice(0, 2).map(o => o.name));
+  });
+}
+
+// ── Daily Adapter — Session Instance ≠ Plan Base (sección 10) ────────
+// MOTOR-STATE-MASTER 🔒 — nunca muta el Plan Base; devuelve una copia.
+export interface DailyAdapterInput {
+  energy: EnergyLevel;
+  minutesAvailable?: number;
+}
+
+const ROLE_PRIORITY: Record<string, number> = { 'Principal': 0, 'Complementario': 1, 'Aislamiento': 2, 'Estabilidad': 2, 'Control': 2 };
+
+function exerciseRolePriority(ex: Exercise): number {
+  // El nombre del rol no se persiste en Exercise; se infiere del libraryId.
+  const lib = LIBRARY.find(l => l.id === ex.libraryId);
+  const role = lib?.compatibleRoles[0] ?? 'Complementario';
+  return ROLE_PRIORITY[role] ?? 1;
+}
+
+export function adaptSessionForToday(session: WeeklySession, adapt: DailyAdapterInput): WeeklySession {
+  let exercises = session.exercises.map(e => ({ ...e }));
+
+  // Energía baja/muy baja: reduce trabajo secundario/accesorio primero,
+  // preservando el núcleo (ejercicios Principal) — TIME-RECALC 🔒.
+  if (adapt.energy === 'low' || adapt.energy === 'very-low') {
+    const dropRatio = adapt.energy === 'very-low' ? 0.35 : 0.18;
+    const sorted = [...exercises].sort((a, b) => exerciseRolePriority(b) - exerciseRolePriority(a));
+    const toDrop = Math.round(exercises.length * dropRatio);
+    const dropIds = new Set(sorted.slice(0, toDrop).map(e => e.id));
+    exercises = exercises
+      .filter(e => !dropIds.has(e.id))
+      .map(e => (exerciseRolePriority(e) > 0
+        ? { ...e, sets: Math.max(1, e.sets - 1), reps: e.reps.slice(0, Math.max(1, e.sets - 1)) }
+        : e));
+  }
+
+  // Poco tiempo: reconstruye por presupuesto real (20/30/40 min) hasta caber.
+  if (adapt.minutesAvailable) {
+    const budgetSeconds = adapt.minutesAvailable * 60;
+    const sorted = [...exercises].sort((a, b) => exerciseRolePriority(a) - exerciseRolePriority(b));
+    const kept: Exercise[] = [];
+    for (const ex of sorted) {
+      const lib = LIBRARY.find(l => l.id === ex.libraryId);
+      const projected = estimateSessionSeconds([
+        ...kept.map(k => ({ ex: LIBRARY.find(l => l.id === k.libraryId)!, sets: k.sets, restSeconds: k.restSeconds })),
+        ...(lib ? [{ ex: lib, sets: ex.sets, restSeconds: ex.restSeconds }] : []),
+      ]);
+      if (!lib || (kept.length > 0 && projected > budgetSeconds * 0.98)) continue;
+      kept.push(ex);
+    }
+    exercises = kept.length > 0 ? kept : exercises.slice(0, 1);
+  }
+
+  return {
+    ...session,
+    id: crypto.randomUUID(),
+    exercises,
+    duration: adapt.minutesAvailable ?? session.duration,
+  };
 }
