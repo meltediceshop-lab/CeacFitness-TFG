@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
+import { formatRepTarget, repUnitLabel } from '@/lib/exerciseFormat';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -230,14 +231,6 @@ export function WorkoutScreen() {
   const totalSets = exercises.reduce((acc, ex) => acc + ex.sets, 0);
 
   // Funciones Auxiliares
-  const formatReps = (repsArr: number[]) => {
-    if (!repsArr || repsArr.length === 0) return '';
-    if (repsArr.every(r => r === repsArr[0])) {
-      return `${repsArr.length} x ${repsArr[0]}`;
-    }
-    return repsArr.join('/');
-  };
-
   const getLastWeight = (exerciseId: string): number | null => {
     if (!getExerciseHistory) return null;
     const history = getExerciseHistory(exerciseId);
@@ -429,7 +422,7 @@ export function WorkoutScreen() {
                   </div>
                   <div className="w-px bg-emerald-200" />
                   <div>
-                    <p className="text-2xl font-bold text-emerald-600">{formatReps(showExerciseDetail.reps)}</p>
+                    <p className="text-2xl font-bold text-emerald-600">{formatRepTarget(showExerciseDetail)}</p>
                     <p className="text-stone-500 text-sm">Reps</p>
                   </div>
                   <div className="w-px bg-emerald-200" />
@@ -757,7 +750,7 @@ export function WorkoutScreen() {
                     <div className="flex-1">
                       <p className={`font-semibold ${done ? 'text-stone-400 line-through' : 'text-stone-900'}`}>{exercise.name}</p>
                       <p className={`font-medium ${done ? 'text-stone-300' : 'text-emerald-600'}`}>
-                        {exercise.sets} series x {formatReps(exercise.reps)} reps
+                        {exercise.sets} series x {formatRepTarget(exercise)}{repUnitLabel(exercise)}
                       </p>
                       {exercise.instructions && (
                         <p className="text-stone-400 text-sm mt-1">{exercise.instructions}</p>

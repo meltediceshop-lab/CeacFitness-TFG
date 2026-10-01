@@ -32,7 +32,10 @@ export function PlanChoiceScreen() {
             {planOptions.map((sessions, i) => (
               <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + i * 0.08 }}>
                 <Card className="glass-card p-5 rounded-2xl border-2 border-transparent hover:border-emerald-200 transition-all">
-                  <p className="font-semibold text-stone-900 mb-3">Opción {i === 0 ? 'A' : 'B'}</p>
+                  <p className="font-semibold text-stone-900">Opción {i === 0 ? 'A' : 'B'}</p>
+                  {sessions[0]?.motorTrace?.split && (
+                    <p className="text-sm text-emerald-700 mb-3">{sessions[0].motorTrace.split}</p>
+                  )}
                   <div className="space-y-2 mb-4">
                     {sessions.map(s => (
                       <div key={s.id} className="flex items-center justify-between text-sm">

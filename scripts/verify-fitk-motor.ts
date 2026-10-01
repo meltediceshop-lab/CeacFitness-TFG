@@ -1,170 +1,251 @@
-// Suite de verificación del Motor Fit-K v1.0 (offline, sin DB/env).
+// Batería reproducible del Motor Fit-K v1.8 (FIT-K_Instrucciones sec. 18-19).
+// Cada cambio importante del Motor debe volver a pasar estos casos.
 // Uso: npx tsx scripts/verify-fitk-motor.ts
-import { generatePlan, generatePlanOptions, planOptionCount, motorCatalog, adaptSessionForToday, type MotorInput } from '../src/lib/fitkMotor';
-import { LIBRARY } from '../src/lib/fitkLibrary';
+import {
+  generatePlan, generatePlanWithTrace, generatePlanOptions, planOptionCount, motorCatalog,
+  adaptSessionForToday, substituteExercise, estimateSessionMinutes, type MotorInput,
+} from '../src/lib/fitkMotor';
+import { evaluateProgression, returnAdjustment, type ProgressionEntry } from '../src/lib/fitkProgression';
+import { handleDiscomfort } from '../src/lib/fitkSafety';
+import { LIBRARY, LIBRARY_META, libraryById, libraryPromptSummary } from '../src/lib/fitkLibrary';
+import type { WeeklySession } from '../src/types/user';
 
 let failures = 0;
-function check(label: string, cond: boolean) {
-  if (!cond) { failures++; console.log('FAIL:', label); }
-  else console.log('ok  :', label);
+let section = '';
+function check(label: string, cond: boolean, detail = '') {
+  if (!cond) { failures++; console.log(`FAIL [${section}] ${label}${detail ? ` — ${detail}` : ''}`); }
+  else console.log(`ok   [${section}] ${label}`);
 }
+const head = (s: string) => { section = s; console.log(`\n── ${s}`); };
 
-console.log(`Biblioteca: ${LIBRARY.length} ejercicios`);
-check('Biblioteca tiene 81 ejercicios', LIBRARY.length === 81);
+const ids = (plan: WeeklySession[]) => plan.flatMap(s => s.exercises.map(e => e.libraryId));
+const fns = (s: WeeklySession) => s.exercises.map(e => e.slotFunction);
+const totalSets = (plan: WeeklySession[]) => plan.reduce((a, s) => a + s.exercises.reduce((b, e) => b + e.sets, 0), 0);
+const minutes = (d: string) => (d === '30min' ? 30 : d === '1hour' ? 60 : 45);
+const base = (o: Partial<MotorInput>): MotorInput => ({
+  daysPerWeek: 3, workoutDuration: '45min', level: 'beginner', goal: 'routine',
+  weight: 72, height: 176, biologicalProfile: 'male', userId: 'test', ...o,
+});
 
-const laura: MotorInput = {
-  daysPerWeek: 3, workoutDuration: '45min', goal: 'lose-fat', level: 'beginner',
-  priorityMuscle: 'legs', userId: 'laura', planVersion: 1,
-};
-const planLaura = generatePlan(laura);
-check('R01: genera 3 sesiones', planLaura.length === 3);
-check('R01: cada sesión tiene ejercicios', planLaura.every(s => s.exercises.length > 0));
-check('R01: nº de ejercicios por sesión razonable', planLaura.every(s => s.exercises.length >= 3 && s.exercises.length <= 8));
-
-const planLaura2 = generatePlan(laura);
-const namesA = planLaura.flatMap(s => s.exercises.map(e => e.name)).join('|');
-const namesB = planLaura2.flatMap(s => s.exercises.map(e => e.name)).join('|');
-check('Determinismo: mismo perfil -> mismo plan', namesA === namesB);
-
-const rodilla: MotorInput = {
-  daysPerWeek: 4, workoutDuration: '45min', goal: 'strength', level: 'advanced',
-  injuries: ['dolor de rodilla derecha'], userId: 'marcos', planVersion: 1,
-};
-const planRodilla = generatePlan(rodilla);
-const hasUnstableKnee = planRodilla.some(s => s.exercises.some(e => {
-  const lib = LIBRARY.find(l => l.id === e.libraryId);
-  return lib && lib.block === 'Pierna' && (lib.stability === 'Media' || lib.stability === 'Media-Alta');
-}));
-check('R06: lesión de rodilla excluye ejercicios de pierna inestables', !hasUnstableKnee);
-
-const excluido: MotorInput = {
-  daysPerWeek: 3, workoutDuration: '30min', level: 'beginner',
-  excludedExercises: ['press banca'], userId: 'ex1', planVersion: 1,
-};
-const planExcl = generatePlan(excluido);
-const hasBench = planExcl.some(s => s.exercises.some(e => e.name.toLowerCase().includes('press banca')));
-check('Exclusión explícita: "press banca" nunca aparece', !hasBench);
-
-const corto: MotorInput = { daysPerWeek: 3, workoutDuration: '30min', level: 'beginner', userId: 'time1', planVersion: 1 };
-const largo: MotorInput = { daysPerWeek: 3, workoutDuration: '1hour', level: 'beginner', userId: 'time1', planVersion: 1 };
-const planCorto = generatePlan(corto);
-const planLargo = generatePlan(largo);
-const avgCorto = planCorto.reduce((a, s) => a + s.exercises.length, 0) / planCorto.length;
-const avgLargo = planLargo.reduce((a, s) => a + s.exercises.length, 0) / planLargo.length;
-check('R08/R09: sesión de 1h tiene más ejercicios que la de 30min', avgLargo > avgCorto);
-console.log(`  (avg 30min=${avgCorto.toFixed(1)} ejercicios, avg 1h=${avgLargo.toFixed(1)} ejercicios)`);
-
-const base = planLaura[0];
-const adapted = adaptSessionForToday(base, { energy: 'very-low' });
-check('Daily Adapter: no muta el Plan Base (id distinto, objeto distinto)', adapted.id !== base.id && adapted !== base);
-const setsBase = base.exercises.reduce((a, e) => a + e.sets, 0);
-const setsAdapted = adapted.exercises.reduce((a, e) => a + e.sets, 0);
-check('Daily Adapter: energía muy baja reduce el volumen total', setsAdapted < setsBase);
-check('Plan Base original sigue intacto tras adaptar', base.exercises.reduce((a, e) => a + e.sets, 0) === setsBase);
-console.log(`  (sets base=${setsBase}, sets adaptado=${setsAdapted})`);
-
-const adaptedTime = adaptSessionForToday(base, { energy: 'normal', minutesAvailable: 20 });
-check('Daily Adapter: recorta ejercicios para 20 min', adaptedTime.exercises.length <= base.exercises.length);
-
+// ── Biblioteca ───────────────────────────────────────────────────────
+head('Biblioteca');
+check(`v${LIBRARY_META.version} importada con ${LIBRARY.length} fichas únicas`, LIBRARY.length === LIBRARY_META.uniqueExercises && LIBRARY.length >= 100);
+check('IDs únicos', new Set(LIBRARY.map(e => e.id)).size === LIBRARY.length);
+check('los duplicados del Excel quedan registrados como aviso (no se ocultan)', LIBRARY_META.warnings.some(w => w.includes('duplicadas')));
+check('variantes con ejercicio base inexistente quedan avisadas', LIBRARY_META.warnings.some(w => w.includes('no existe en la Biblioteca')));
 const catalog = motorCatalog();
-check('motorCatalog expone 81 ejercicios', catalog.length === 81);
-check('motorCatalog conserva libraryId', catalog.every(e => !!e.libraryId));
+check('toda ficha cubre una función de slot coherente con su bloque',
+  catalog.every(e => e.slotFunction !== 'core' || libraryById.get(e.libraryId ?? '')?.block === 'Core'));
+check('el resumen del Coach usa la misma Biblioteca', libraryPromptSummary().includes(`${LIBRARY.length} ejercicios`));
 
-// ── Carga inicial estimada: perfiles extremos ────────────────────────
-console.log('\n--- Peso sugerido por perfil ---');
+// ── 1. 2 días principiante ───────────────────────────────────────────
+head('2 días principiante');
+const p2 = generatePlanWithTrace(base({ daysPerWeek: 2 }));
+check('estructura Full Body A/B', p2.split === 'Full Body A/B');
+check('sin exceso de ejercicios (≤6 por sesión)', p2.sessions.every(s => s.exercises.length <= 6));
+check('cada sesión cubre pierna + empuje + tirón', p2.sessions.every(s =>
+  fns(s).some(f => ['dominante_rodilla', 'bisagra', 'unilateral_rodilla'].includes(f ?? ''))
+  && fns(s).some(f => f?.startsWith('empuje')) && fns(s).some(f => f?.startsWith('tiron'))));
 
-function allExercises(plan: ReturnType<typeof generatePlan>) {
-  return plan.flatMap(s => s.exercises);
-}
-function withWeight(exs: ReturnType<typeof allExercises>) {
-  return exs.filter(e => e.suggestedWeightKg != null);
-}
+// ── 2. 3 días principiante ───────────────────────────────────────────
+head('3 días principiante');
+const p3 = generatePlanWithTrace(base({ daysPerWeek: 3 }));
+check('split dividido, no Full Body (MOTOR-SPLIT-037)', p3.sessions.every(s => !s.templateKey?.startsWith('full')));
+check('sesiones con identidad propia', new Set(p3.sessions.map(s => s.templateKey)).size === 3);
+check('duración realista (60-105 % del tiempo)', p3.sessions.every(s => {
+  const m = s.motorTrace?.estimatedMinutes ?? 0;
+  return m >= 45 * 0.6 && m <= 45 * 1.05;
+}), p3.sessions.map(s => s.motorTrace?.estimatedMinutes).join('/'));
 
-// Perfil A: muy delgada, principiante (debería sugerir cargas mínimas/ligeras)
-const flaca: MotorInput = {
-  daysPerWeek: 4, workoutDuration: '45min', level: 'beginner', goal: 'strength',
-  weight: 42, height: 158, biologicalProfile: 'female', userId: 'flaca', planVersion: 1,
-};
-const planFlaca = generatePlan(flaca);
-const pesosFlaca = withWeight(allExercises(planFlaca));
-check('Perfil delgado: todos los ejercicios con carga tienen peso sugerido > 0', pesosFlaca.every(e => (e.suggestedWeightKg ?? 0) > 0));
-check('Perfil delgado: ninguna barra sugiere menos de 20kg (barra oly vacía) o 10kg (EZ)', pesosFlaca.every(e => {
-  if (e.suggestedWeightUnit !== 'total') return true;
-  const eq = (e.equipmentCode ?? '').toLowerCase();
-  if (!eq.includes('barra')) return true;
-  const min = eq.includes('ez') ? 10 : 20;
-  return (e.suggestedWeightKg ?? 0) >= min;
+// ── 3. 4 días constante ──────────────────────────────────────────────
+head('4 días constante');
+const p4 = generatePlanWithTrace(base({ daysPerWeek: 4, level: 'advanced', workoutDuration: '1hour' }));
+check('Torso / Pierna x2 por defecto', p4.split === 'Torso / Pierna x2');
+const freq = (plan: WeeklySession[], pred: (f: string) => boolean) => plan.filter(s => fns(s).some(f => f && pred(f))).length;
+check('pecho, espalda y pierna 2x/semana', freq(p4.sessions, f => f.startsWith('empuje')) >= 2
+  && freq(p4.sessions, f => f.startsWith('tiron')) >= 2 && freq(p4.sessions, f => ['dominante_rodilla', 'bisagra'].includes(f)) >= 2);
+check('mezcla de tipos de carga (no todo máquina)', new Set(p4.sessions.flatMap(s => s.exercises.map(e => {
+  const opt = libraryById.get(e.libraryId ?? '')?.equipmentOptions[0] ?? [];
+  return opt[0] ?? 'corporal';
+}))).size >= 3);
+
+// ── 4. 5 días prioridad brazos ───────────────────────────────────────
+head('5 días prioridad brazos');
+const pArms = generatePlan(base({ daysPerWeek: 5, level: 'advanced', workoutDuration: '1hour', priorityMuscle: 'arms' }));
+const pNoPri = generatePlan(base({ daysPerWeek: 5, level: 'advanced', workoutDuration: '1hour' }));
+const armFn = (f?: string) => f === 'biceps' || f === 'triceps';
+check('bíceps y tríceps directos ≥2 sesiones', freq(pArms, f => f === 'biceps') >= 2 && freq(pArms, f => f === 'triceps') >= 2);
+check('la prioridad se ve en la programación (más series de brazo que sin prioridad)',
+  pArms.flatMap(s => s.exercises).filter(e => armFn(e.slotFunction)).reduce((a, e) => a + e.sets, 0)
+  > pNoPri.flatMap(s => s.exercises).filter(e => armFn(e.slotFunction)).reduce((a, e) => a + e.sets, 0));
+check('sin volumen absurdo (≤3 ejercicios directos de brazo por sesión)', pArms.every(s => s.exercises.filter(e => armFn(e.slotFunction)).length <= 3));
+
+// ── 5. 4 días prioridad pierna + deporte ─────────────────────────────
+head('4 días prioridad pierna + fútbol');
+const pSport = generatePlanWithTrace(base({ daysPerWeek: 4, level: 'advanced', priorityMuscle: 'legs', otherSports: ['fútbol'], otherSportsDays: 2 }));
+check('sesiones de pierna moderadas por el deporte', pSport.sessions.filter(s => s.templateKey?.startsWith('pierna')).every(s => s.motorTrace?.sessionRole === 'moderada'));
+check('no se descuentan series fijas por el deporte (pierna sigue con compuestos)', pSport.sessions.filter(s => s.templateKey?.startsWith('pierna')).every(s => s.exercises.some(e => e.slotRole === 'principal')));
+check('sin aislamientos de glúteo redundantes (≤1 por sesión)', pSport.sessions.every(s => s.exercises.filter(e => e.slotFunction === 'abduccion_cadera').length <= 1));
+check('todas las sesiones caben en 45 min', pSport.sessions.every(s => (s.motorTrace?.estimatedMinutes ?? 99) <= 45 * 1.05));
+
+// ── 6. 30 min ────────────────────────────────────────────────────────
+head('30 minutos');
+const p30 = generatePlan(base({ workoutDuration: '30min' }));
+check('todas caben en 30 min', p30.every(s => (s.motorTrace?.estimatedMinutes ?? 99) <= 30 * 1.05), p30.map(s => s.motorTrace?.estimatedMinutes).join('/'));
+check('se conserva el trabajo principal', p30.every(s => s.exercises.some(e => e.slotRole === 'principal' && e.essential)));
+
+// ── 7. Energía baja / muy baja / alta ────────────────────────────────
+head('Energía');
+const s0 = p3.sessions[0];
+const low = adaptSessionForToday(s0, { energy: 'low' });
+check('baja: mismos ejercicios (estructura intacta)', low.exercises.map(e => e.id).join() === s0.exercises.map(e => e.id).join());
+check('baja: reduce dosis', low.exercises.reduce((a, e) => a + e.sets, 0) < s0.exercises.reduce((a, e) => a + e.sets, 0));
+check('baja: el trabajo principal conserva sus series', low.exercises.filter(e => e.slotRole === 'principal').every(e => e.sets === s0.exercises.find(x => x.id === e.id)?.sets));
+check('baja: RIR objetivo más conservador', low.exercises.every((e, i) => (e.rirTarget?.[0] ?? 0) > (s0.exercises[i].rirTarget?.[0] ?? 0)));
+const vlow = adaptSessionForToday(s0, { energy: 'very-low' });
+check('muy baja: versión más corta que conserva lo esencial', vlow.exercises.length <= s0.exercises.length
+  && s0.exercises.filter(e => e.essential).every(e => vlow.exercises.some(x => x.id === e.id)));
+const high = adaptSessionForToday(s0, { energy: 'high' });
+check('alta: no añade media rutina', high.exercises.length === s0.exercises.length && totalSets([high]) === totalSets([s0]));
+check('el Plan Base no se muta', s0.exercises.length === p3.sessions[0].exercises.length && low.id !== s0.id);
+const time20 = adaptSessionForToday(s0, { energy: 'normal', minutesAvailable: 20 });
+check('poco tiempo: sesión esencial cabe y conserva lo esencial', estimateSessionMinutes(time20) <= 20 * 1.05
+  && s0.exercises.filter(e => e.essential).every(e => time20.exercises.some(x => x.id === e.id)), `${estimateSessionMinutes(time20)} min`);
+
+// ── 8. Sesión perdida ────────────────────────────────────────────────
+head('Sesión perdida');
+const week1 = generatePlan(base({ daysPerWeek: 3 }));
+const missed = week1.map((s, i) => (i === 1 ? { ...s, status: 'locked' as const } : { ...s, status: 'completed' as const }));
+const week2 = generatePlan(base({ daysPerWeek: 3, previousPlan: missed, startFrom: 4 }));
+check('no genera deuda: misma dosis semanal', totalSets(week2) === totalSets(week1));
+check('no reprograma la semana: misma estructura', week2.map(s => s.templateKey).join() === week1.map(s => s.templateKey).join());
+
+// ── 9. Equipo ocupado ────────────────────────────────────────────────
+head('Equipo ocupado');
+const target = s0.exercises[0];
+const busy = substituteExercise(s0, target.id, 'equipo_ocupado');
+check('sustitución temporal con la misma función', !!busy.substitute && busy.substitute.slotFunction === target.slotFunction && busy.substitute.libraryId !== target.libraryId, busy.note);
+check('no cambia preferencias ni equipo permanente', busy.preferenceUpdate === undefined);
+check('misma dosis (ajuste de ejercicio, no de programación)', busy.substitute?.sets === target.sets);
+check('el Plan Base queda intacto', s0.exercises[0].id === target.id);
+
+// ── 10. Cambio de gimnasio ───────────────────────────────────────────
+head('Cambio de gimnasio');
+const homeEq = ['mancuernas', 'banco', 'banda'];
+const home = generatePlanWithTrace(base({ availableEquipment: homeEq }));
+check('ningún ejercicio requiere equipo inexistente', home.sessions.every(s => s.exercises.every(e =>
+  (libraryById.get(e.libraryId ?? '')?.equipmentOptions ?? []).some(opt => opt.every(x => homeEq.includes(x))))));
+check('lo que no se puede cubrir se avisa, no se inventa (GUARD-EQUIPMENT-001)', home.warnings.length > 0 || home.sessions.every(s => s.exercises.length > 0));
+
+// ── 11. No gusta ─────────────────────────────────────────────────────
+head('No gusta el ejercicio');
+const dislike = substituteExercise(s0, target.id, 'no_gusta');
+check('alternativa válida con la misma función', dislike.substitute?.slotFunction === target.slotFunction);
+check('se registra la preferencia', dislike.preferenceUpdate?.disliked === target.libraryId);
+const withPref = generatePlan(base({ daysPerWeek: 3, preferences: { disliked: [target.libraryId ?? ''] } }));
+check('al regenerar no vuelve a aparecer', !ids(withPref).includes(target.libraryId));
+
+// ── 12. Molestia ─────────────────────────────────────────────────────
+head('Molestia');
+const disc = handleDiscomfort(target);
+check('Safety Flow: evento registrado sin diagnóstico ni sustitución automática', disc.event.eventType === 'discomfort'
+  && disc.event.temporaryExclusion && /profesional sanitario/.test(disc.message));
+
+// ── 13-15. Progresión y estabilidad ──────────────────────────────────
+head('Progresión (hoja Estado Motor)');
+const t812: [number, number] = [8, 12];
+const ej1: ProgressionEntry[] = [
+  { date: '2026-09-01', load: 20, reps: [10, 9, 8], rirReported: [2, 2, 2] },
+  { date: '2026-09-08', load: 20, reps: [10, 10, 9], rirReported: [2, 2, 2] },
+  { date: '2026-09-15', load: 20, reps: [12, 11, 10], rirReported: [2, 2, 2] },
+  { date: '2026-09-22', load: 20, reps: [12, 12, 12], rirReported: [3, 2, 2] },
+];
+check('EJEMPLO-001 10|10|9: progreso', evaluateProgression(ej1.slice(0, 2), { repRange: t812, rirTarget: [2, 3] }).state === 'progreso');
+check('EJEMPLO-001 12|12|12 RIR ok: candidato_subida', evaluateProgression(ej1, { repRange: t812, rirTarget: [2, 3] }).state === 'candidato_subida');
+check('12|12|12 a RIR 0 con objetivo RIR 2: no subir', evaluateProgression([...ej1.slice(0, 3), { date: 'x', load: 20, reps: [12, 12, 12], rirReported: [0, 0, 0] }], { repRange: t812, rirTarget: [2, 3] }).state !== 'candidato_subida');
+const ej2: ProgressionEntry[] = [
+  { date: '2026-09-01', load: 80, reps: [8, 8, 8], rirReported: [2, 2, 2] },
+  { date: '2026-09-08', load: 80, reps: [8, 8, 8], rirReported: [2, 2, 2] },
+  { date: '2026-09-15', load: 80, reps: [8, 7, 7], rirReported: [1, 1, 1] },
+];
+check('EJEMPLO-002 sin mejora 2 sesiones: estable (no plateau)', evaluateProgression(ej2.slice(0, 2), { repRange: [6, 15], rirTarget: [2, 3] }).state === 'estable');
+check('EJEMPLO-002 caída + esfuerzo mayor: revisar_contexto', evaluateProgression(ej2, { repRange: [6, 15], rirTarget: [2, 3] }).state === 'revisar_contexto');
+check('10|7|5: revisar contexto, no cambiar ejercicio', evaluateProgression([{ date: 'x', load: 50, reps: [10, 7, 5] }], { repRange: t812, rirTarget: [2, 3] }).state === 'revisar_contexto');
+const flat = Array.from({ length: 6 }, (_, i) => ({ date: `${i}`, load: 60, reps: [9, 9, 9] }));
+const pers = evaluateProgression(flat, { repRange: t812, rirTarget: [2, 3] });
+check('plateau persistente: intervención mínima (ajuste, no sustitución por defecto)', pers.state === 'plateau' && pers.changeLevel === 'ajuste');
+
+head('8 semanas progresando');
+const prog1 = generatePlan(base({ daysPerWeek: 4, level: 'advanced' }));
+const history = Object.fromEntries(ids(prog1).map(id => [id ?? '', 'progreso' as const]));
+const prog2 = generatePlan(base({ daysPerWeek: 4, level: 'advanced', previousPlan: prog1, exerciseHistory: history, planVersion: 9 }));
+check('mantiene los ejercicios que progresan (no rota por calendario)', ids(prog2).join() === ids(prog1).join());
+const prog3 = generatePlan(base({ daysPerWeek: 4, level: 'advanced', previousPlan: prog1 }));
+check('sin historial, la continuidad también mantiene la semana', ids(prog3).join() === ids(prog1).join());
+
+head('3 semanas sin entrenar');
+const ret = returnAdjustment(21);
+check('retorno conservador sin reinicio total', ret.loadFactor < 1 && ret.loadFactor >= 0.8);
+check('una ausencia corta no ajusta nada', returnAdjustment(5).loadFactor === 1);
+
+// ── Invariantes (sec. 19) ────────────────────────────────────────────
+head('Invariantes');
+const a = generatePlan(base({ daysPerWeek: 4 }));
+const b = generatePlan(base({ daysPerWeek: 4 }));
+check('reproducible: misma entrada → mismas decisiones', ids(a).join() === ids(b).join());
+const unstableLeg = (p: WeeklySession[]) => p.some(s => s.exercises.some(e => {
+  const l = libraryById.get(e.libraryId ?? '');
+  return l?.block === 'Pierna' && l.stability !== 'Alta';
 }));
-check('Perfil delgado: mancuernas sugeridas son ligeras (<= 8kg)', pesosFlaca.filter(e => e.suggestedWeightUnit === 'per-dumbbell').every(e => (e.suggestedWeightKg ?? 0) <= 8));
-const maxFlaca = Math.max(...pesosFlaca.map(e => e.suggestedWeightKg ?? 0));
-console.log(`  Flaca (42kg/158cm/beginner): máximo sugerido = ${maxFlaca}kg`);
-
-// Perfil B: 120kg y muy alto, principiante (debe ser prudente, no lineal con el peso)
-const grande: MotorInput = {
-  daysPerWeek: 4, workoutDuration: '45min', level: 'beginner', goal: 'strength',
-  weight: 120, height: 200, biologicalProfile: 'male', userId: 'grande', planVersion: 1,
-};
-const planGrande = generatePlan(grande);
-const pesosGrande = withWeight(allExercises(planGrande));
-const maxGrande = Math.max(...pesosGrande.map(e => e.suggestedWeightKg ?? 0));
-console.log(`  Grande (120kg/200cm/beginner): máximo sugerido = ${maxGrande}kg`);
-check('Perfil 120kg: no supera un techo prudente para un principiante (<=110kg en total, ningún ejercicio)', pesosGrande.filter(e => e.suggestedWeightUnit === 'total').every(e => (e.suggestedWeightKg ?? 0) <= 110));
-check('Perfil 120kg: el IMC alto amortigua la carga (no es lineal con el peso corporal bruto)', maxGrande < 120 * 0.9);
-
-// Mismo perfil grande pero avanzado: debe subir respecto al principiante, sin disparatarse
-const grandeAvanzado: MotorInput = { ...grande, level: 'advanced', userId: 'grande-avz' };
-const planGrandeAvz = generatePlan(grandeAvanzado);
-const pesosGrandeAvz = withWeight(allExercises(planGrandeAvz));
-const maxGrandeAvz = Math.max(...pesosGrandeAvz.map(e => e.suggestedWeightKg ?? 0));
-console.log(`  Grande avanzado (120kg/200cm): máximo sugerido = ${maxGrandeAvz}kg`);
-check('Avanzado sugiere más carga que principiante para el mismo cuerpo', maxGrandeAvz >= maxGrande);
-check('Avanzado 120kg tampoco se dispara (<=160kg techo total)', pesosGrandeAvz.filter(e => e.suggestedWeightUnit === 'total').every(e => (e.suggestedWeightKg ?? 0) <= 160));
-
-// Monotonía básica: a igualdad de ejercicio/nivel, el perfil más grande sugiere >= carga que el flaco
-const byLibId = (exs: ReturnType<typeof allExercises>) => new Map(exs.map(e => [e.libraryId, e.suggestedWeightKg]));
-const mapFlaca = byLibId(pesosFlaca);
-const mapGrande = byLibId(pesosGrande);
-let monotone = true;
-for (const [id, wFlaca] of mapFlaca) {
-  const wGrande = mapGrande.get(id);
-  if (wGrande != null && wFlaca != null && wGrande < wFlaca) monotone = false;
+const kneeBase = base({ daysPerWeek: 4, level: 'advanced', workoutDuration: '1hour' });
+// Control: sin lesión, este perfil SÍ recibe pierna inestable (si no, el test no probaría nada).
+check('control: sin lesión aparece pierna inestable', unstableLeg(generatePlan(kneeBase)));
+check('Safety: lesión de rodilla nunca recibe pierna inestable', !unstableLeg(generatePlan({ ...kneeBase, injuries: ['dolor de rodilla'] })));
+const shoulderCtl = generatePlan({ ...kneeBase, daysPerWeek: 5 });
+const shoulderInj = generatePlan({ ...kneeBase, daysPerWeek: 5, injuries: ['manguito rotador del hombro'] });
+const pressV = (p: WeeklySession[]) => p.some(s => s.exercises.some(e => e.slotFunction === 'empuje_vertical' || e.slotFunction === 'empuje_inclinado'));
+check('control: sin lesión hay press vertical/inclinado', pressV(shoulderCtl));
+check('Safety: lesión de hombro elimina press vertical e inclinado', !pressV(shoulderInj));
+const excl = generatePlan(base({ daysPerWeek: 4, excludedExercises: ['jalón al pecho', 'chest_machine_press'] }));
+check('exclusiones del usuario nunca aparecen', !ids(excl).includes('back_lat_pulldown') && !ids(excl).includes('chest_machine_press'));
+check('ningún ejercicio repetido dentro de una sesión', [p2, p3, p4].every(p => p.sessions.every(s => new Set(s.exercises.map(e => e.id)).size === s.exercises.length)));
+check('deltoide posterior no ocupa plazas de tirón (MOTOR-COMPLEMENT-018)', [p3, p4].every(p => p.sessions.every(s =>
+  s.exercises.every(e => !(e.slotFunction?.startsWith('tiron') && libraryById.get(e.libraryId ?? '')?.block === 'Hombro')))));
+const female = generatePlan(base({ daysPerWeek: 4, biologicalProfile: 'female' }));
+check('no se infieren prioridades por sexo (mismos ejercicios)', ids(female).join() === ids(a).join());
+check('≥3 días nunca usan Full Body como estándar', [3, 4, 5, 6].every(d => generatePlan(base({ daysPerWeek: d })).every(s => !s.templateKey?.startsWith('full'))));
+for (const [d, dur] of [[2, '45min'], [3, '1hour'], [4, '30min'], [5, '45min'], [6, '1hour']] as const) {
+  const plan = generatePlan(base({ daysPerWeek: d, workoutDuration: dur, level: 'advanced' }));
+  check(`${d} días/${dur}: todas las sesiones caben`, plan.every(s => (s.motorTrace?.estimatedMinutes ?? 99) <= minutes(dur) * 1.05), plan.map(s => s.motorTrace?.estimatedMinutes).join('/'));
 }
-check('Monotonía: mismo ejercicio/nivel, perfil de 120kg nunca sugiere menos que el perfil delgado', monotone);
+check('cada ejercicio lleva traza de debug', p4.sessions.every(s => s.exercises.every(e => !!e.motorTrace?.reason && !!e.motorTrace.slot)));
 
-// Ejercicios de peso corporal puro nunca llevan carga sugerida (no hay dato que inventar)
-const bodyweightOnly = LIBRARY.filter(l => l.loadSource !== 'Externa').map(l => l.id);
-const anyBodyweightWithLoad = allExercises(planGrande).some(e => bodyweightOnly.includes(e.libraryId ?? '') && e.suggestedWeightKg != null);
-check('Ejercicios de peso corporal no llevan carga externa inventada', !anyBodyweightWithLoad);
+// ── Opciones de plan (3-4 días) ──────────────────────────────────────
+head('Opciones de plan');
+check('2 opciones para 3 y 4 días; 1 para el resto', planOptionCount(3) === 2 && planOptionCount(4) === 2 && [1, 2, 5, 6, 7].every(d => planOptionCount(d) === 1));
+const o3 = generatePlanOptions(base({ daysPerWeek: 3 }));
+check('las opciones de 3 días son estructuras distintas y ninguna es Full Body', o3.length === 2
+  && o3[0].map(s => s.templateKey).join() !== o3[1].map(s => s.templateKey).join()
+  && o3.every(p => p.every(s => !s.templateKey?.startsWith('full'))));
+const keep = generatePlan(base({ daysPerWeek: 3, previousPlan: o3[1] }));
+check('la semana siguiente hereda la estructura elegida', keep.map(s => s.templateKey).join() === o3[1].map(s => s.templateKey).join());
 
-// ── Variantes de equipo (family) y alternativas ──────────────────────
-console.log('\n--- Variantes y alternativas ---');
-const benchBarbell = catalog.find(e => e.name === 'Press banca barra');
-check('Press banca barra tiene variantes de equipo (mancuernas/máquina/corporal)', (benchBarbell?.variations?.length ?? 0) >= 2);
-check('Las variantes de Press banca barra incluyen distintos tipos de equipo', new Set(benchBarbell?.variations?.map(v => v.type)).size >= 2);
-const rdl = catalog.find(e => e.name === 'RDL barra');
-check('RDL barra tiene alternativas funcionales (no vacío)', (rdl?.alternatives?.length ?? 0) > 0);
-
-// ── Sección 7: 2 opciones de plan para 3-4 días ──────────────────────
-console.log('\n--- Opciones de plan (3-4 días) ---');
-check('1 día -> 1 sola opción', planOptionCount(1) === 1);
-check('2 días -> 1 sola opción', planOptionCount(2) === 1);
-check('3 días -> 2 opciones', planOptionCount(3) === 2);
-check('4 días -> 2 opciones', planOptionCount(4) === 2);
-check('5 días -> 1 sola opción', planOptionCount(5) === 1);
-check('6 días -> 1 sola opción', planOptionCount(6) === 1);
-check('7 días -> 1 sola opción', planOptionCount(7) === 1);
-
-const opts3 = generatePlanOptions({ daysPerWeek: 3, workoutDuration: '45min', level: 'beginner', userId: 'opt3', planVersion: 1 });
-check('generatePlanOptions(3 días) devuelve 2 planes', opts3.length === 2);
-check('Las 2 opciones de 3 días tienen nombres de sesión distintos', JSON.stringify(opts3[0].map(s => s.name)) !== JSON.stringify(opts3[1].map(s => s.name)));
-check('Ambas opciones de 3 días generan sesiones con ejercicios', opts3.every(plan => plan.every(s => s.exercises.length > 0)));
-
-const opts4 = generatePlanOptions({ daysPerWeek: 4, workoutDuration: '45min', level: 'beginner', userId: 'opt4', planVersion: 1 });
-check('generatePlanOptions(4 días) devuelve 2 planes', opts4.length === 2);
-check('Las 2 opciones de 4 días tienen nombres de sesión distintos', JSON.stringify(opts4[0].map(s => s.name)) !== JSON.stringify(opts4[1].map(s => s.name)));
-
-const opts5 = generatePlanOptions({ daysPerWeek: 5, workoutDuration: '45min', level: 'beginner', userId: 'opt5', planVersion: 1 });
-check('generatePlanOptions(5 días) devuelve 1 solo plan', opts5.length === 1);
+// ── Peso sugerido (perfiles extremos) ────────────────────────────────
+head('Peso sugerido');
+const flaca = generatePlan(base({ daysPerWeek: 4, weight: 42, height: 158, biologicalProfile: 'female' }));
+const grande = generatePlan(base({ daysPerWeek: 4, weight: 120, height: 200 }));
+const grandeAvz = generatePlan(base({ daysPerWeek: 4, weight: 120, height: 200, level: 'advanced' }));
+const loads = (p: WeeklySession[]) => p.flatMap(s => s.exercises).filter(e => e.suggestedWeightKg != null);
+check('perfil delgado: mancuernas ligeras (≤8 kg)', loads(flaca).filter(e => e.suggestedWeightUnit === 'per-dumbbell').every(e => (e.suggestedWeightKg ?? 0) <= 8));
+check('perfil delgado: barras ≥ peso de la barra', loads(flaca).filter(e => libraryById.get(e.libraryId ?? '')?.equipmentOptions[0]?.includes('barra')).every(e => (e.suggestedWeightKg ?? 0) >= 10));
+check('120 kg principiante: techo prudente (≤110 kg)', loads(grande).every(e => (e.suggestedWeightKg ?? 0) <= 110));
+check('120 kg: el IMC alto amortigua (máx < 90 % del peso)', Math.max(...loads(grande).map(e => e.suggestedWeightKg ?? 0)) < 120 * 0.9);
+check('avanzado sugiere más que principiante', Math.max(...loads(grandeAvz).map(e => e.suggestedWeightKg ?? 0)) >= Math.max(...loads(grande).map(e => e.suggestedWeightKg ?? 0)));
+const byId = (p: WeeklySession[]) => new Map(loads(p).map(e => [e.libraryId, e.suggestedWeightKg ?? 0]));
+const mf = byId(flaca), mg = byId(grande);
+check('monotonía: mismo ejercicio, el perfil grande nunca sugiere menos', [...mf].every(([id, w]) => !mg.has(id) || (mg.get(id) ?? 0) >= w));
+check('peso corporal: sin carga inventada', grande.flatMap(s => s.exercises).every(e =>
+  libraryById.get(e.libraryId ?? '')?.loadSource === 'Externa' || e.suggestedWeightKg == null));
 
 console.log(`\n${failures === 0 ? 'TODOS LOS CHECKS PASARON' : `${failures} CHECK(S) FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);

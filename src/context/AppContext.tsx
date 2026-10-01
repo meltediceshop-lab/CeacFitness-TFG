@@ -310,6 +310,12 @@ function motorInputFromUser(u: User): Partial<MotorInput> {
     weight: u.profile?.weight,
     height: u.profile?.height,
     biologicalProfile: u.profile?.biologicalProfile,
+    otherSports: u.profile?.otherSports ?? [],
+    otherSportsDays: u.profile?.otherSportsDays ?? 0,
+    userId: u.id,
+    // Continuidad (MOTOR-STABILITY-015): misma estructura elegida y se mantienen
+    // los ejercicios que funcionan; no se rota por calendario.
+    previousPlan: u.weeklySessions,
   };
 }
 
@@ -547,6 +553,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             excludedExercises: (profile.excluded_exercises as string[]) ?? [],
             weight: profile.weight as number | undefined,
             height: profile.height as number | undefined,
+            biologicalProfile: profile.biological_profile as 'male' | 'female' | undefined,
+            otherSports: (profile.other_sports as string[]) ?? [],
+            otherSportsDays: (profile.other_sports_days as number) ?? 0,
           });
           fetch('/api/sessions/weekly', {
             method: 'POST',
@@ -721,6 +730,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       weight: resolvedProfile.weight,
       height: resolvedProfile.height,
       biologicalProfile: resolvedProfile.biologicalProfile,
+      otherSports: resolvedProfile.otherSports ?? [],
+      otherSportsDays: resolvedProfile.otherSportsDays ?? 0,
+      userId: supabaseUserId ?? undefined,
     };
 
     // MOTOR sección 7: 3-4 días/semana tienen 2 opciones técnicamente válidas;

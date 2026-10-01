@@ -177,6 +177,37 @@ export interface Exercise {
   reasonCodes?: string[];   // trazabilidad de la decisión del Motor (debug, no UI)
   suggestedWeightKg?: number; // estimación inicial según peso/altura/nivel (editable, no se auto-registra)
   suggestedWeightUnit?: 'total' | 'per-dumbbell'; // cómo interpretar suggestedWeightKg
+  // ── Motor Fit-K v1.8 (aditivos) ─────────────────────────────────────
+  slotFunction?: string;     // función del slot que cubre (MOTOR-SLOT-031), p. ej. "tiron_vertical"
+  slotRole?: 'principal' | 'secundario' | 'complementario'; // rol programático (MOTOR-ROLE-036)
+  essential?: boolean;       // forma parte de la sesión esencial (MOTOR-ESSENTIAL-042)
+  priority?: boolean;        // cubre la prioridad muscular del usuario
+  repUnit?: 'reps' | 'seconds' | 'steps';
+  perSide?: boolean;         // reps/tiempo por lado
+  configurations?: string[]; // configuraciones registradas (hoja Variantes), no ejercicios aparte
+  motorTrace?: ExerciseMotorTrace; // modo debug (sec. 16): por qué se eligió
+}
+
+export interface ExerciseMotorTrace {
+  slot: string;
+  hardFilters: string;
+  equipment: string;
+  priority: string;
+  redundancy: string;
+  timeBudget: string;
+  history: string;
+  alternative: string | null;
+  score: number;
+  reason: string;
+}
+
+export interface SessionMotorTrace {
+  split: string;
+  splitReason: string;
+  sessionRole: 'principal' | 'desarrollo' | 'moderada' | 'complementaria';
+  estimatedMinutes: number;
+  budgetMinutes: number;
+  notes: string[];
 }
 
 export interface ExerciseLog {
@@ -201,6 +232,9 @@ export interface WeeklySession {
   completedAt?: Date;
   /** Día de la semana: 0=lunes … 6=domingo */
   dayOfWeek?: number;
+  /** Plantilla de sesión del Motor (para continuidad entre semanas). */
+  templateKey?: string;
+  motorTrace?: SessionMotorTrace;
 }
 
 export interface WorkoutSession {
