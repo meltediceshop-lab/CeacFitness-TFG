@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { formatRepTarget, repUnitLabel } from '@/lib/exerciseFormat';
+import { formatRepTarget, formatRepLine } from '@/lib/exerciseFormat';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -228,7 +228,7 @@ export function WorkoutPreviewScreen() {
                         <div className="min-w-0">
                           <p className="font-medium text-stone-900 dark:text-white truncate">{exercise.name}</p>
                           <p className="text-stone-500 dark:text-white/50 text-sm">
-                            {exercise.sets} series x {formatRepTarget(exercise)}{repUnitLabel(exercise)}
+                            {exercise.sets} series x {formatRepLine(exercise)}
                           </p>
                           {lastWeight && (
                             <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs mt-1">

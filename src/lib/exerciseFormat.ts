@@ -21,3 +21,10 @@ export function formatRepTarget(ex: Pick<Exercise, 'reps' | 'repRange' | 'repUni
 export function repUnitLabel(ex: Pick<Exercise, 'repUnit'>): string {
   return ex.repUnit === 'seconds' ? '' : ex.repUnit === 'steps' ? ' pasos' : ' reps';
 }
+
+/** Objetivo completo con unidad antes del lado: "8-12 reps/lado", "30 s", "10 pasos". */
+export function formatRepLine(ex: Pick<Exercise, 'reps' | 'repRange' | 'repUnit' | 'perSide'>): string {
+  const target = formatRepTarget({ ...ex, perSide: false });
+  if (!target) return '';
+  return `${target}${repUnitLabel(ex)}${ex.perSide ? '/lado' : ''}`;
+}

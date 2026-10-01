@@ -1,5 +1,5 @@
 import { ALL_EQUIPMENT, SESSION_FOCUS, durationFromMinutes, generateFocusSession, type MotorInput } from '@/lib/fitkMotor';
-import { formatRepTarget, repUnitLabel } from '@/lib/exerciseFormat';
+import { formatRepLine } from '@/lib/exerciseFormat';
 import type { CoachWorkout } from '@/types/user';
 
 // Peso corporal / parque: lo que suele haber al aire libre.
@@ -39,16 +39,16 @@ export function buildMotorWorkout(
       reps: e.reps,
       restSeconds: e.restSeconds,
       instructions: e.instructions,
-      repLabel: `${formatRepTarget(e)}${repUnitLabel(e)}`.trim(),
+      repLabel: formatRepLine(e),
     })),
     session,
   };
   const lines = session.exercises.map(e =>
-    `- ${e.name}: ${e.sets} series x ${formatRepTarget(e)}${repUnitLabel(e)}${e.rirTarget ? `, RIR ${e.rirTarget.join('-')}` : ''}${e.suggestedWeightKg ? `, ~${e.suggestedWeightKg} kg` : ''}`);
+    `- ${e.name}: ${e.sets} series x ${formatRepLine(e)}${e.rirTarget ? `, RIR ${e.rirTarget.join('-')}` : ''}${e.suggestedWeightKg ? `, ~${e.suggestedWeightKg} kg` : ''}`);
   const warnings = result.warnings.length ? `\nAvisos del Motor: ${result.warnings.join('; ')}` : '';
   return {
     workout,
-    toolResult: `Sesión creada por el Motor: ${session.name} (~${workout.duration} min).\n${lines.join('\n')}${warnings}\nNo cambies estos ejercicios ni la dosis: el usuario los verá en la tarjeta.`,
+    toolResult: `Sesión creada por el Motor: ${session.name} (~${workout.duration} min).\n${lines.join('\n')}${warnings}\nEl usuario ya ve la sesión completa en la tarjeta. Responde en 2-4 frases de texto plano: qué le has preparado y por qué encaja con lo que pidió, y anímale a guardarla con el botón. NO enumeres los ejercicios, ni tablas, ni listas, ni cambies nada de la dosis.`,
   };
 }
 
@@ -61,6 +61,9 @@ export function toPlainText(text: string): string {
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/^\s*[-*]\s+/gm, '• ')
     .replace(/`([^`]+)`/g, '$1')
-    .replace(/\|/g, ' ')
+    .replace(/^[ \t]*\|?[ \t:|-]*-{3,}[ \t:|-]*$/gm, '') // separadores de tablas Markdown
+    .replace(/^[ \t]*\|[ \t]*|[ \t]*\|[ \t]*$/gm, '')
+    .replace(/[ \t]*\|[ \t]*/g, ' · ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
