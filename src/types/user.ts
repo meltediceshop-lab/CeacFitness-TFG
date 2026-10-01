@@ -353,7 +353,11 @@ export interface CoachWorkout {
     reps: number[];
     restSeconds: number;
     instructions?: string;
+    /** Objetivo ya formateado por el Motor ("8-12", "30 s/lado"). */
+    repLabel?: string;
   }>;
+  /** Sesión completa construida por el Motor (biblioteca, dosis, trazas). */
+  session?: WeeklySession;
 }
 
 export interface CoachNutritionPlan {

@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { MASTER_PROMPT } from '@/lib/coachPrompt';
 import { libraryPromptSummary } from '@/lib/fitkLibrary';
 import { COACH_MODEL, COACH_REASONING_EFFORT } from '@/lib/llm';
+import { ALL_EQUIPMENT, SESSION_FOCUS, type MotorInput } from '@/lib/fitkMotor';
+import { motorInputFromRows } from '@/lib/motorInputFromRows';
+import { buildMotorWorkout, toPlainText } from '@/lib/coachMotor';
+import type { CoachWorkout } from '@/types/user';
 import OpenAI from 'openai';
 
 const deepseek = new OpenAI({
@@ -10,9 +14,7 @@ const deepseek = new OpenAI({
   apiKey: process.env.GROQ_API_KEY!,
 });
 
-// Biblioteca Fit-K v1.0 (81 ejercicios) — misma fuente de verdad que el
-// Motor (fitkLibrary.ts/fitkMotor.ts). Antes el chat tenía su propia copia
-// hardcodeada de 71 ejercicios, desincronizada del catálogo real.
+// Biblioteca Fit-K — misma fuente de verdad que el Motor (fitkLibrary.ts).
 const BOE_FK = libraryPromptSummary();
 
 type ExerciseContext = {
@@ -20,7 +22,11 @@ type ExerciseContext = {
   exerciseName?: string;
   sets?: number;
   reps?: number[];
+  repLabel?: string;
   targetMuscle?: string;
+  /** Alternativas y variantes que ya calculó el Motor para este ejercicio. */
+  alternatives?: string[];
+  variations?: string[];
 };
 
 function getModeInstructions(mode?: string, exerciseContext?: ExerciseContext): string {
@@ -29,8 +35,13 @@ function getModeInstructions(mode?: string, exerciseContext?: ExerciseContext): 
     let instructions = `\n\nMODO ACTIVO: CHAT EN MITAD DE UN ENTRENAMIENTO EN DIRECTO
 Sesión actual: ${ex?.sessionName || 'entreno de hoy'}`;
     if (ex?.exerciseName) {
-      instructions += `\nEjercicio actual: ${ex.exerciseName}${ex.sets ? ` — ${ex.sets} series x ${(ex.reps || []).join('/')} reps` : ''}${ex.targetMuscle ? ` (músculo: ${ex.targetMuscle})` : ''}`;
+      instructions += `\nEjercicio actual: ${ex.exerciseName}${ex.sets ? ` — ${ex.sets} series x ${ex.repLabel || `${(ex.reps || []).join('/')} reps`}` : ''}${ex.targetMuscle ? ` (músculo: ${ex.targetMuscle})` : ''}`;
+      if (ex.alternatives?.length || ex.variations?.length) {
+        instructions += `\nAlternativas que ya calculó el Motor para este ejercicio (misma función): ${[...(ex.variations ?? []), ...(ex.alternatives ?? [])].join(', ')}.
+- Si pide sustituirlo (máquina ocupada, no le gusta, falta material), propón SOLO una de estas y recuérdale que puede cambiarla en el detalle del ejercicio. No inventes otras ni cambies series o reps.`;
+      }
     }
+    instructions += `\n- Si dice que tiene DOLOR o MOLESTIA: que pare ese ejercicio y pulse "Tengo molestias" en la pantalla del ejercicio (el Motor lo registra y no lo sustituye automáticamente). No propongas alternativas ni bajar el peso para seguir con dolor.`;
     instructions += `\nRESTRICCIÓN DE TEMA OBLIGATORIA: SOLO puedes ayudar con: técnica del ejercicio actual, variantes o alternativas (por lesión, falta de material, incomodidad), ajustar series/reps/peso/descanso, o dudas puntuales del entreno de hoy.
 - Sé MUY breve: 1-3 frases máximo, el usuario está entrenando ahora mismo y no puede leer mucho.
 - Si preguntan cualquier otra cosa (nutrición, otro día, temas ajenos al fitness), responde EXACTAMENTE: "Ahora mismo solo puedo ayudarte con el ejercicio de hoy. ¡Sigue así! 💪"
@@ -54,9 +65,9 @@ ${BOE_FK}`;
 RESTRICCIÓN DE TEMA OBLIGATORIA: Solo debes responder preguntas relacionadas con fitness y nutrición deportiva.`;
 
   if (isGym) {
-    instructions += `\n- Propón ejercicios DE GIMNASIO: pesas libres, barras, máquinas, mancuernas. No propones ejercicios al aire libre ni running.\n\n${BOE_FK}`;
+    instructions += `\n- Entrenos de GIMNASIO: pesas libres, barras, máquinas, mancuernas. No propones ejercicios al aire libre ni running.\n\n${BOE_FK}`;
   } else if (isOutdoor) {
-    instructions += '\n- Propón ejercicios AL AIRE LIBRE: running, HIIT en parque, circuitos con peso corporal. Sin máquinas de gym.';
+    instructions += '\n- Entrenos AL AIRE LIBRE: la sesión de fuerza la construye el Motor con peso corporal y barras de parque (equipment ["dominadas","paralelas"], o [] si no tiene barras). Usa preferentemente el enfoque "fullB" o "legs" (la Biblioteca no tiene remo ni bisagra sin material). Para running o cardio da pautas en texto (no hay tarjeta para eso).';
   } else if (isNutrition) {
     instructions += '\n- Céntrate en nutrición: macros, timing de comidas, recetas, suplementos, dietas. Si preguntan sobre entrenamiento, puedes dar una respuesta mínima pero redirige a nutrición.';
   }
@@ -197,9 +208,11 @@ PERFIL DE ${name.toUpperCase()}:
 - Sé conciso: máximo 3-4 párrafos por respuesta
 - Escribe en TEXTO PLANO: nada de Markdown, asteriscos (**), almohadillas ni listas con símbolos — la app muestra el texto tal cual
 - Usa siempre el nombre "${name}" al dirigirte al usuario
-- TIENES DOS HERRAMIENTAS: "create_workout_session" (crea un entreno que el usuario puede añadir a sus sesiones con un toque) y "create_nutrition_plan" (crea un plan de comidas que se guarda en la pestaña Nutrición). Úsalas cuando el usuario pida un entreno/rutina o una dieta/plan de comidas. Adáptalas SIEMPRE a su perfil, objetivo, nivel, lesiones y preferencias.
-- Si el usuario pide AÑADIR, GUARDAR o METER en sus entrenamientos/sesiones un entreno que le has descrito, DEBES llamar a "create_workout_session" con ese entreno exacto. NUNCA lo repitas solo en texto: sin la tarjeta el usuario no puede guardarlo.
-- Cuando uses una herramienta, en tu respuesta de texto explica brevemente qué le has preparado y anímale a guardarlo con el botón de la tarjeta. No repitas todos los datos: ya los verá en la tarjeta.
+- TÚ NO DISEÑAS RUTINAS: las sesiones de entrenamiento las construye el Motor Fit-K (elige ejercicios, series, reps, RIR, descansos y peso según el perfil, lesiones y tiempo). Tu papel es entender qué necesita el usuario y pedírselo al Motor con la herramienta "request_motor_session" (enfoque, minutos, material disponible, ejercicios a evitar). Nunca escribas una rutina con ejercicios inventada por ti en el texto.
+- Si el usuario pide un entreno, una rutina o una sesión, o AÑADIR/GUARDAR un entreno, llama a "request_motor_session". Elige el enfoque según lo que pida y lo que le falta esta semana; si no especifica, usa cuerpo completo.
+- Ajustes del día: la energía baja y el poco tiempo los aplica el Motor al empezar la sesión (pantalla de energía): mantiene los ejercicios y reduce la dosis. Si tiene poco tiempo y quiere una sesión distinta, pide al Motor una sesión con esos minutos.
+- La herramienta "create_nutrition_plan" crea un plan de comidas que se guarda en la pestaña Nutrición; adáptalo a su perfil.
+- Cuando uses una herramienta, en tu respuesta de texto explica brevemente qué le has preparado y por qué, y anímale a guardarlo con el botón de la tarjeta. No repitas todos los datos: ya los verá en la tarjeta.
 - Para nutrición puedes crear el plan directamente con la herramienta aunque no haya completado el cuestionario, usando los datos de su perfil
 - NUNCA diagnostiques enfermedades ni recetes medicamentos
 - Si hay lesiones, recomienda consultar a un médico además de dar consejos adaptados
@@ -228,6 +241,8 @@ export async function POST(req: NextRequest) {
     }
 
     const messages: OpenAI.ChatCompletionMessageParam[] = [];
+    // Sin sesión iniciada el Motor usa valores por defecto (principiante, 45 min).
+    let motorBase: MotorInput = motorInputFromRows('anon', null, null);
 
     // Base de conocimiento: prioriza la categoría del modo activo + entradas generales
     let knowledge: KnowledgeEntry[] = [];
@@ -257,6 +272,8 @@ export async function POST(req: NextRequest) {
         supabase.from('body_measurements').select('*').eq('user_id', user.id).order('recorded_at', { ascending: false }).limit(1),
         supabase.from('user_reviews').select('answers, motor_action, coach_message, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1),
       ]);
+
+      motorBase = motorInputFromRows(user.id, onboarding, profile);
 
       if (onboarding && profile) {
         let prompt = buildSystemPrompt(onboarding, profile, {
@@ -338,31 +355,25 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
     const workoutTool: OpenAI.Chat.Completions.ChatCompletionTool = {
       type: 'function',
       function: {
-        name: 'create_workout_session',
-        description: 'Crea una sesión de entrenamiento personalizada que el usuario puede añadir a sus sesiones. Úsala cuando el usuario pida un entrenamiento, rutina o sesión, Y SIEMPRE que pida añadir/guardar/meter en sus entrenamientos un entreno ya comentado en la conversación.',
+        name: 'request_motor_session',
+        description: 'Pide al Motor Fit-K una sesión de entrenamiento de fuerza para el usuario (el Motor elige ejercicios y dosis). Úsala siempre que pida un entreno, rutina o sesión, o que quiera añadir/guardar uno.',
         parameters: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: 'Nombre corto de la sesión (ej: "Full Body en Casa")' },
-            targetMuscles: { type: 'string', description: 'Músculos objetivo (ej: "Todo el cuerpo", "Pecho y espalda")' },
-            duration: { type: 'number', description: 'Duración estimada en minutos' },
-            exercises: {
-              type: 'array',
-              description: 'Lista de ejercicios de la sesión',
-              items: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  sets: { type: 'number' },
-                  reps: { type: 'array', items: { type: 'number' }, description: 'Array de repeticiones por serie (ej: [12,12,10])' },
-                  restSeconds: { type: 'number', description: 'Segundos de descanso entre series' },
-                  instructions: { type: 'string', description: 'Indicación técnica breve (opcional)' },
-                },
-                required: ['name', 'sets', 'reps', 'restSeconds'],
-              },
+            focus: {
+              type: 'string',
+              enum: Object.keys(SESSION_FOCUS),
+              description: `Enfoque de la sesión: ${Object.entries(SESSION_FOCUS).map(([k, v]) => `${k} = ${v}`).join('; ')}`,
             },
+            minutes: { type: 'number', description: 'Minutos disponibles si el usuario los indica (20-90). Si no, se usa su duración habitual.' },
+            equipment: {
+              type: 'array',
+              items: { type: 'string', enum: [...ALL_EQUIPMENT] },
+              description: 'Solo si el usuario dice qué material tiene (p. ej. en casa solo mancuernas → ["mancuernas","banco"]). Lista vacía = solo peso corporal. Omitir = gimnasio completo.',
+            },
+            avoidExercises: { type: 'array', items: { type: 'string' }, description: 'Ejercicios que el usuario pide evitar en esta sesión' },
           },
-          required: ['name', 'targetMuscles', 'duration', 'exercises'],
+          required: ['focus'],
         },
       },
     };
@@ -382,29 +393,31 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       temperature: 0.7,
       tools: [workoutTool, nutritionTool],
       tool_choice: wantsWorkoutSaved
-        ? { type: 'function', function: { name: 'create_workout_session' } }
+        ? { type: 'function', function: { name: 'request_motor_session' } }
         : 'auto',
     });
 
     const choice = completion.choices[0];
     let aiResponse = '';
-    let workoutData = null;
-    let nutritionData = null;
+    let workoutData: CoachWorkout | null = null;
+    let nutritionData: Record<string, unknown> | null = null;
 
     if (choice.message.tool_calls?.length) {
       const toolCall = choice.message.tool_calls[0] as { id: string; type: string; function: { name: string; arguments: string } };
       const fnName = toolCall.function?.name;
 
-      if (fnName === 'create_workout_session' || fnName === 'create_nutrition_plan') {
-        try {
-          const parsed = JSON.parse(toolCall.function.arguments);
-          if (fnName === 'create_workout_session') workoutData = parsed;
-          else nutritionData = parsed;
-        } catch { /* ignore */ }
+      if (fnName === 'request_motor_session' || fnName === 'create_nutrition_plan') {
+        let parsed: Record<string, unknown> = {};
+        try { parsed = JSON.parse(toolCall.function.arguments || '{}'); } catch { /* ignore */ }
 
-        const successMsg = fnName === 'create_workout_session'
-          ? 'Sesión de entrenamiento creada correctamente.'
-          : 'Plan nutricional creado correctamente.';
+        let successMsg = 'Plan nutricional creado correctamente.';
+        if (fnName === 'request_motor_session') {
+          const motor = buildMotorWorkout(motorBase, parsed as Parameters<typeof buildMotorWorkout>[1], mode);
+          workoutData = motor.workout;
+          successMsg = motor.toolResult;
+        } else {
+          nutritionData = parsed;
+        }
 
         const followUp = await deepseek.chat.completions.create({
           model: COACH_MODEL,
@@ -417,11 +430,13 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
           max_tokens: 400,
           temperature: 0.7,
         });
-        aiResponse = followUp.choices[0]?.message?.content || '¡Listo! Aparecerá en la tarjeta de abajo.';
+        aiResponse = followUp.choices[0]?.message?.content || (workoutData || nutritionData ? '¡Listo! Lo tienes en la tarjeta de abajo.' : 'No he podido prepararlo con esas condiciones. ¿Qué material tienes disponible?');
       }
     } else {
       aiResponse = choice.message?.content || 'Lo siento, no pude generar una respuesta.';
     }
+
+    aiResponse = toPlainText(aiResponse);
 
     if (user) {
       await supabase.from('chat_messages').insert([

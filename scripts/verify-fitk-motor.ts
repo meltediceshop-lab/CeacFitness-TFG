@@ -3,7 +3,8 @@
 // Uso: npx tsx scripts/verify-fitk-motor.ts
 import {
   generatePlan, generatePlanWithTrace, generatePlanOptions, planOptionCount, motorCatalog,
-  adaptSessionForToday, substituteExercise, estimateSessionMinutes, type MotorInput,
+  adaptSessionForToday, substituteExercise, estimateSessionMinutes, generateFocusSession, SESSION_FOCUS,
+  durationFromMinutes, type MotorInput,
 } from '../src/lib/fitkMotor';
 import { evaluateProgression, returnAdjustment, type ProgressionEntry } from '../src/lib/fitkProgression';
 import { handleDiscomfort } from '../src/lib/fitkSafety';
@@ -246,6 +247,30 @@ const mf = byId(flaca), mg = byId(grande);
 check('monotonía: mismo ejercicio, el perfil grande nunca sugiere menos', [...mf].every(([id, w]) => !mg.has(id) || (mg.get(id) ?? 0) >= w));
 check('peso corporal: sin carga inventada', grande.flatMap(s => s.exercises).every(e =>
   libraryById.get(e.libraryId ?? '')?.loadSource === 'Externa' || e.suggestedWeightKg == null));
+
+// ── Coach → Motor (ARCH-COACH-001) ───────────────────────────────────
+head('Coach pide al Motor');
+const focusOk = Object.keys(SESSION_FOCUS).every(f => {
+  const r = generateFocusSession(base({ level: 'advanced' }), f);
+  return !!r && r.sessions.length === 1 && r.sessions[0].exercises.length >= 3 && r.sessions[0].exercises.every(e => e.libraryId);
+});
+check('cada enfoque produce una sesión de la Biblioteca (≥3 ejercicios)', focusOk);
+check('enfoque desconocido → null (el Coach no inventa)', generateFocusSession(base({}), 'inventado') === null);
+const focusA = generateFocusSession(base({}), 'push')!.sessions[0];
+const focusB = generateFocusSession(base({}), 'push')!.sessions[0];
+check('sesión puntual reproducible', focusA.exercises.map(e => e.libraryId).join() === focusB.exercises.map(e => e.libraryId).join());
+const casa = generateFocusSession(base({ availableEquipment: ['mancuernas', 'banco'] }), 'fullA')!.sessions[0];
+check('solo mancuernas+banco: todo hacible con ese material', casa.exercises.every(e =>
+  libraryById.get(e.libraryId!)!.equipmentOptions.some(o => o.every(i => ['mancuernas', 'banco'].includes(i)))));
+const parque = generateFocusSession(base({ availableEquipment: [] }), 'fullA');
+check('peso corporal: sin material o null, nunca máquinas', !parque || parque.sessions[0].exercises.every(e =>
+  libraryById.get(e.libraryId!)!.equipmentOptions.some(o => o.length === 0)));
+const rodillaPuntual = generateFocusSession(base({ injuries: ['rodilla'] }), 'legs');
+const sinFiltro = generateFocusSession(base({}), 'legs')!.sessions[0];
+check('lesión de rodilla: la sesión puntual respeta Safety', !rodillaPuntual || rodillaPuntual.sessions[0].exercises.map(e => e.libraryId).join() !== sinFiltro.exercises.map(e => e.libraryId).join());
+const corta = generateFocusSession(base({ workoutDuration: durationFromMinutes(25) }), 'torsoA')!.sessions[0];
+check('20-30 min: la sesión cabe en 30 min', estimateSessionMinutes(corta) <= 31, `${estimateSessionMinutes(corta)} min`);
+check('sesión puntual marcada en la traza', corta.templateKey === 'torsoA' && corta.motorTrace?.split === 'Sesión puntual');
 
 console.log(`\n${failures === 0 ? 'TODOS LOS CHECKS PASARON' : `${failures} CHECK(S) FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);

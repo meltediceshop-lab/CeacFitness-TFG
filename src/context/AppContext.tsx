@@ -940,7 +940,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addSessionFromCoach = (workout: import('@/types/user').CoachWorkout) => {
     if (!user) return;
 
-    const newSession: WeeklySession = {
+    // Sesión del Motor (Coach v1.8): se conserva tal cual con todos sus datos.
+    // Sin templateKey para no alterar la continuidad del plan semanal.
+    const motorSession: WeeklySession | null = workout.session
+      ? { ...workout.session, id: crypto.randomUUID(), sessionNumber: user.weeklySessions.length + 1, status: 'available', templateKey: undefined, dayOfWeek: undefined }
+      : null;
+    const newSession: WeeklySession = motorSession ?? {
       id: crypto.randomUUID(),
       sessionNumber: user.weeklySessions.length + 1,
       name: workout.name,

@@ -765,6 +765,12 @@ function resolveOption(days: number, input: MotorInput, options: SplitDef[]): nu
 
 export function generatePlanWithTrace(input: MotorInput): PlanResult {
   const days = clampDays(input.daysPerWeek);
+  const options = splitOptions(days, priorityGroupOf(input.priorityMuscle));
+  return buildPlan(input, options[resolveOption(days, input, options)], true);
+}
+
+function buildPlan(input: MotorInput, split: SplitDef, validate: boolean): PlanResult {
+  const days = clampDays(input.daysPerWeek);
   const minutes = durationMinutes(input.workoutDuration);
   const budget = minutes * 60 * BUDGET_SHARE;
   const userLevel = input.level ?? 'beginner';
@@ -773,8 +779,6 @@ export function generatePlanWithTrace(input: MotorInput): PlanResult {
   const warnings: string[] = [];
 
   // 3) Estructura semanal
-  const options = splitOptions(days, priority);
-  const split = options[resolveOption(days, input, options)];
   const templates = split.sessions.map(k => TEMPLATES[k]);
 
   // 4-6) Roles de sesión y slots (copias: las plantillas no se mutan)
@@ -892,8 +896,39 @@ export function generatePlanWithTrace(input: MotorInput): PlanResult {
   });
 
   // 11) Validación semanal: cobertura mínima (avisa, no parchea en silencio).
-  warnings.push(...validateWeek(sessions, days));
+  if (validate) warnings.push(...validateWeek(sessions, days));
   return { sessions, split: split.name, splitReason: split.reason, warnings };
+}
+
+// ── Sesión puntual pedida por el Coach (ARCH-COACH-001) ──────────────
+// El Coach no inventa rutinas: elige un enfoque y el Motor construye la
+// sesión con los mismos filtros, scoring, dosis y presupuesto de tiempo.
+export const SESSION_FOCUS: Record<string, string> = {
+  fullA: 'Cuerpo completo (sentadilla, empuje y tirón horizontal)',
+  fullB: 'Cuerpo completo (bisagra, tirón vertical, empuje inclinado)',
+  pechoTriceps: 'Pecho y tríceps',
+  espaldaBiceps: 'Espalda y bíceps',
+  piernaHombro: 'Pierna y hombro',
+  push: 'Empuje: pecho, hombro, tríceps',
+  pull: 'Tirón: espalda, bíceps, deltoide posterior',
+  legs: 'Pierna completa',
+  torsoA: 'Torso (pecho y espalda horizontal)',
+  torsoB: 'Torso (espalda vertical y pecho inclinado)',
+  piernaA: 'Pierna con énfasis en cuádriceps',
+  piernaB: 'Pierna con énfasis en glúteo e isquios',
+};
+
+export function generateFocusSession(input: MotorInput, focus: string): PlanResult | null {
+  if (!TEMPLATES[focus]) return null;
+  const split: SplitDef = { name: 'Sesión puntual', reason: `Pedida al Coach: ${SESSION_FOCUS[focus] ?? focus}`, sessions: [focus] };
+  const result = buildPlan({ ...input, customDays: undefined }, split, false);
+  return result.sessions[0]?.exercises.length ? result : null;
+}
+
+/** Duración en minutos → valor de workoutDuration que entiende el Motor. */
+export function durationFromMinutes(minutes?: number): string {
+  if (!minutes) return '45min';
+  return minutes <= 35 ? '30min' : minutes >= 55 ? '1hour' : '45min';
 }
 
 export function generatePlan(input: MotorInput): WeeklySession[] {
