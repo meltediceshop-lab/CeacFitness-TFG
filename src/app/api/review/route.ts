@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { MASTER_PROMPT } from '@/lib/coachPrompt';
+import { COACH_MODEL, COACH_REASONING_EFFORT } from '@/lib/llm';
 import OpenAI from 'openai';
 
 const groq = new OpenAI({
@@ -128,7 +129,8 @@ Responde SOLO con un JSON válido, sin nada más:
     let coachMessage = 'Todo apunta a que el plan sigue funcionando bien, así que lo mantenemos tal cual. Sigue a tu ritmo y nos vemos en la próxima revisión.';
     try {
       const completion = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: COACH_MODEL,
+        reasoning_effort: COACH_REASONING_EFFORT,
         messages: [{ role: 'system', content: motorPrompt }],
         max_tokens: 400,
         temperature: 0.4,

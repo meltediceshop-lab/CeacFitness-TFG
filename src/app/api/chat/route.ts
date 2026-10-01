@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { MASTER_PROMPT } from '@/lib/coachPrompt';
+import { COACH_MODEL, COACH_REASONING_EFFORT } from '@/lib/llm';
 import OpenAI from 'openai';
 
 const deepseek = new OpenAI({
@@ -383,7 +384,8 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       /(entren|rutina|sesion)/.test(normalized);
 
     const completion = await deepseek.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: COACH_MODEL,
+      reasoning_effort: COACH_REASONING_EFFORT,
       messages,
       max_tokens: 1200,
       temperature: 0.7,
@@ -414,7 +416,8 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
           : 'Plan nutricional creado correctamente.';
 
         const followUp = await deepseek.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+          model: COACH_MODEL,
+          reasoning_effort: COACH_REASONING_EFFORT,
           messages: [
             ...messages,
             choice.message,
