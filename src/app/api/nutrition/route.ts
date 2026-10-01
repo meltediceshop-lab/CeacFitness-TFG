@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { COACH_MODEL, COACH_REASONING_EFFORT } from '@/lib/llm';
 import OpenAI from 'openai';
 
 const deepseek = new OpenAI({
@@ -86,7 +87,8 @@ Genera un plan nutricional en formato JSON con esta estructura EXACTA (sin texto
 IMPORTANTE: Incluye exactamente ${nutritionProfile.mealsPerDay} comidas. Usa alimentos comunes y fáciles de encontrar en España. Adapta todo estrictamente a las restricciones y preferencias indicadas. El plan debe ser realista y sostenible, no perfecto.`;
 
     const completion = await deepseek.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: COACH_MODEL,
+      reasoning_effort: COACH_REASONING_EFFORT,
       messages: [
         {
           role: 'system',
@@ -212,7 +214,8 @@ Propón 1 alternativa saludable y equivalente en calorías. Solo el nombre, sin 
 Responde ÚNICAMENTE con JSON válido: { "food": "nombre del alimento alternativo" }`;
 
       const completion = await deepseek.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: COACH_MODEL,
+        reasoning_effort: COACH_REASONING_EFFORT,
         messages: [
           { role: 'system', content: 'Responde SOLO con el JSON pedido.' },
           { role: 'user', content: prompt },
@@ -241,7 +244,8 @@ Responde ÚNICAMENTE con JSON válido:
 }`;
 
       const completion = await deepseek.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: COACH_MODEL,
+        reasoning_effort: COACH_REASONING_EFFORT,
         messages: [
           { role: 'system', content: 'Eres un nutricionista deportivo. Responde SOLO con el JSON pedido.' },
           { role: 'user', content: prompt },
@@ -275,7 +279,8 @@ Responde ÚNICAMENTE con JSON válido, sin texto adicional:
 }`;
 
     const completion = await deepseek.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: COACH_MODEL,
+      reasoning_effort: COACH_REASONING_EFFORT,
       messages: [
         { role: 'system', content: 'Eres un nutricionista deportivo. Responde SOLO con el JSON pedido.' },
         { role: 'user', content: prompt },
