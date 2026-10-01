@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
-import { formatRepTarget, repUnitLabel } from '@/lib/exerciseFormat';
+import { formatRepTarget, formatRepLine } from '@/lib/exerciseFormat';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -750,7 +750,7 @@ export function WorkoutScreen() {
                     <div className="flex-1">
                       <p className={`font-semibold ${done ? 'text-stone-400 line-through' : 'text-stone-900'}`}>{exercise.name}</p>
                       <p className={`font-medium ${done ? 'text-stone-300' : 'text-emerald-600'}`}>
-                        {exercise.sets} series x {formatRepTarget(exercise)}{repUnitLabel(exercise)}
+                        {exercise.sets} series x {formatRepLine(exercise)}
                       </p>
                       {exercise.instructions && (
                         <p className="text-stone-400 text-sm mt-1">{exercise.instructions}</p>
