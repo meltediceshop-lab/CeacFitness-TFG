@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
+import { formatRepTarget, repUnitLabel } from '@/lib/exerciseFormat';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import {
   Watch,
   Hash,
   Flame,
+  AlertTriangle,
 } from 'lucide-react';
 import type { Exercise, ExerciseVariation, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
@@ -27,6 +29,7 @@ import { WarmupModal } from '@/components/workout/WarmupModal';
 import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
 import { useScrollLock } from '@/hooks/useScrollLock';
+import { handleDiscomfort } from '@/lib/fitkSafety';
 
 interface ExerciseLog {
   exerciseId: string;
@@ -127,7 +130,8 @@ export function WorkoutScreen() {
     setUser,
     completeWeeklySession,
     getExerciseHistory,
-    getExerciseByName
+    getExerciseByName,
+    supabaseUserId,
   } = useApp();
 
   // 1. Estado del Modal (Compartido para Modo Simple y Guiado)
@@ -163,6 +167,9 @@ export function WorkoutScreen() {
   const [showDurationBanner, setShowDurationBanner] = useState(false);
   const [showClockPicker, setShowClockPicker] = useState(false);
   const [showClockExpanded, setShowClockExpanded] = useState(false);
+
+  // 5. Safety Flow (SAFE-001): molestia declarada por el usuario
+  const [discomfortMessage, setDiscomfortMessage] = useState<string | null>(null);
 
   // Limpieza del temporizador de descanso
   useEffect(() => {
@@ -224,14 +231,6 @@ export function WorkoutScreen() {
   const totalSets = exercises.reduce((acc, ex) => acc + ex.sets, 0);
 
   // Funciones Auxiliares
-  const formatReps = (repsArr: number[]) => {
-    if (!repsArr || repsArr.length === 0) return '';
-    if (repsArr.every(r => r === repsArr[0])) {
-      return `${repsArr.length} x ${repsArr[0]}`;
-    }
-    return repsArr.join('/');
-  };
-
   const getLastWeight = (exerciseId: string): number | null => {
     if (!getExerciseHistory) return null;
     const history = getExerciseHistory(exerciseId);
@@ -262,6 +261,32 @@ export function WorkoutScreen() {
     if (restIntervalRef.current) clearInterval(restIntervalRef.current);
     setIsResting(false);
     setRestTime(0);
+  };
+
+  // Safety Flow (SAFE-001 🔒): cancela el ejercicio actual sin bajar carga
+  // ni sustituir automáticamente; registra el evento y deja continuar el
+  // resto de la sesión con normalidad.
+  const handleReportDiscomfort = () => {
+    if (!currentExercise) return;
+    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    setIsResting(false);
+    setRestTime(0);
+
+    const { message, event } = handleDiscomfort(currentExercise);
+    setDiscomfortMessage(message);
+
+    if (supabaseUserId) {
+      fetch('/api/safety-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(event),
+      }).catch(() => { /* silently ignore */ });
+    }
+
+    if (currentExerciseIndex < exercises.length - 1) {
+      setCurrentExerciseIndex(currentExerciseIndex + 1);
+      setCurrentSetIndex(0);
+    }
   };
 
   const handleCompleteSet = () => {
@@ -397,7 +422,7 @@ export function WorkoutScreen() {
                   </div>
                   <div className="w-px bg-emerald-200" />
                   <div>
-                    <p className="text-2xl font-bold text-emerald-600">{formatReps(showExerciseDetail.reps)}</p>
+                    <p className="text-2xl font-bold text-emerald-600">{formatRepTarget(showExerciseDetail)}</p>
                     <p className="text-stone-500 text-sm">Reps</p>
                   </div>
                   <div className="w-px bg-emerald-200" />
@@ -725,7 +750,7 @@ export function WorkoutScreen() {
                     <div className="flex-1">
                       <p className={`font-semibold ${done ? 'text-stone-400 line-through' : 'text-stone-900'}`}>{exercise.name}</p>
                       <p className={`font-medium ${done ? 'text-stone-300' : 'text-emerald-600'}`}>
-                        {exercise.sets} series x {formatReps(exercise.reps)} reps
+                        {exercise.sets} series x {formatRepTarget(exercise)}{repUnitLabel(exercise)}
                       </p>
                       {exercise.instructions && (
                         <p className="text-stone-400 text-sm mt-1">{exercise.instructions}</p>
@@ -872,8 +897,32 @@ export function WorkoutScreen() {
           </button>
         </div>
         <Progress value={progress} className="h-2 bg-stone-200" />
-        <p className="text-right text-sm text-stone-400 mt-1">{completedSets.size}/{totalSets} series</p>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-sm text-stone-400">{completedSets.size}/{totalSets} series</p>
+          <button
+            onClick={handleReportDiscomfort}
+            className="flex items-center gap-1 text-xs text-stone-400 hover:text-amber-600 transition-colors"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Tengo molestias
+          </button>
+        </div>
       </div>
+
+      <AnimatePresence>
+        {discomfortMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mx-6 mb-3 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3"
+          >
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800 flex-1">{discomfortMessage}</p>
+            <button onClick={() => setDiscomfortMessage(null)}><X className="w-4 h-4 text-amber-600" /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 px-6 flex flex-col">
         <AnimatePresence mode="wait">
@@ -954,7 +1003,7 @@ export function WorkoutScreen() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-stone-600 text-sm">Peso usado (kg) - opcional</label>
-                    {getLastWeight(currentExercise.id) && (
+                    {getLastWeight(currentExercise.id) ? (
                       <button
                         type="button"
                         onClick={() => setWeight(String(getLastWeight(currentExercise.id)))}
@@ -962,9 +1011,17 @@ export function WorkoutScreen() {
                       >
                         <TrendingUp className="w-3 h-3" /> Última vez: {getLastWeight(currentExercise.id)} kg
                       </button>
+                    ) : currentExercise.suggestedWeightKg != null && (
+                      <button
+                        type="button"
+                        onClick={() => setWeight(String(currentExercise.suggestedWeightKg))}
+                        className="text-xs font-medium text-stone-500 bg-stone-100 px-2.5 py-1 rounded-full flex items-center gap-1"
+                      >
+                        Sugerido: {currentExercise.suggestedWeightKg} kg{currentExercise.suggestedWeightUnit === 'per-dumbbell' ? '/mancuerna' : ''}
+                      </button>
                     )}
                   </div>
-                  <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={getLastWeight(currentExercise.id) ? String(getLastWeight(currentExercise.id)) : 'Ej: 20'} className="py-5 px-4 rounded-xl bg-white border-stone-200 text-lg" />
+                  <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={String(getLastWeight(currentExercise.id) ?? currentExercise.suggestedWeightKg ?? 'Ej: 20')} className="py-5 px-4 rounded-xl bg-white border-stone-200 text-lg" />
                 </div>
                 <div>
                   <label className="text-stone-600 text-sm mb-2 block">Repeticiones hechas (si diferente)</label>

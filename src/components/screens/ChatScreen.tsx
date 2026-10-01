@@ -482,7 +482,7 @@ function WorkoutCard({ workout, saved, onAdd }: { workout: CoachWorkout; saved: 
         {workout.exercises.slice(0, 5).map((ex, i) => (
           <div key={i} className="flex items-center justify-between">
             <span className="text-xs text-stone-700 dark:text-stone-200 truncate flex-1">{ex.name}</span>
-            <span className="text-[11px] text-stone-400 flex-shrink-0 ml-2">{ex.sets}×{ex.reps.join('/')}</span>
+            <span className="text-[11px] text-stone-400 flex-shrink-0 ml-2">{ex.sets}×{ex.repLabel ?? ex.reps.join('/')}</span>
           </div>
         ))}
         {workout.exercises.length > 5 && (

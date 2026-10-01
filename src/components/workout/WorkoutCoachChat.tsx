@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X, Send, Loader2 } from 'lucide-react';
 import type { Exercise } from '@/types/user';
+import { formatRepTarget, repUnitLabel } from '@/lib/exerciseFormat';
 
 interface ChatMsg {
   id: string;
@@ -58,7 +59,10 @@ export function WorkoutCoachChat({
             exerciseName: currentExercise?.name,
             sets: currentExercise?.sets,
             reps: currentExercise?.reps,
+            repLabel: currentExercise ? `${formatRepTarget(currentExercise)}${repUnitLabel(currentExercise)}`.trim() : undefined,
             targetMuscle: currentExercise?.targetMuscle,
+            alternatives: currentExercise?.alternatives,
+            variations: currentExercise?.variations?.map(v => v.name),
           },
         }),
       });

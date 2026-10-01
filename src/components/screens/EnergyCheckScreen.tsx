@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Battery, BatteryLow, BatteryMedium, BatteryFull, Zap } from 'lucide-react';
 import type { EnergyLevel } from '@/types/user';
+import { adaptSessionForToday } from '@/lib/fitkMotor';
 
 interface EnergyOption {
   id: EnergyLevel;
@@ -61,7 +62,9 @@ export function EnergyCheckScreen() {
     setScreen,
     setTodayEnergy,
     setWorkoutMode,
-    user
+    user,
+    selectedWeeklySession,
+    setSelectedWeeklySession,
   } = useApp();
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyLevel | null>(null);
 
@@ -72,6 +75,13 @@ export function EnergyCheckScreen() {
   const handleEnergySelect = (energy: EnergyLevel) => {
     setSelectedEnergy(energy);
     setTodayEnergy(energy);
+
+    // Daily Adapter (MOTOR-STATE-MASTER): deriva una Session Instance para
+    // HOY según la energía declarada, sin tocar el Plan Base (weeklySessions).
+    // Solo se adapta la sesión en memoria que va a entrenarse ahora mismo.
+    if (selectedWeeklySession && energy !== 'normal') {
+      setSelectedWeeklySession(adaptSessionForToday(selectedWeeklySession, { energy }));
+    }
 
     // Small delay before transitioning
     setTimeout(() => {

@@ -7,6 +7,7 @@ import { OnboardingLevelScreen } from '@/components/screens/OnboardingLevelScree
 import { OnboardingBeginnerScreen } from '@/components/screens/OnboardingBeginnerScreen';
 import { OnboardingAdvancedScreen } from '@/components/screens/OnboardingAdvancedScreen';
 import { ProfileSetupScreen } from '@/components/screens/ProfileSetupScreen';
+import { PlanChoiceScreen } from '@/components/screens/PlanChoiceScreen';
 import { CheckInScreen } from '@/components/screens/CheckInScreen';
 import { DashboardScreen } from '@/components/screens/DashboardScreen';
 import { WorkoutPreviewScreen } from '@/components/screens/WorkoutPreviewScreen';
@@ -53,6 +54,8 @@ export default function Home() {
         return <OnboardingAdvancedScreen />;
       case 'profile-setup':
         return <ProfileSetupScreen />;
+      case 'plan-choice':
+        return <PlanChoiceScreen />;
       case 'check-in':
         return <CheckInScreen />;
       case 'dashboard':
