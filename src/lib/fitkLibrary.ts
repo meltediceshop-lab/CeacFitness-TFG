@@ -6060,7 +6060,7 @@ export const LIBRARY_META = {
     "Variante \"Polea baja / agarre neutro\" (fila 14) apunta a \"shoulder_cable_front_raise\", que no existe en la Biblioteca -> ignorada",
     "Variante \"Barra recta / EZ\" (fila 19) apunta a \"biceps_spider_bar_curl\", que no existe en la Biblioteca -> ignorada",
     "Variante \"Agarre pronado / neutro / supinado\" (fila 21) apunta a \"triceps_onearm_cable_extension\", que no existe en la Biblioteca -> ignorada",
-    "La hoja Resumen declara 147 ejercicios base, pero hay 102 fichas únicas."
+    "La hoja Resumen declara 147 = 102 fichas únicas + 45 filas copiadas; no falta ningún ejercicio."
   ]
 } as const;
 
