@@ -252,7 +252,10 @@ def main():
     version = (re.search(r'v(\d+(?:\.\d+)*)', title) or [None, 'desconocida'])[1]
     declared = next((c.get('B') for _, c in resumen if c.get('A') == 'Ejercicios base'), None)
     if declared and declared.isdigit() and int(declared) != len(exercises):
-        warnings.append(f'La hoja Resumen declara {declared} ejercicios base, pero hay {len(exercises)} fichas únicas.')
+        if int(declared) == len(exercises) + len(dup_rows):
+            warnings.append(f'La hoja Resumen declara {declared} = {len(exercises)} fichas únicas + {len(dup_rows)} filas copiadas; no falta ningún ejercicio.')
+        else:
+            warnings.append(f'La hoja Resumen declara {declared} ejercicios base, pero hay {len(exercises)} fichas únicas.')
 
     meta = {
         'version': version,
