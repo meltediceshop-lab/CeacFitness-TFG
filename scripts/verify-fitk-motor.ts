@@ -318,5 +318,24 @@ check('extras pedidos (tibial, flexores de cadera) entran y no se recortan', ['t
 check('extras desconocidos se ignoran', generateFocusSession(base({}), 'legs', ['inventado'])!.sessions[0].exercises.length === generateFocusSession(base({}), 'legs')!.sessions[0].exercises.length);
 check('todas las funciones extra tienen candidatos', Object.keys(EXTRA_FUNCTIONS).every(fn => catalog.some(e => e.slotFunction === fn)));
 
+
+// ── Todas las fichas pueden entrar en una rutina ─────────────────────
+head('Todas las fichas entran');
+const reachable = (id: string) => {
+  const fn = slotFunctionsOf(libraryById.get(id)!)[0];
+  const others = LIBRARY.filter(o => o.id !== id && slotFunctionsOf(o)[0] === fn).map(o => o.id);
+  for (const d of [3, 4, 5, 6, 2]) for (const level of ['advanced', 'beginner'] as const) for (const sp of [[], ['fútbol']])
+    for (const plan of generatePlanOptions(base({ daysPerWeek: d, workoutDuration: '1hour', level, otherSports: sp, otherSportsDays: 1, preferences: { liked: [id], disliked: others } })))
+      if (plan.some(s => s.exercises.some(e => e.libraryId === id))) return true;
+  return false;
+};
+const blocked = LIBRARY.filter(e => !e.optIn && !reachable(e.id)).map(e => e.id);
+check('toda ficha (salvo cuello) puede entrar sola en una rutina semanal', blocked.length === 0, blocked.join(', '));
+const plain = generatePlan(base({ daysPerWeek: 3, level: 'advanced', workoutDuration: '1hour' }));
+check('sin deporte ni preferencia, no se añaden flexores de cadera (MOTOR-HIPFLEX-093)', plain.every(s => s.exercises.every(e => e.slotFunction !== 'flexores_cadera')));
+check('con presses en la sesión, no se añade deltoide anterior directo (MOTOR-SHOULDER-INDIRECT-059)', [3, 4, 5, 6].every(d =>
+  generatePlan(base({ daysPerWeek: d, level: 'advanced', workoutDuration: '1hour' })).every(s =>
+    !s.exercises.some(e => e.slotFunction === 'deltoide_anterior') || !s.exercises.some(e => ['empuje_vertical', 'empuje_horizontal', 'empuje_inclinado'].includes(e.slotFunction ?? '')))));
+
 console.log(`\n${failures === 0 ? 'TODOS LOS CHECKS PASARON' : `${failures} CHECK(S) FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);
