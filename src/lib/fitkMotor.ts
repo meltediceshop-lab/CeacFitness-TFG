@@ -206,24 +206,29 @@ const TEMPLATES: Record<string, SessionTemplate> = {
     S('biceps', 'complementario', true), S('triceps', 'complementario', true)] },
   pechoTriceps: { key: 'pechoTriceps', name: 'Pecho y tríceps', targetMuscles: 'Pecho, tríceps', zone: 'superior', slots: [
     S('empuje_horizontal', 'principal'), S('empuje_inclinado', 'secundario'), S('aduccion_pecho', 'complementario', true),
-    S('triceps', 'complementario'), S('triceps', 'complementario', true)] },
+    S('triceps', 'complementario'), S('triceps', 'complementario', true),
+    S('triceps_compuesto', 'complementario', true), S('empuje_declinado', 'complementario', true)] },
   espaldaBiceps: { key: 'espaldaBiceps', name: 'Espalda y bíceps', targetMuscles: 'Espalda, bíceps', zone: 'superior', slots: [
     S('tiron_vertical', 'principal'), S('tiron_horizontal', 'secundario'), S('pullover', 'complementario', true),
-    S('deltoide_posterior', 'complementario', true), S('biceps', 'complementario'), S('biceps', 'complementario', true)] },
+    S('deltoide_posterior', 'complementario', true), S('biceps', 'complementario'), S('biceps', 'complementario', true),
+    S('trapecio', 'complementario', true), S('antebrazo', 'complementario', true)] },
   piernaHombro: { key: 'piernaHombro', name: 'Pierna y hombro', targetMuscles: 'Piernas, hombros', zone: 'completo', slots: [
     S('dominante_rodilla', 'principal'), S('empuje_vertical', 'secundario'), S('bisagra', 'secundario'),
     S('deltoide_lateral', 'complementario'), S('flexion_rodilla', 'complementario', true),
     S('extension_rodilla', 'complementario', true), S('gemelo', 'complementario', true)] },
   push: { key: 'push', name: 'Empuje', targetMuscles: 'Pecho, hombros, tríceps', zone: 'superior', slots: [
     S('empuje_horizontal', 'principal'), S('empuje_vertical', 'secundario'), S('empuje_inclinado', 'secundario', true),
-    S('deltoide_lateral', 'complementario'), S('triceps', 'complementario'), S('aduccion_pecho', 'complementario', true)] },
+    S('deltoide_lateral', 'complementario'), S('triceps', 'complementario'), S('aduccion_pecho', 'complementario', true),
+    S('triceps_compuesto', 'complementario', true), S('deltoide_anterior', 'complementario', true)] },
   pull: { key: 'pull', name: 'Tirón', targetMuscles: 'Espalda, bíceps, deltoide posterior', zone: 'superior', slots: [
     S('tiron_vertical', 'principal'), S('tiron_horizontal', 'secundario'), S('deltoide_posterior', 'complementario'),
-    S('biceps', 'complementario'), S('pullover', 'complementario', true), S('biceps', 'complementario', true)] },
+    S('biceps', 'complementario'), S('pullover', 'complementario', true), S('biceps', 'complementario', true),
+    S('trapecio', 'complementario', true), S('manguito', 'complementario', true), S('antebrazo', 'complementario', true)] },
   legs: { key: 'legs', name: 'Pierna', targetMuscles: 'Cuádriceps, isquios, glúteo', zone: 'inferior', slots: [
     S('dominante_rodilla', 'principal'), S('bisagra', 'secundario'), S('unilateral_rodilla', 'secundario', true),
     S('flexion_rodilla', 'complementario'), S('extension_cadera', 'complementario', true),
-    S('gemelo', 'complementario', true), S('core', 'complementario', true)] },
+    S('gemelo', 'complementario', true), S('core', 'complementario', true),
+    S('aduccion_cadera', 'complementario', true), S('flexores_cadera', 'complementario', true)] },
   torsoA: { key: 'torsoA', name: 'Torso A', targetMuscles: 'Pecho, espalda, hombros', zone: 'superior', slots: [
     S('empuje_horizontal', 'principal'), S('tiron_horizontal', 'principal'), S('empuje_vertical', 'secundario'),
     S('tiron_vertical', 'secundario'), S('deltoide_lateral', 'complementario', true),
@@ -234,11 +239,13 @@ const TEMPLATES: Record<string, SessionTemplate> = {
     S('triceps', 'complementario', true), S('biceps', 'complementario', true)] },
   piernaA: { key: 'piernaA', name: 'Pierna A (rodilla)', targetMuscles: 'Cuádriceps, isquios', zone: 'inferior', slots: [
     S('dominante_rodilla', 'principal'), S('bisagra', 'secundario'), S('extension_rodilla', 'complementario'),
-    S('flexion_rodilla', 'complementario', true), S('gemelo', 'complementario', true), S('core', 'complementario', true)] },
+    S('flexion_rodilla', 'complementario', true), S('gemelo', 'complementario', true), S('core', 'complementario', true),
+    S('tibial', 'complementario', true), S('aduccion_cadera', 'complementario', true)] },
   piernaB: { key: 'piernaB', name: 'Pierna B (cadera)', targetMuscles: 'Glúteo, isquios, cuádriceps', zone: 'inferior', slots: [
     S('bisagra', 'principal'), S('unilateral_rodilla', 'secundario'), S('extension_cadera', 'secundario'),
     S('flexion_rodilla', 'complementario'), S('abduccion_cadera', 'complementario', true),
-    S('gemelo', 'complementario', true), S('core', 'complementario', true)] },
+    S('gemelo', 'complementario', true), S('core', 'complementario', true),
+    S('flexores_cadera', 'complementario', true), S('tibial', 'complementario', true)] },
 };
 
 // ── Política de splits (MOTOR-SPLIT-037, sec. 3) ─────────────────────
@@ -913,13 +920,14 @@ function buildPlan(rawInput: MotorInput, split: SplitDef, validate: boolean, ext
     const picks: { sel: Selection; p: Prescription }[] = [];
 
     for (const slot of slots) {
-      // 9) Trabajo indirecto: un 2º slot directo opcional de brazo se omite si
-      // los compuestos ya aportan mucho (señal, no contabilidad exacta).
+      // 9) Trabajo indirecto y opcionales condicionados (señal, no contabilidad exacta).
       const k = fnCount.get(slot.fn) ?? 0;
-      if (slot.optional && !slot.priorityCore && k > 0 && (slot.fn === 'triceps' || slot.fn === 'biceps')) {
-        const signal = indirectSignal(picks, slot.fn, slot.fn === 'triceps' ? ['triceps'] : ['biceps_brachii', 'brachialis']);
-        if (signal === 'alto') { notes.push(`${FUNCTIONS[slot.fn].label} extra omitido: trabajo indirecto alto (MOTOR-INDIRECT-021)`); continue; }
+      // Opcional condicionado que el usuario prefiere: se trata como pedido, no se recorta por tiempo.
+      if (slot.optional && CONTEXT_GATED.includes(slot.fn) && likesFunction(slot.fn, ctx)) {
+        Object.assign(slot, { optional: false, requested: true, added: 'preferencia del usuario' });
       }
+      const gate = slot.optional && !slot.priorityCore && !slot.requested ? optionalGate(slot.fn, k, picks, ctx) : null;
+      if (gate) { notes.push(`${FUNCTIONS[slot.fn].label} opcional omitido: ${gate}`); continue; }
       if (slot.optional && !slot.priorityCore && roles[i] === 'moderada' && FUNCTIONS[slot.fn].zone === 'inferior') {
         notes.push(`${FUNCTIONS[slot.fn].label} opcional omitido: sesión moderada por otros deportes`);
         continue;
@@ -1054,6 +1062,37 @@ function indirectSignal(picks: { sel: Selection; p: Prescription }[], fn: SlotFn
     total += weight * p.sets;
   }
   return total >= 6 ? 'alto' : total >= 3 ? 'medio' : 'bajo';
+}
+
+/**
+ * Opcionales que solo entran si el contexto lo justifica. Devuelve el motivo
+ * para omitir el slot, o null. Que el usuario prefiera un ejercicio de esa
+ * función (MOTOR-PREF-030) siempre lo justifica.
+ */
+const CONTEXT_GATED: SlotFn[] = ['antebrazo', 'deltoide_anterior', 'flexores_cadera'];
+const likesFunction = (fn: SlotFn, ctx: Context) =>
+  LIBRARY.some(e => FUNCTIONS[fn].matches(e) && matchesPref(e, ctx.input.preferences?.liked));
+
+function optionalGate(fn: SlotFn, k: number, picks: { sel: Selection; p: Prescription }[], ctx: Context): string | null {
+  if (likesFunction(fn, ctx)) return null;
+  switch (fn) {
+    case 'triceps':
+    case 'biceps': {
+      if (k === 0) return null;
+      const codes = fn === 'triceps' ? ['triceps'] : ['biceps_brachii', 'brachialis'];
+      return indirectSignal(picks, fn, codes) === 'alto' ? 'trabajo indirecto alto (MOTOR-INDIRECT-021)' : null;
+    }
+    case 'antebrazo':
+      return indirectSignal(picks, fn, ['brachioradialis', 'wrist_flexors', 'wrist_extensors']) === 'alto'
+        ? 'curls y tirones ya aportan trabajo de antebrazo (MOTOR-FOREARM-CROSS-069)' : null;
+    case 'deltoide_anterior':
+      return indirectSignal(picks, fn, ['ant_delt']) !== 'bajo'
+        ? 'los presses ya aportan deltoide anterior (MOTOR-SHOULDER-INDIRECT-059)' : null;
+    case 'flexores_cadera':
+      return ctx.sportLoad === 'ninguna' ? 'sin deporte ni preferencia que lo justifique (MOTOR-HIPFLEX-093)' : null;
+    default:
+      return null;
+  }
 }
 
 function fitToBudget(picks: { sel: Selection; p: Prescription }[], budget: number): string[] {
