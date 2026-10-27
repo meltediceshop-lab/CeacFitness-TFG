@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────
-// Motor Fit-K v1.8
+// Motor Fit-K — Biblioteca v2.17
 //
 // Implementa FIT-K_Instrucciones.docx + hoja "Flujo Motor" de la
-// Biblioteca v1.8. Regla central: primero se decide qué necesita la semana
+// Biblioteca v2.17 (Matriz muscular P/S/C/E, fichas V2 por bloque). Regla central: primero se decide qué necesita la semana
 // y cada sesión (estructura → slots funcionales); la elección del ejercicio
 // concreto es una fase tardía. El scoring ordena candidatos válidos, no
 // manda sobre Safety, Hard Filters ni la estabilidad de lo que funciona.
@@ -20,10 +20,10 @@ import type {
   Exercise, ExerciseMotorTrace, ExerciseVariation, ExerciseVariationType,
   EnergyLevel, MuscleGroup, SessionMotorTrace, WeeklySession,
 } from '@/types/user';
-import { LIBRARY, libraryById, variantsFor, type LibraryExercise } from '@/lib/fitkLibrary';
+import { LIBRARY, libraryById, muscleByCode, resolveLibraryId, variantsFor, type LibraryExercise } from '@/lib/fitkLibrary';
 import { KEEP_STATES, type ProgressState } from '@/lib/fitkProgression';
 
-export const MOTOR_VERSION = '1.8';
+export const MOTOR_VERSION = '2.17';
 
 // ── Utilidades ───────────────────────────────────────────────────────
 const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -42,10 +42,10 @@ const roundTo = (n: number, step: number) => Math.round(n / step) * step;
 
 const LEVEL_MAP: Record<string, number> = {
   'Mínimo': 0, 'Bajo': 0, 'Baja': 0,
-  'Bajo-Medio': 0.25, 'Baja-Media': 0.25, 'No prioritario': 0.25,
+  'Bajo-Medio': 0.25, 'Baja-Media': 0.25, 'Medio-Bajo': 0.25, 'Media-Baja': 0.25, 'No prioritario': 0.25,
   'Medio': 0.5, 'Media': 0.5, 'Variable': 0.5,
   'Medio-Alto': 0.75, 'Media-Alta': 0.75,
-  'Alto': 1, 'Alta': 1,
+  'Alto': 1, 'Alta': 1, 'Muy alto': 1, 'Muy alta': 1,
 };
 const level = (raw: string | undefined) => (raw ? LEVEL_MAP[raw.trim()] ?? 0.5 : 0.5);
 
@@ -53,13 +53,28 @@ const BLOCK_TO_MUSCLE: Record<string, MuscleGroup> = {
   'Pecho': 'chest', 'Espalda': 'back', 'Trapecio': 'back', 'Hombro': 'shoulders',
   'Bíceps': 'arms', 'Tríceps': 'arms', 'Antebrazo': 'arms',
   'Pierna': 'legs', 'Isquios': 'legs', 'Glúteos': 'legs', 'Gemelos': 'legs', 'Aductores': 'legs',
+  'Tibial anterior': 'legs', 'Flexores de cadera': 'legs',
   'Core': 'core',
 };
+
+// Grupo del Diccionario muscular → grupo de prioridad. Mismo código muscular
+// en trabajo directo e indirecto (MOTOR-MATRIX-CROSSBLOCK-104).
+const DICTIONARY_GROUP_TO_PRIORITY: Record<string, PriorityGroup> = {
+  'Pecho': 'chest',
+  'Tríceps': 'arms', 'Bíceps': 'arms', 'Bíceps/brazo': 'arms', 'Antebrazo': 'arms',
+  'Hombros': 'shoulders', 'Manguito rotador': 'shoulders',
+  'Espalda': 'back', 'Espalda alta': 'back', 'Trapecio': 'back',
+  'Core': 'core', 'Core/espalda': 'core',
+  'Pierna': 'legs', 'Glúteos': 'legs', 'Isquios': 'legs', 'Aductores': 'legs', 'Gemelos': 'legs',
+  'Cadera': 'legs', 'Pierna inferior': 'legs', 'Flexores de cadera': 'legs',
+};
+const priorityGroupOfMuscle = (code: string): PriorityGroup =>
+  DICTIONARY_GROUP_TO_PRIORITY[muscleByCode.get(code)?.group ?? ''] ?? 'other';
 
 // ── Equipamiento (Hard Filter) ───────────────────────────────────────
 export const ALL_EQUIPMENT = [
   'barra', 'mancuernas', 'maquina', 'polea', 'smith', 'prensa', 'banco',
-  'rack', 'dominadas', 'paralelas', 'banda', 'ghd',
+  'rack', 'dominadas', 'paralelas', 'banda', 'ghd', 'suspension',
 ] as const;
 export type EquipmentCategory = typeof ALL_EQUIPMENT[number];
 
@@ -69,46 +84,87 @@ function equipmentAvailable(ex: LibraryExercise, available?: readonly string[]):
   return ex.equipmentOptions.some(opt => opt.every(item => set.has(item)));
 }
 
+/** ID de ejercicio de la app ("fk-<ficha>") con la ficha traducida a su ID actual. */
+export const canonicalExerciseId = (id: string): string =>
+  id.startsWith('fk-') ? `fk-${resolveLibraryId(id.slice(3))}` : id;
+
 // ── Funciones de slot (MOTOR-SLOT-031 / MOTOR-FUNCTION-012) ──────────
 // Un slot expresa una necesidad funcional, no un nombre de ejercicio.
 export type SlotFn =
-  | 'empuje_horizontal' | 'empuje_inclinado' | 'aduccion_pecho' | 'empuje_vertical'
-  | 'deltoide_lateral' | 'deltoide_posterior' | 'tiron_vertical' | 'tiron_horizontal'
+  | 'empuje_horizontal' | 'empuje_inclinado' | 'empuje_declinado' | 'aduccion_pecho' | 'empuje_vertical'
+  | 'deltoide_lateral' | 'deltoide_posterior' | 'deltoide_anterior' | 'manguito'
+  | 'tiron_vertical' | 'tiron_horizontal'
   | 'pullover' | 'biceps' | 'triceps' | 'triceps_compuesto' | 'trapecio'
   | 'dominante_rodilla' | 'unilateral_rodilla' | 'extension_rodilla' | 'bisagra'
   | 'flexion_rodilla' | 'extension_cadera' | 'abduccion_cadera' | 'aduccion_cadera'
-  | 'gemelo' | 'core' | 'antebrazo';
+  | 'gemelo' | 'tibial' | 'flexores_cadera' | 'core' | 'antebrazo' | 'cuello';
 
 export type SlotRole = 'principal' | 'secundario' | 'complementario';
 type PriorityGroup = 'chest' | 'back' | 'shoulders' | 'arms' | 'legs' | 'core' | 'other';
 
+const inFamily = (e: LibraryExercise, ...families: string[]) => families.includes(e.family);
+
+// Las funciones se leen de la Familia de la Biblioteca v2.17 (función antes
+// que etiqueta, MOTOR-LOWER-FUNCTION-079 / MOTOR-HIERARCHY-031). Cada ficha
+// cae en exactamente una función; scripts/verify-fitk-motor.ts lo comprueba.
 const FUNCTIONS: Record<SlotFn, { label: string; group: PriorityGroup; zone: 'superior' | 'inferior' | 'core'; matches: (e: LibraryExercise) => boolean }> = {
-  empuje_horizontal: { label: 'Empuje horizontal', group: 'chest', zone: 'superior', matches: e => e.block === 'Pecho' && e.movementPattern === 'Empuje horizontal' },
-  empuje_inclinado: { label: 'Empuje inclinado', group: 'chest', zone: 'superior', matches: e => e.block === 'Pecho' && e.movementPattern === 'Empuje inclinado' },
-  aduccion_pecho: { label: 'Aducción de pecho', group: 'chest', zone: 'superior', matches: e => e.movementPattern === 'Aducción horizontal' },
-  empuje_vertical: { label: 'Empuje vertical', group: 'shoulders', zone: 'superior', matches: e => e.block === 'Hombro' && e.movementPattern === 'Empuje vertical' },
-  deltoide_lateral: { label: 'Deltoide lateral', group: 'shoulders', zone: 'superior', matches: e => e.movementPattern === 'Abducción hombro' },
+  empuje_horizontal: { label: 'Empuje horizontal', group: 'chest', zone: 'superior', matches: e => e.block === 'Pecho' && inFamily(e, 'Press horizontal') },
+  empuje_inclinado: { label: 'Empuje inclinado', group: 'chest', zone: 'superior', matches: e => e.block === 'Pecho' && inFamily(e, 'Press inclinado') },
+  empuje_declinado: { label: 'Empuje declinado', group: 'chest', zone: 'superior', matches: e => e.block === 'Pecho' && inFamily(e, 'Press declinado') },
+  aduccion_pecho: { label: 'Aducción de pecho', group: 'chest', zone: 'superior', matches: e => inFamily(e, 'Aducción horizontal') },
+  empuje_vertical: { label: 'Empuje vertical', group: 'shoulders', zone: 'superior', matches: e => e.block === 'Hombro' && inFamily(e, 'Press vertical', 'Press diagonal') },
+  deltoide_lateral: { label: 'Deltoide lateral', group: 'shoulders', zone: 'superior', matches: e => e.block === 'Hombro' && inFamily(e, 'Abducción', 'Elevación gran recorrido', 'Abducción + elevación escapular') },
   // MOTOR-COMPLEMENT-018: deltoide posterior NO cuenta como tirón principal de espalda.
-  deltoide_posterior: { label: 'Deltoide posterior / escapular', group: 'shoulders', zone: 'superior', matches: e => e.block === 'Hombro' && (e.movementPattern === 'Abducción horizontal' || e.movementPattern === 'Tirón alto') },
-  tiron_vertical: { label: 'Tirón vertical', group: 'back', zone: 'superior', matches: e => e.movementPattern === 'Tirón vertical' },
-  tiron_horizontal: { label: 'Remo / tirón horizontal', group: 'back', zone: 'superior', matches: e => e.movementPattern === 'Tirón horizontal' },
-  pullover: { label: 'Segundo patrón de espalda (pullover)', group: 'back', zone: 'superior', matches: e => e.movementPattern === 'Extensión hombro' },
+  deltoide_posterior: { label: 'Deltoide posterior / escapular', group: 'shoulders', zone: 'superior', matches: e => inFamily(e, 'Deltoide posterior', 'Deltoide posterior / tirón horizontal', 'Tirón alto / escapular', 'Elevación escapular funcional') },
+  // MOTOR-SHOULDER-INDIRECT-059: el deltoide anterior ya recibe trabajo de los presses; directo solo a petición.
+  deltoide_anterior: { label: 'Deltoide anterior', group: 'shoulders', zone: 'superior', matches: e => inFamily(e, 'Flexión hombro') },
+  manguito: { label: 'Rotación externa / manguito', group: 'shoulders', zone: 'superior', matches: e => inFamily(e, 'Manguito rotador') },
+  tiron_vertical: { label: 'Tirón vertical', group: 'back', zone: 'superior', matches: e => e.block === 'Espalda' && inFamily(e, 'Tirón vertical') },
+  tiron_horizontal: { label: 'Remo / tirón horizontal', group: 'back', zone: 'superior', matches: e => e.block === 'Espalda' && inFamily(e, 'Tirón horizontal', 'Tirón diagonal') },
+  pullover: { label: 'Segundo patrón de espalda (pullover)', group: 'back', zone: 'superior', matches: e => inFamily(e, 'Extensión hombro') },
   biceps: { label: 'Bíceps directo', group: 'arms', zone: 'superior', matches: e => e.block === 'Bíceps' },
   triceps: { label: 'Tríceps directo', group: 'arms', zone: 'superior', matches: e => e.block === 'Tríceps' && e.movementPattern === 'Extensión codo' },
   triceps_compuesto: { label: 'Tríceps compuesto', group: 'arms', zone: 'superior', matches: e => e.block === 'Tríceps' && e.movementPattern !== 'Extensión codo' },
   trapecio: { label: 'Trapecio', group: 'other', zone: 'superior', matches: e => e.block === 'Trapecio' },
-  dominante_rodilla: { label: 'Dominante de rodilla', group: 'legs', zone: 'inferior', matches: e => e.block === 'Pierna' && !e.family.includes('unilateral') && e.movementPattern !== 'Zancada lateral' && e.movementPattern !== 'Extensión rodilla' },
-  unilateral_rodilla: { label: 'Unilateral de rodilla', group: 'legs', zone: 'inferior', matches: e => e.block === 'Pierna' && (e.family.includes('unilateral') || e.movementPattern === 'Zancada lateral') },
-  extension_rodilla: { label: 'Extensión de rodilla', group: 'legs', zone: 'inferior', matches: e => e.movementPattern === 'Extensión rodilla' },
-  bisagra: { label: 'Bisagra de cadera', group: 'legs', zone: 'inferior', matches: e => e.block === 'Isquios' && e.movementPattern.startsWith('Bisagra') },
-  flexion_rodilla: { label: 'Flexión de rodilla (femoral)', group: 'legs', zone: 'inferior', matches: e => e.block === 'Isquios' && (e.movementPattern === 'Flexión rodilla' || e.movementPattern === 'Mixto') },
-  extension_cadera: { label: 'Extensión de cadera (glúteo)', group: 'legs', zone: 'inferior', matches: e => e.block === 'Glúteos' && e.movementPattern === 'Extensión cadera' },
-  abduccion_cadera: { label: 'Abducción de cadera', group: 'legs', zone: 'inferior', matches: e => e.block === 'Glúteos' && (e.movementPattern === 'Abducción' || e.movementPattern === 'Desplazamiento lateral') },
+  dominante_rodilla: { label: 'Dominante de rodilla', group: 'legs', zone: 'inferior', matches: e => e.block === 'Pierna' && inFamily(e, 'Sentadilla', 'Sentadilla guiada', 'Prensa') },
+  unilateral_rodilla: { label: 'Unilateral de rodilla', group: 'legs', zone: 'inferior', matches: e => e.block === 'Pierna' && inFamily(e, 'Unilateral', 'Zancada') },
+  extension_rodilla: { label: 'Extensión de rodilla', group: 'legs', zone: 'inferior', matches: e => e.block === 'Pierna' && inFamily(e, 'Extensión de rodilla') },
+  bisagra: { label: 'Bisagra de cadera', group: 'legs', zone: 'inferior', matches: e => inFamily(e, 'Bisagra de cadera', 'Bisagra unilateral', 'Peso muerto') || (e.block === 'Isquios' && inFamily(e, 'Extensión de cadera')) },
+  flexion_rodilla: { label: 'Flexión de rodilla (femoral)', group: 'legs', zone: 'inferior', matches: e => e.block === 'Isquios' && inFamily(e, 'Flexión de rodilla') },
+  extension_cadera: { label: 'Extensión de cadera (glúteo)', group: 'legs', zone: 'inferior', matches: e => e.block === 'Glúteos' && inFamily(e, 'Extensión horizontal de cadera', 'Extensión unilateral de cadera') },
+  abduccion_cadera: { label: 'Abducción de cadera', group: 'legs', zone: 'inferior', matches: e => inFamily(e, 'Abducción de cadera') },
   aduccion_cadera: { label: 'Aducción de cadera', group: 'legs', zone: 'inferior', matches: e => e.block === 'Aductores' },
   gemelo: { label: 'Gemelo', group: 'legs', zone: 'inferior', matches: e => e.block === 'Gemelos' },
+  // MOTOR-DORSIFLEX-092 / MOTOR-HIPFLEX-093: disponibles, no obligatorios en toda rutina.
+  tibial: { label: 'Tibial anterior (dorsiflexión)', group: 'legs', zone: 'inferior', matches: e => e.block === 'Tibial anterior' },
+  flexores_cadera: { label: 'Flexores de cadera', group: 'legs', zone: 'inferior', matches: e => e.block === 'Flexores de cadera' },
   core: { label: 'Core', group: 'core', zone: 'core', matches: e => e.block === 'Core' },
   antebrazo: { label: 'Antebrazo / agarre', group: 'other', zone: 'superior', matches: e => e.block === 'Antebrazo' },
+  // MOTOR-NECK-OPTIN-094: solo si el usuario lo pide expresamente.
+  cuello: { label: 'Cuello', group: 'other', zone: 'superior', matches: e => e.block === 'Cuello' },
 };
+
+/**
+ * Funciones que las plantillas no programan por defecto y que el Coach
+ * añade solo cuando el usuario las pide (reglas 059, 092, 093, 094).
+ */
+export const EXTRA_FUNCTIONS: Partial<Record<SlotFn, string>> = {
+  empuje_declinado: 'press declinado de pecho',
+  deltoide_anterior: 'deltoide anterior directo (elevación frontal)',
+  manguito: 'rotación externa / manguito rotador',
+  tibial: 'tibial anterior',
+  flexores_cadera: 'flexores de cadera',
+  cuello: 'cuello (solo si lo pide expresamente)',
+  antebrazo: 'antebrazo / agarre',
+  trapecio: 'trapecio',
+  aduccion_cadera: 'aductores',
+  abduccion_cadera: 'abducción de cadera',
+};
+
+/** Todas las funciones que casan con una ficha (debe ser exactamente una). */
+export function slotFunctionsOf(ex: LibraryExercise): SlotFn[] {
+  return (Object.keys(FUNCTIONS) as SlotFn[]).filter(fn => FUNCTIONS[fn].matches(ex));
+}
 
 function functionOf(ex: LibraryExercise): SlotFn {
   return (Object.keys(FUNCTIONS) as SlotFn[]).find(fn => FUNCTIONS[fn].matches(ex)) ?? 'core';
@@ -131,6 +187,8 @@ interface SlotDef {
   priority?: boolean;
   /** Parte protegida de la prioridad: no se recorta por tiempo y es esencial. */
   priorityCore?: boolean;
+  /** Pedido expresamente por el usuario al Coach: no se recorta por tiempo. */
+  requested?: boolean;
   added?: string;
 }
 type Zone = 'superior' | 'inferior' | 'completo';
@@ -213,26 +271,38 @@ export function planOptionCount(daysPerWeek: number): number {
 const clampDays = (d: number) => Math.min(Math.max(d || 3, 1), 7);
 
 // ── Hard Filters / Safety (MOTOR-HARD-001, SAFE-001) ─────────────────
+// Fondos libres/asistidos/en banco: extensión de hombro cargada.
+const DIPS = ['triceps_dip', 'triceps_dip_assisted', 'triceps_bench_dip'];
 const INJURY_RULES: { keywords: string[]; excludes: (ex: LibraryExercise) => boolean; label: string }[] = [
   { label: 'rodilla', keywords: ['rodilla', 'knee', 'menisco', 'ligamento'],
     excludes: ex => ex.block === 'Pierna' && level(ex.stability) < 1 },
   { label: 'hombro', keywords: ['hombro', 'shoulder', 'manguito'],
-    excludes: ex => (ex.block === 'Hombro' && ex.family === 'Press vertical') || ex.movementPattern === 'Empuje inclinado' || ex.id === 'triceps_dip' },
+    excludes: ex => (ex.block === 'Hombro' && inFamily(ex, 'Press vertical', 'Press diagonal', 'Elevación gran recorrido', 'Abducción + elevación escapular'))
+      || ex.movementPattern === 'Empuje inclinado' || DIPS.includes(ex.id) },
   { label: 'espalda', keywords: ['espalda', 'lumbar', 'lumbago', 'hernia', 'ciatica'],
-    excludes: ex => ex.family.startsWith('Bisagra cadera') || ['ham_good_morning', 'back_barbell_row', 'back_tbar_row', 'quad_squat', 'quad_front_squat'].includes(ex.id) },
+    excludes: ex => inFamily(ex, 'Bisagra de cadera', 'Bisagra unilateral', 'Peso muerto')
+      || ['hamstrings_good_morning', 'back_barbell_row', 'back_tbar_row', 'legs_barbell_squat', 'legs_front_squat'].includes(ex.id) },
   { label: 'muñeca/codo', keywords: ['muneca', 'wrist', 'codo', 'epicondilitis'],
-    excludes: ex => ex.block === 'Antebrazo' || ex.family === 'Extensión codo tumbado' || ex.id === 'triceps_dip' },
+    excludes: ex => ex.block === 'Antebrazo' || ex.family === 'Extensión tumbada/intermedia' || DIPS.includes(ex.id) },
   { label: 'cadera', keywords: ['cadera', 'hip'],
-    excludes: ex => ex.family === 'Abducción cadera' || ['ham_good_morning', 'leg_bulgarian', 'leg_lateral_lunge'].includes(ex.id) },
+    excludes: ex => ex.family === 'Abducción de cadera' || ['hamstrings_good_morning', 'legs_bulgarian_split_squat'].includes(ex.id) },
+  // MOTOR-NECK-SAFETY-095: con síntomas o antecedentes cervicales no hay trabajo directo de cuello.
+  { label: 'cuello', keywords: ['cuello', 'cervical', 'neck', 'mareo', 'hormigueo'],
+    excludes: ex => ex.block === 'Cuello' },
 ];
+
+/** Exclusiones y preferencias guardadas pueden traer IDs de versiones anteriores. */
+const refersTo = (ex: LibraryExercise, x: string) =>
+  x === ex.id || resolveLibraryId(x) === ex.id || normalize(ex.name) === normalize(x);
 
 function hardFilterReason(ex: LibraryExercise, input: MotorInput, temporaryUnavailable: string[] = []): string | null {
   const injuryText = normalize((input.injuries ?? []).join(' '));
   for (const rule of INJURY_RULES) {
     if (rule.keywords.some(k => injuryText.includes(k)) && rule.excludes(ex)) return `SAFETY_${rule.label}`;
   }
+  if (ex.optIn && !(input.optInBlocks ?? []).includes(ex.block)) return 'OPT_IN_NO_SOLICITADO';
   const excluded = (input.excludedExercises ?? []).map(normalize).filter(Boolean);
-  if (excluded.some(x => x === ex.id || normalize(ex.name).includes(x))) return 'EXCLUIDO_USUARIO';
+  if (excluded.some(x => x === ex.id || resolveLibraryId(x) === ex.id || normalize(ex.name).includes(x))) return 'EXCLUIDO_USUARIO';
   if (!equipmentAvailable(ex, input.availableEquipment)) return 'EQUIPO_NO_DISPONIBLE';
   if (temporaryUnavailable.includes(ex.id)) return 'EQUIPO_OCUPADO';
   return null;
@@ -254,6 +324,8 @@ export interface MotorInput {
   otherSportsDays?: number;
   /** Equipamiento permanente del gimnasio. Sin definir = gimnasio completo. */
   availableEquipment?: readonly string[];
+  /** Bloques opt-in pedidos expresamente por el usuario, p. ej. ['Cuello'] (MOTOR-NECK-OPTIN-094). */
+  optInBlocks?: string[];
   /** Preferencias por id o nombre de ejercicio (MOTOR-PREFERENCE-047). */
   preferences?: { liked?: string[]; disliked?: string[] };
   /** Estado de progresión por libraryId (fitkProgression.evaluateProgression). */
@@ -352,8 +424,7 @@ interface Context {
   timePressure: boolean;
 }
 
-const matchesPref = (ex: LibraryExercise, list?: string[]) =>
-  !!list?.some(x => x === ex.id || normalize(ex.name) === normalize(x));
+const matchesPref = (ex: LibraryExercise, list?: string[]) => !!list?.some(x => refersTo(ex, x));
 
 interface Scored { ex: LibraryExercise; score: number; redundancy: string }
 
@@ -404,7 +475,8 @@ function scoreCandidate(ex: LibraryExercise, slot: SlotDef, ctx: Context): Score
   const pg = priorityGroupOf(ctx.input.priorityMuscle);
   if (pg) {
     const primary = BLOCK_TO_MUSCLE[ex.block] === pg;
-    const secondary = ex.secondaryMuscles.some(s => s.coefficient > 0 && BLOCK_TO_MUSCLE[blockForMuscle(s.muscle)] === pg);
+    // Solo S cuenta como aporte secundario; C/E no (MOTOR-MATRIX-CONSERVATIVE-103).
+    const secondary = ex.muscles.some(c => c.level === 'S' && priorityGroupOfMuscle(c.code) === pg);
     factors.push({ weight: 15, value: primary ? 1 : secondary ? 0.5 : 0 });
   } else {
     factors.push({ weight: 15, value: null });
@@ -426,24 +498,6 @@ function scoreCandidate(ex: LibraryExercise, slot: SlotDef, ctx: Context): Score
     avail += f.weight;
   }
   return { ex, score: avail ? (raw / avail) * 100 : 50, redundancy: notes.length ? notes.join('; ') : 'aceptable' };
-}
-
-function blockForMuscle(muscle: string): string {
-  const m = normalize(muscle);
-  if (m.includes('tricep')) return 'Tríceps';
-  if (m.includes('bicep') || m.includes('braquial')) return 'Bíceps';
-  if (m.includes('deltoide') || m.includes('hombro')) return 'Hombro';
-  if (m.includes('pecho') || m.includes('pectoral')) return 'Pecho';
-  if (m.includes('dorsal') || m.includes('espalda') || m.includes('romboide')) return 'Espalda';
-  if (m.includes('trapecio')) return 'Trapecio';
-  if (m.includes('gluteo')) return 'Glúteos';
-  if (m.includes('isquio') || m.includes('femoral')) return 'Isquios';
-  if (m.includes('cuadricep') || m.includes('pierna')) return 'Pierna';
-  if (m.includes('aductor')) return 'Aductores';
-  if (m.includes('gemelo') || m.includes('soleo')) return 'Gemelos';
-  if (m.includes('core') || m.includes('abdom') || m.includes('oblicuo') || m.includes('lumbar')) return 'Core';
-  if (m.includes('antebrazo') || m.includes('agarre')) return 'Antebrazo';
-  return '';
 }
 
 // ── Selección para un slot ───────────────────────────────────────────
@@ -621,19 +675,46 @@ function sessionSeconds(items: TimedItem[]): number {
 // 🟡 "Carga inicial: no inventarla sin datos; calibrar primera ejecución".
 // Por petición de producto se ofrece una ESTIMACIÓN editable (nunca se
 // registra sola) a partir de peso/altura/nivel. Peso corporal: sin número.
-const PATTERN_LOAD_FACTOR: Record<string, number> = {
-  'Sentadilla': 0.5, 'Sentadilla unilateral': 0.25, 'Sentadilla/prensa': 0.7, 'Prensa': 0.9,
-  'Zancada': 0.25, 'Zancada lateral': 0.15, 'Step': 0.2, 'Isométrico': 0,
-  'Bisagra': 0.6, 'Bisagra/extensión': 0.55, 'Mixto': 0,
-  'Extensión cadera': 0.5, 'Extensión rodilla': 0.5, 'Flexión rodilla': 0.45, 'Abducción': 0.4, 'Aducción': 0.4,
-  'Empuje horizontal': 0.35, 'Empuje inclinado': 0.3, 'Empuje vertical': 0.2, 'Empuje': 0.3,
-  'Tirón horizontal': 0.35, 'Tirón vertical': 0.35, 'Tirón alto': 0.2,
-  'Aducción horizontal': 0.4, 'Abducción horizontal': 0.3, 'Abducción hombro': 0.15,
-  'Extensión hombro': 0.35, 'Elevación escapular': 0.35,
-  'Flexión codo': 0.3, 'Extensión codo': 0.3, 'Flexión plantar': 0.8,
-  'Flexión tronco': 0.3, 'Elevación piernas': 0, 'Flexión muñeca': 0.12, 'Extensión muñeca': 0.08,
-  'Estabilidad': 0, 'Desplazamiento lateral': 0,
+// Fracción del peso corporal efectivo por Familia de la Biblioteca v2.17.
+// 0 = sin estimación (peso corporal, isométricos, cuello).
+const FAMILY_LOAD_FACTOR: Record<string, number> = {
+  // Pecho
+  'Press horizontal': 0.35, 'Press inclinado': 0.3, 'Press declinado': 0.35, 'Aducción horizontal': 0.4,
+  // Espalda
+  'Tirón vertical': 0.35, 'Tirón horizontal': 0.35, 'Tirón diagonal': 0.35, 'Extensión hombro': 0.35,
+  'Tirón alto / escapular': 0.2,
+  // Hombro
+  'Press vertical': 0.2, 'Press diagonal': 0.2, 'Abducción': 0.15, 'Elevación gran recorrido': 0.1,
+  'Abducción + elevación escapular': 0.2, 'Deltoide posterior': 0.3, 'Deltoide posterior / tirón horizontal': 0.25,
+  'Flexión hombro': 0.12, 'Manguito rotador': 0.06, 'Elevación escapular funcional': 0.08,
+  // Trapecio
+  'Elevación escapular': 0.35, 'Elevación escapular guiada': 0.35, 'Retracción escapular': 0.25,
+  // Bíceps
+  'Curl general · brazo neutro': 0.3, 'Curl general · guiado': 0.3, 'Curl neutro · brazo neutro': 0.3,
+  'Brazo retrasado': 0.25, 'Brazo adelantado/apoyado': 0.3, 'Brazo adelantado/torso apoyado': 0.25,
+  // Tríceps
+  'Extensión · brazo junto al torso': 0.3, 'Extensión · brazo elevado': 0.3, 'Extensión tumbada/intermedia': 0.3,
+  'Extensión · brazo retrasado': 0.15, 'Extensión guiada': 0.3, 'Press dominante tríceps': 0.35, 'Empuje guiado': 0.3,
+  'Empuje · peso corporal': 0, 'Empuje · asistido': 0, 'Empuje · hombro extendido': 0,
+  // Pierna
+  'Sentadilla': 0.5, 'Sentadilla guiada': 0.55, 'Prensa': 0.9, 'Unilateral': 0.25, 'Zancada': 0.25,
+  'Extensión de rodilla': 0.5,
+  'Bisagra de cadera': 0.6, 'Bisagra unilateral': 0.3, 'Peso muerto': 0.7, 'Extensión de cadera': 0.55,
+  'Flexión de rodilla': 0.45, 'Extensión horizontal de cadera': 0.5, 'Extensión unilateral de cadera': 0.2,
+  'Abducción de cadera': 0.4, 'Aducción de cadera': 0.4,
+  'Flexión plantar rodilla extendida': 0.8, 'Flexión plantar rodilla flexionada': 0.5,
+  'Dorsiflexión': 0, 'Flexión de cadera': 0.1,
+  // Antebrazo
+  'Flexión codo pronada': 0.2, 'Flexión muñeca': 0.12, 'Extensión muñeca': 0.08, 'Rotación antebrazo': 0.05,
+  // Core
+  'Flexión tronco': 0.3, 'Rotación/diagonal activa': 0.15, 'Anti-rotación': 0,
+  'Anti-extensión': 0, 'Anti-extensión dinámica': 0, 'Anti-flexión lateral': 0,
+  'Control pélvico': 0, 'Control pélvico/elevación': 0,
+  // Cuello: sin carga inventada (MOTOR-NECK-SAFETY-095)
+  'Flexión cervical': 0, 'Extensión cervical': 0, 'Flexión lateral cervical': 0,
 };
+// Excepciones dentro de una familia: en polea la carga de la bisagra es mucho menor.
+const EXERCISE_LOAD_FACTOR: Record<string, number> = { glutes_cable_pull_through: 0.4 };
 const ROLE_LOAD_FACTOR: Record<SlotRole, number> = { principal: 1, secundario: 0.8, complementario: 0.6 };
 
 interface LoadProfile { weight?: number; height?: number; biologicalProfile?: 'male' | 'female' }
@@ -641,7 +722,7 @@ interface LoadProfile { weight?: number; height?: number; biologicalProfile?: 'm
 function estimateStartingLoad(ex: LibraryExercise, role: SlotRole, userLevel: 'beginner' | 'advanced', profile: LoadProfile):
   { kg: number; unit: 'total' | 'per-dumbbell' } | null {
   if (ex.loadSource !== 'Externa' || !profile.weight) return null;
-  const factor = PATTERN_LOAD_FACTOR[ex.movementPattern] ?? 0.2;
+  const factor = EXERCISE_LOAD_FACTOR[ex.id] ?? FAMILY_LOAD_FACTOR[ex.family] ?? 0.2;
   if (factor === 0) return null;
   const heightM = profile.height ? profile.height / 100 : null;
   const bmi = heightM ? profile.weight / (heightM * heightM) : null;
@@ -769,7 +850,11 @@ export function generatePlanWithTrace(input: MotorInput): PlanResult {
   return buildPlan(input, options[resolveOption(days, input, options)], true);
 }
 
-function buildPlan(input: MotorInput, split: SplitDef, validate: boolean): PlanResult {
+function buildPlan(rawInput: MotorInput, split: SplitDef, validate: boolean, extraSlots: SlotFn[] = []): PlanResult {
+  // Historial guardado con IDs de versiones anteriores de la Biblioteca.
+  const input: MotorInput = rawInput.exerciseHistory
+    ? { ...rawInput, exerciseHistory: Object.fromEntries(Object.entries(rawInput.exerciseHistory).map(([id, st]) => [resolveLibraryId(id), st])) }
+    : rawInput;
   const days = clampDays(input.daysPerWeek);
   const minutes = durationMinutes(input.workoutDuration);
   const budget = minutes * 60 * BUDGET_SHARE;
@@ -785,6 +870,12 @@ function buildPlan(input: MotorInput, split: SplitDef, validate: boolean): PlanR
   const slotsBySession = templates.map(t => t.slots.map(s => ({ ...s })));
   const planNotes: string[] = [];
   applyPriority(slotsBySession, templates, priority, planNotes);
+  for (const fn of extraSlots) {
+    const slots = slotsBySession[0];
+    const existing = slots.find(sl => sl.fn === fn);
+    if (existing) Object.assign(existing, { optional: false, requested: true, added: 'pedido por el usuario' });
+    else slots.push({ fn, role: 'complementario', optional: false, requested: true, added: 'pedido por el usuario' });
+  }
   const seenTemplates = new Set<string>();
   const roles = templates.map(t => {
     const role: SessionMotorTrace['sessionRole'] = seenTemplates.has(t.key) ? 'desarrollo' : 'principal';
@@ -797,7 +888,7 @@ function buildPlan(input: MotorInput, split: SplitDef, validate: boolean): PlanR
   }
 
   const weekPicks: LibraryExercise[] = [];
-  const allPreviousIds = new Set((input.previousPlan ?? []).flatMap(s => s.exercises.map(e => e.libraryId).filter(Boolean) as string[]));
+  const allPreviousIds = new Set((input.previousPlan ?? []).flatMap(s => s.exercises.map(e => e.libraryId).filter(Boolean).map(id => resolveLibraryId(id as string))));
   const sessions: WeeklySession[] = [];
   const startFrom = input.startFrom ?? 1;
   const equipmentNote = input.availableEquipment ? 'disponible en tu gimnasio' : 'gimnasio completo (sin perfil de equipo)';
@@ -826,7 +917,7 @@ function buildPlan(input: MotorInput, split: SplitDef, validate: boolean): PlanR
       // los compuestos ya aportan mucho (señal, no contabilidad exacta).
       const k = fnCount.get(slot.fn) ?? 0;
       if (slot.optional && !slot.priorityCore && k > 0 && (slot.fn === 'triceps' || slot.fn === 'biceps')) {
-        const signal = indirectSignal(picks, slot.fn === 'triceps' ? 'tricep' : 'bicep');
+        const signal = indirectSignal(picks, slot.fn, slot.fn === 'triceps' ? ['triceps'] : ['biceps_brachii', 'brachialis']);
         if (signal === 'alto') { notes.push(`${FUNCTIONS[slot.fn].label} extra omitido: trabajo indirecto alto (MOTOR-INDIRECT-021)`); continue; }
       }
       if (slot.optional && !slot.priorityCore && roles[i] === 'moderada' && FUNCTIONS[slot.fn].zone === 'inferior') {
@@ -918,10 +1009,13 @@ export const SESSION_FOCUS: Record<string, string> = {
   piernaB: 'Pierna con énfasis en glúteo e isquios',
 };
 
-export function generateFocusSession(input: MotorInput, focus: string): PlanResult | null {
+export function generateFocusSession(input: MotorInput, focus: string, extras: string[] = []): PlanResult | null {
   if (!TEMPLATES[focus]) return null;
+  const requested = [...new Set(extras)].filter((fn): fn is SlotFn => fn in EXTRA_FUNCTIONS);
   const split: SplitDef = { name: 'Sesión puntual', reason: `Pedida al Coach: ${SESSION_FOCUS[focus] ?? focus}`, sessions: [focus] };
-  const result = buildPlan({ ...input, customDays: undefined }, split, false);
+  // Pedir cuello al Coach es la única vía que lo desbloquea (MOTOR-NECK-OPTIN-094).
+  const optInBlocks = requested.includes('cuello') ? [...(input.optInBlocks ?? []), 'Cuello'] : input.optInBlocks;
+  const result = buildPlan({ ...input, customDays: undefined, optInBlocks }, split, false, requested);
   return result.sessions[0]?.exercises.length ? result : null;
 }
 
@@ -945,10 +1039,19 @@ function toTimed({ sel, p }: { sel: Selection; p: Prescription }): TimedItem {
   return { ex: sel.ex, sets: p.sets, restSeconds: p.restSeconds, perSide: p.perSide, unit: p.unit, target: p.target };
 }
 
-function indirectSignal(picks: { sel: Selection; p: Prescription }[], muscleKey: string): 'bajo' | 'medio' | 'alto' {
+/**
+ * Exposición que otras funciones de la sesión ya dan a estos músculos, según
+ * la Matriz muscular: P = exposición principal, S = modula la dosis (½),
+ * C/E no descuentan (MOTOR-MATRIX-CONSERVATIVE-103 / INDIRECT-098). Señal
+ * contextual, no equivalencia rígida de series.
+ */
+function indirectSignal(picks: { sel: Selection; p: Prescription }[], fn: SlotFn, codes: string[]): 'bajo' | 'medio' | 'alto' {
   let total = 0;
   for (const { sel, p } of picks) {
-    for (const s of sel.ex.secondaryMuscles) if (normalize(s.muscle).includes(muscleKey)) total += s.coefficient * p.sets;
+    if (sel.slot.fn === fn) continue;
+    const weight = Math.max(0, ...sel.ex.muscles.filter(c => codes.includes(c.code))
+      .map(c => (c.level === 'P' ? 1 : c.level === 'S' ? 0.5 : 0)));
+    total += weight * p.sets;
   }
   return total >= 6 ? 'alto' : total >= 3 ? 'medio' : 'bajo';
 }
@@ -956,7 +1059,7 @@ function indirectSignal(picks: { sel: Selection; p: Prescription }[], muscleKey:
 function fitToBudget(picks: { sel: Selection; p: Prescription }[], budget: number): string[] {
   const notes: string[] = [];
   const over = () => sessionSeconds(picks.map(toTimed)) > budget;
-  const protectedPick = (pk: { sel: Selection }) => pk.sel.slot.role === "principal" || !!pk.sel.slot.priorityCore;
+  const protectedPick = (pk: { sel: Selection }) => pk.sel.slot.role === "principal" || !!pk.sel.slot.priorityCore || !!pk.sel.slot.requested;
   // 1) quitar opcionales no prioritarios (desde el final)
   for (let i = picks.length - 1; i >= 0 && over(); i--) {
     if (picks[i].sel.slot.optional && !protectedPick(picks[i])) {
