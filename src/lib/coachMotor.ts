@@ -12,7 +12,7 @@ const OUTDOOR_EQUIPMENT = ['dominadas', 'paralelas'];
  */
 export function buildMotorWorkout(
   base: MotorInput,
-  args: { focus?: string; minutes?: number; equipment?: string[]; avoidExercises?: string[] },
+  args: { focus?: string; minutes?: number; equipment?: string[]; avoidExercises?: string[]; extras?: string[] },
   mode?: string,
 ): { workout: CoachWorkout | null; toolResult: string } {
   const focus = args.focus && SESSION_FOCUS[args.focus] ? args.focus : 'fullA';
@@ -25,7 +25,7 @@ export function buildMotorWorkout(
       : mode === 'outdoor' ? OUTDOOR_EQUIPMENT : base.availableEquipment,
     excludedExercises: [...(base.excludedExercises ?? []), ...(args.avoidExercises ?? [])],
   };
-  const result = generateFocusSession(input, focus);
+  const result = generateFocusSession(input, focus, args.extras ?? []);
   const session = result?.sessions[0];
   if (!session) {
     return { workout: null, toolResult: 'El Motor no encontró ejercicios válidos con esas condiciones (lesiones, exclusiones o equipo). Explícaselo al usuario y pregúntale qué material tiene.' };

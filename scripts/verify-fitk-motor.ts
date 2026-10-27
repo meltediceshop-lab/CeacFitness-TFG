@@ -1,14 +1,14 @@
-// Batería reproducible del Motor Fit-K v1.8 (FIT-K_Instrucciones sec. 18-19).
+// Batería reproducible del Motor Fit-K — Biblioteca v2.17 (FIT-K_Instrucciones sec. 18-19).
 // Cada cambio importante del Motor debe volver a pasar estos casos.
 // Uso: npx tsx scripts/verify-fitk-motor.ts
 import {
   generatePlan, generatePlanWithTrace, generatePlanOptions, planOptionCount, motorCatalog,
   adaptSessionForToday, substituteExercise, estimateSessionMinutes, generateFocusSession, SESSION_FOCUS,
-  durationFromMinutes, type MotorInput,
+  durationFromMinutes, slotFunctionsOf, canonicalExerciseId, EXTRA_FUNCTIONS, type MotorInput,
 } from '../src/lib/fitkMotor';
 import { evaluateProgression, returnAdjustment, type ProgressionEntry } from '../src/lib/fitkProgression';
 import { handleDiscomfort } from '../src/lib/fitkSafety';
-import { LIBRARY, LIBRARY_META, libraryById, libraryPromptSummary } from '../src/lib/fitkLibrary';
+import { LIBRARY, LIBRARY_META, LEGACY_ID_ALIASES, MUSCLES, libraryById, libraryPromptSummary } from '../src/lib/fitkLibrary';
 import type { WeeklySession } from '../src/types/user';
 
 let failures = 0;
@@ -30,13 +30,19 @@ const base = (o: Partial<MotorInput>): MotorInput => ({
 
 // ── Biblioteca ───────────────────────────────────────────────────────
 head('Biblioteca');
-check(`v${LIBRARY_META.version} importada con ${LIBRARY.length} fichas únicas`, LIBRARY.length === LIBRARY_META.uniqueExercises && LIBRARY.length >= 100);
+check(`v${LIBRARY_META.version} importada con ${LIBRARY.length} fichas únicas`, LIBRARY_META.version === '2.17' && LIBRARY.length === 137 && LIBRARY.length === LIBRARY_META.uniqueExercises);
 check('IDs únicos', new Set(LIBRARY.map(e => e.id)).size === LIBRARY.length);
-check('los duplicados del Excel quedan registrados como aviso (no se ocultan)', LIBRARY_META.warnings.some(w => w.includes('duplicadas')));
-check('variantes con ejercicio base inexistente quedan avisadas', LIBRARY_META.warnings.some(w => w.includes('no existe en la Biblioteca')));
+check('importación sin avisos (equipo, niveles, variantes y Resumen cuadran)', LIBRARY_META.warnings.length === 0, LIBRARY_META.warnings.join(' | '));
+check('168 variantes y 622 filas de Matriz muscular', LIBRARY_META.variants === 168 && LIBRARY_META.matrixRows === 622);
+const muscleCodes = new Set(MUSCLES.map(m => m.code));
+check('toda ficha tiene músculo principal (P) en la Matriz', LIBRARY.every(e => e.muscles.some(c => c.level === 'P')));
+check('la Matriz solo usa códigos del Diccionario muscular', LIBRARY.every(e => e.muscles.every(c => muscleCodes.has(c.code))));
+check('toda ficha cae en exactamente una función de slot', LIBRARY.every(e => slotFunctionsOf(e).length === 1),
+  LIBRARY.filter(e => slotFunctionsOf(e).length !== 1).map(e => `${e.id}:${slotFunctionsOf(e).join('+') || '∅'}`).join(', '));
+check('equipo parseado: toda ficha tiene al menos una opción', LIBRARY.every(e => e.equipmentOptions.length > 0));
+check('solo el cuello es opt-in', LIBRARY.filter(e => e.optIn).every(e => e.block === 'Cuello') && LIBRARY.filter(e => e.block === 'Cuello').every(e => e.optIn));
 const catalog = motorCatalog();
-check('toda ficha cubre una función de slot coherente con su bloque',
-  catalog.every(e => e.slotFunction !== 'core' || libraryById.get(e.libraryId ?? '')?.block === 'Core'));
+check('el catálogo expone las 137 fichas', catalog.length === LIBRARY.length);
 check('el resumen del Coach usa la misma Biblioteca', libraryPromptSummary().includes(`${LIBRARY.length} ejercicios`));
 
 // ── 1. 2 días principiante ───────────────────────────────────────────
@@ -271,6 +277,46 @@ check('lesión de rodilla: la sesión puntual respeta Safety', !rodillaPuntual |
 const corta = generateFocusSession(base({ workoutDuration: durationFromMinutes(25) }), 'torsoA')!.sessions[0];
 check('20-30 min: la sesión cabe en 30 min', estimateSessionMinutes(corta) <= 31, `${estimateSessionMinutes(corta)} min`);
 check('sesión puntual marcada en la traza', corta.templateKey === 'torsoA' && corta.motorTrace?.split === 'Sesión puntual');
+
+
+// ── Biblioteca v2.17: IDs antiguos ───────────────────────────────────
+head('IDs de la v1.8');
+check('los alias apuntan a fichas existentes', Object.values(LEGACY_ID_ALIASES).every(id => LIBRARY.some(e => e.id === id)));
+check('quad_squat → Sentadilla trasera con barra', libraryById.get('quad_squat')?.id === 'legs_barbell_squat');
+check('back_chinup → Dominadas (configuración supina)', libraryById.get('back_chinup')?.id === 'back_pullup');
+check('historial de pesos: fk-ham_rdl = fk-hamstrings_romanian_deadlift', canonicalExerciseId('fk-ham_rdl') === 'fk-hamstrings_romanian_deadlift'
+  && canonicalExerciseId('fk-chest_pec_deck') === 'fk-chest_pec_deck' && canonicalExerciseId('custom-1') === 'custom-1');
+const exclOld = generatePlan(base({ daysPerWeek: 4, level: 'advanced', excludedExercises: ['quad_squat', 'ham_rdl'] }));
+check('una exclusión guardada con ID antiguo sigue excluyendo', !ids(exclOld).includes('legs_barbell_squat') && !ids(exclOld).includes('hamstrings_romanian_deadlift'));
+const reverseAlias = new Map<string, string>();
+for (const [old, id] of Object.entries(LEGACY_ID_ALIASES)) if (!reverseAlias.has(id)) reverseAlias.set(id, old);
+const prevNew = generatePlan(base({ daysPerWeek: 4, level: 'advanced' }));
+const prevOld = prevNew.map(s => ({ ...s, exercises: s.exercises.map(e => ({ ...e, libraryId: reverseAlias.get(e.libraryId ?? '') ?? e.libraryId })) }));
+check('control: el plan anterior de prueba contiene IDs antiguos', prevOld.some(s => s.exercises.some(e => e.libraryId && !LIBRARY.some(l => l.id === e.libraryId))));
+const histOld = Object.fromEntries(ids(prevOld).map(id => [id ?? '', 'progreso' as const]));
+const contNew = generatePlan(base({ daysPerWeek: 4, level: 'advanced', previousPlan: prevNew, planVersion: 7 }));
+const contOld = generatePlan(base({ daysPerWeek: 4, level: 'advanced', previousPlan: prevOld, exerciseHistory: histOld, planVersion: 7 }));
+check('un plan guardado con IDs v1.8 mantiene la continuidad', ids(contOld).join() === ids(contNew).join() && ids(contOld).join() === ids(prevNew).join());
+
+// ── Biblioteca v2.17: cobertura, cuello y extras ─────────────────────
+head('Biblioteca v2.17 en el Motor');
+const everyPlan = [1, 2, 3, 4, 5, 6, 7].flatMap(d => (['beginner', 'advanced'] as const).flatMap(level =>
+  generatePlanOptions(base({ daysPerWeek: d, level, workoutDuration: '1hour' })).flat()));
+check('ningún slot obligatorio queda vacío con gimnasio completo', [1, 2, 3, 4, 5, 6, 7].every(d =>
+  generatePlanWithTrace(base({ daysPerWeek: d, level: 'advanced', workoutDuration: '1hour' })).warnings.every(w => !w.includes('sin ejercicio válido'))));
+const used = new Set(everyPlan.flatMap(s => s.exercises.map(e => e.libraryId)));
+check('fichas nuevas de la v2.17 entran en planes reales', ['back_face_pull', 'chest_smith_bench_press', 'legs_leg_extension', 'hamstrings_seated_leg_curl'].filter(id => used.has(id)).length >= 2,
+  `${used.size} fichas distintas usadas`);
+check('el cuello nunca aparece sin pedirlo (MOTOR-NECK-OPTIN-094)', everyPlan.every(s => s.exercises.every(e => libraryById.get(e.libraryId ?? '')?.block !== 'Cuello'))
+  && Object.keys(SESSION_FOCUS).every(f => generateFocusSession(base({}), f)!.sessions[0].exercises.every(e => libraryById.get(e.libraryId ?? '')?.block !== 'Cuello')));
+const neck = generateFocusSession(base({}), 'piernaHombro', ['cuello'])!.sessions[0];
+check('pedido expresamente al Coach, el cuello entra', neck.exercises.some(e => libraryById.get(e.libraryId ?? '')?.block === 'Cuello'));
+const neckSafe = generateFocusSession(base({ injuries: ['dolor cervical'] }), 'piernaHombro', ['cuello'])!;
+check('con síntomas cervicales no hay cuello aunque lo pida (Safety)', neckSafe.sessions[0].exercises.every(e => libraryById.get(e.libraryId ?? '')?.block !== 'Cuello'));
+const tib = generateFocusSession(base({}), 'legs', ['tibial', 'flexores_cadera'])!.sessions[0];
+check('extras pedidos (tibial, flexores de cadera) entran y no se recortan', ['tibial', 'flexores_cadera'].every(fn => tib.exercises.some(e => e.slotFunction === fn)));
+check('extras desconocidos se ignoran', generateFocusSession(base({}), 'legs', ['inventado'])!.sessions[0].exercises.length === generateFocusSession(base({}), 'legs')!.sessions[0].exercises.length);
+check('todas las funciones extra tienen candidatos', Object.keys(EXTRA_FUNCTIONS).every(fn => catalog.some(e => e.slotFunction === fn)));
 
 console.log(`\n${failures === 0 ? 'TODOS LOS CHECKS PASARON' : `${failures} CHECK(S) FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);

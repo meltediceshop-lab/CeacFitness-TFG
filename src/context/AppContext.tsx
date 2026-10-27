@@ -3,7 +3,7 @@
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
+import { canonicalExerciseId, generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import type {
   User,
   AppScreen,
@@ -1162,7 +1162,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getExerciseHistory = (exerciseId: string): ExerciseLog[] => {
-    return exerciseLogs.filter(log => log.exerciseId === exerciseId);
+    // Los registros antiguos pueden llevar el ID de una versión previa de la Biblioteca.
+    const id = canonicalExerciseId(exerciseId);
+    return exerciseLogs.filter(log => canonicalExerciseId(log.exerciseId) === id);
   };
 
   const getExerciseByName = (name: string): Exercise | undefined => {

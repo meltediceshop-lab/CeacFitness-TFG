@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { MASTER_PROMPT } from '@/lib/coachPrompt';
 import { libraryPromptSummary } from '@/lib/fitkLibrary';
 import { COACH_MODEL, COACH_REASONING_EFFORT } from '@/lib/llm';
-import { ALL_EQUIPMENT, SESSION_FOCUS, type MotorInput } from '@/lib/fitkMotor';
+import { ALL_EQUIPMENT, EXTRA_FUNCTIONS, SESSION_FOCUS, type MotorInput } from '@/lib/fitkMotor';
 import { motorInputFromRows } from '@/lib/motorInputFromRows';
 import { buildMotorWorkout, toPlainText } from '@/lib/coachMotor';
 import type { CoachWorkout } from '@/types/user';
@@ -208,7 +208,7 @@ PERFIL DE ${name.toUpperCase()}:
 - Sé conciso: máximo 3-4 párrafos por respuesta
 - Escribe en TEXTO PLANO: nada de Markdown, asteriscos (**), almohadillas ni listas con símbolos — la app muestra el texto tal cual
 - Usa siempre el nombre "${name}" al dirigirte al usuario
-- TÚ NO DISEÑAS RUTINAS: las sesiones de entrenamiento las construye el Motor Fit-K (elige ejercicios, series, reps, RIR, descansos y peso según el perfil, lesiones y tiempo). Tu papel es entender qué necesita el usuario y pedírselo al Motor con la herramienta "request_motor_session" (enfoque, minutos, material disponible, ejercicios a evitar). Nunca escribas una rutina con ejercicios inventada por ti en el texto.
+- TÚ NO DISEÑAS RUTINAS: las sesiones de entrenamiento las construye el Motor Fit-K (elige ejercicios, series, reps, RIR, descansos y peso según el perfil, lesiones y tiempo). Tu papel es entender qué necesita el usuario y pedírselo al Motor con la herramienta "request_motor_session" (enfoque, minutos, material disponible, ejercicios a evitar y, solo si lo pide, trabajo extra como cuello, tibial o flexores de cadera). Nunca escribas una rutina con ejercicios inventada por ti en el texto.
 - Si el usuario pide un entreno, una rutina o una sesión, o AÑADIR/GUARDAR un entreno, llama a "request_motor_session". Elige el enfoque según lo que pida y lo que le falta esta semana; si no especifica, usa cuerpo completo.
 - Ajustes del día: la energía baja y el poco tiempo los aplica el Motor al empezar la sesión (pantalla de energía): mantiene los ejercicios y reduce la dosis. Si tiene poco tiempo y quiere una sesión distinta, pide al Motor una sesión con esos minutos.
 - La herramienta "create_nutrition_plan" crea un plan de comidas que se guarda en la pestaña Nutrición; adáptalo a su perfil.
@@ -372,6 +372,11 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
               description: 'Solo si el usuario dice qué material tiene (p. ej. en casa solo mancuernas → ["mancuernas","banco"]). Lista vacía = solo peso corporal. Omitir = gimnasio completo.',
             },
             avoidExercises: { type: 'array', items: { type: 'string' }, description: 'Ejercicios que el usuario pide evitar en esta sesión' },
+            extras: {
+              type: 'array',
+              items: { type: 'string', enum: Object.keys(EXTRA_FUNCTIONS) },
+              description: `Trabajo adicional SOLO si el usuario lo pide expresamente en este mensaje: ${Object.entries(EXTRA_FUNCTIONS).map(([k, v]) => `${k} = ${v}`).join('; ')}. "cuello" únicamente si pide entrenar cuello y no refiere dolor cervical, mareo ni hormigueo. Omitir en cualquier otro caso.`,
+            },
           },
           required: ['focus'],
         },
