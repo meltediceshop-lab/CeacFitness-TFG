@@ -166,6 +166,7 @@ export interface Exercise {
   restSeconds: number;
   variations?: ExerciseVariation[];
   alternatives?: string[]; // Alternative exercise names
+  swappedFrom?: string; // nombre del ejercicio original si el usuario eligió una alternativa
   instructions?: string;
   imageUrl?: string; // GIF demonstration URL
   // ── Campos del Motor Fit-K v1.0 (aditivos, opcionales) ──────────────
