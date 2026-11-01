@@ -22,7 +22,7 @@ import {
   Flame,
   AlertTriangle,
 } from 'lucide-react';
-import type { Exercise, ExerciseVariation, ClockStyle } from '@/types/user';
+import type { Exercise, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { WorkoutCoachChat } from '@/components/workout/WorkoutCoachChat';
 import { WarmupModal } from '@/components/workout/WarmupModal';
@@ -30,6 +30,7 @@ import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { handleDiscomfort } from '@/lib/fitkSafety';
+import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
 
 interface ExerciseLog {
   exerciseId: string;
@@ -131,12 +132,13 @@ export function WorkoutScreen() {
     completeWeeklySession,
     getExerciseHistory,
     getExerciseByName,
+    updateSessionExercises,
     supabaseUserId,
   } = useApp();
 
   // 1. Estado del Modal (Compartido para Modo Simple y Guiado)
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
-  const [selectedVariation, setSelectedVariation] = useState<ExerciseVariation | null>(null);
+  const [detailIndex, setDetailIndex] = useState<number | null>(null); // posición en la sesión del ejercicio abierto
   const [warmupDone, setWarmupDone] = useState(false);
   const [showGuidedWarmup, setShowGuidedWarmup] = useState(includeWarmup);
   const [showWarmupModal, setShowWarmupModal] = useState(false);
@@ -376,6 +378,24 @@ export function WorkoutScreen() {
 
   const progress = (completedSets.size / totalSets) * 100;
 
+  const openExerciseDetail = (index: number) => {
+    setDetailIndex(index);
+    setShowExerciseDetail(exercises[index]);
+  };
+
+  // "¿No encuentras este ejercicio?": la alternativa elegida sustituye al
+  // ejercicio en la sesión y queda guardada y marcada.
+  const chooseAlternative = (name: string) => {
+    if (detailIndex === null || !showExerciseDetail || name === showExerciseDetail.name) return;
+    const original = exercises[detailIndex];
+    const swapped = swapExercise(original, resolveAlternative(original, name, getExerciseByName));
+    if (simpleDone.has(original.id)) {
+      setSimpleDone(prev => { const next = new Set(prev); next.delete(original.id); next.add(swapped.id); return next; });
+    }
+    updateSessionExercises(selectedWeeklySession.id, exercises.map((e, i) => (i === detailIndex ? swapped : e)));
+    setShowExerciseDetail(swapped);
+  };
+
   // COMPONENTE: Modal de Detalles del Ejercicio (Reutilizable en ambos modos)
   const ExerciseDetailModal = (
     <AnimatePresence>
@@ -455,57 +475,34 @@ export function WorkoutScreen() {
               )}
 
               {/* Alternatives */}
-              {showExerciseDetail.alternatives && showExerciseDetail.alternatives.length > 0 && (
+              {alternativeOptions(showExerciseDetail).length > 0 && (
                 <div className="mb-6">
                   <h3 className="font-semibold text-stone-900 mb-3">¿No encuentras este ejercicio?</h3>
                   <p className="text-stone-500 text-sm mb-3">Prueba con estas alternativas:</p>
                   <div className="space-y-2">
-                    {showExerciseDetail.alternatives.map((alt, i) => {
-                      // Look up in catalog first, then try variation match
-                      const catalogMatch = typeof getExerciseByName === 'function'
-                        ? getExerciseByName(alt)
-                        : undefined;
-                      // Try to find a variation of the current exercise that matches the name
-                      const variationMatch = showExerciseDetail.variations?.find(v =>
-                        alt.toLowerCase().includes(v.name.toLowerCase()) ||
-                        v.name.toLowerCase().includes(alt.toLowerCase())
-                      );
-
+                    {alternativeOptions(showExerciseDetail).map(alt => {
+                      const catalogMatch = getExerciseByName(alt);
+                      const selected = alt === showExerciseDetail.name;
                       return (
                         <button
-                          key={i}
+                          key={alt}
                           type="button"
-                          onClick={() => {
-                            if (catalogMatch) {
-                              setShowExerciseDetail(catalogMatch);
-                              setSelectedVariation(catalogMatch.variations?.[0] || null);
-                            } else if (variationMatch) {
-                              // Switch to the matching variation image without changing exercise
-                              setSelectedVariation(variationMatch);
-                            } else {
-                              // Fallback: show the alternative with the variation's image if available
-                              const fallback: Exercise = {
-                                ...showExerciseDetail,
-                                id: `alt-${i}`,
-                                name: alt,
-                                imageUrl: showExerciseDetail.variations?.[i % (showExerciseDetail.variations?.length || 1)]?.imageUrl ?? showExerciseDetail.imageUrl,
-                                variations: [],
-                                alternatives: [],
-                              };
-                              setShowExerciseDetail(fallback);
-                              setSelectedVariation(null);
-                            }
-                          }}
-                          className="w-full flex items-center gap-3 py-3 px-4 text-left text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors"
+                          onClick={() => chooseAlternative(alt)}
+                          aria-pressed={selected}
+                          className={`w-full flex items-center gap-3 py-3 px-4 text-left rounded-xl transition-colors ${selected ? 'bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500' : 'text-stone-700 bg-stone-100 hover:bg-stone-200'}`}
                         >
-                          {(catalogMatch?.imageUrl || variationMatch?.imageUrl) && (
+                          {catalogMatch?.imageUrl && (
                             <img
-                              src={catalogMatch?.imageUrl || variationMatch?.imageUrl}
+                              src={catalogMatch.imageUrl}
                               alt={alt}
                               className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
                             />
                           )}
-                          <span className="font-medium">{alt}</span>
+                          <span className="font-medium flex-1">
+                            {alt}
+                            {alt === showExerciseDetail.swappedFrom && <span className="block text-xs font-normal text-stone-400">Ejercicio original</span>}
+                          </span>
+                          {selected && <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />}
                         </button>
                       );
                     })}
@@ -729,10 +726,7 @@ export function WorkoutScreen() {
               return (
               <motion.div key={exercise.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
                 <Card
-                  onClick={() => {
-                    setShowExerciseDetail(exercise);
-                    setSelectedVariation(exercise.variations?.[0] || null);
-                  }}
+                  onClick={() => openExerciseDetail(index)}
                   className={`p-4 border-0 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-all ${done ? 'bg-emerald-50 dark:bg-emerald-500/15' : 'glass-card'}`}
                 >
                   <div className="flex items-start gap-4">
@@ -970,10 +964,7 @@ export function WorkoutScreen() {
                     )}
                   </div>
                   <button
-                    onClick={() => {
-                      setShowExerciseDetail(currentExercise);
-                      setSelectedVariation(currentExercise.variations?.[0] || null);
-                    }}
+                    onClick={() => openExerciseDetail(currentExerciseIndex)}
                     className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 transition-colors ml-3 flex-shrink-0"
                   >
                     <Info className="w-5 h-5 text-stone-500" />

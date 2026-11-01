@@ -27,6 +27,7 @@ import {
 import type { WorkoutMode, Exercise } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
+import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
 
 export function WorkoutPreviewScreen() {
   const {
@@ -37,11 +38,13 @@ export function WorkoutPreviewScreen() {
     getExerciseHistory,
     user,
     getExerciseByName,
+    updateSessionExercises,
     includeWarmup,
     setIncludeWarmup,
   } = useApp();
   const [showModeModal, setShowModeModal] = useState(false);
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
+  const [detailIndex, setDetailIndex] = useState<number | null>(null); // posición en la sesión del ejercicio abierto
   const [showSessionOptions, setShowSessionOptions] = useState(false);
   const [showWarmupInfo, setShowWarmupInfo] = useState(false);
 
@@ -63,6 +66,17 @@ export function WorkoutPreviewScreen() {
   const handleRemoveSession = () => {
     removeSession(selectedWeeklySession.id);
     setScreen('dashboard');
+  };
+
+  // "¿No encuentras este ejercicio?": la alternativa elegida sustituye al
+  // ejercicio en la sesión y queda guardada y marcada.
+  const chooseAlternative = (name: string) => {
+    if (detailIndex === null || !showExerciseDetail || name === showExerciseDetail.name) return;
+    const exercises = selectedWeeklySession.exercises;
+    const original = exercises[detailIndex];
+    const swapped = swapExercise(original, resolveAlternative(original, name, getExerciseByName));
+    updateSessionExercises(selectedWeeklySession.id, exercises.map((e, i) => (i === detailIndex ? swapped : e)));
+    setShowExerciseDetail(swapped);
   };
 
   const getLastWeight = (exerciseId: string): number | null => {
@@ -208,7 +222,10 @@ export function WorkoutPreviewScreen() {
                   transition={{ delay: 0.1 + index * 0.05 }}
                 >
                   <Card
-                    onClick={() => setShowExerciseDetail(exercise)}
+                    onClick={() => {
+                      setDetailIndex(index);
+                      setShowExerciseDetail(exercise);
+                    }}
                     className="glass-card p-3 border-0 rounded-2xl hover:shadow-md transition-all cursor-pointer"
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -497,7 +514,7 @@ export function WorkoutPreviewScreen() {
                 )}
 
                 {/* Alternatives */}
-                {showExerciseDetail.alternatives && showExerciseDetail.alternatives.length > 0 && (
+                {alternativeOptions(showExerciseDetail).length > 0 && (
                   <div className="mb-6">
                     <h3 className="font-semibold text-stone-900 mb-3">
                       ¿No encuentras este ejercicio?
@@ -506,38 +523,24 @@ export function WorkoutPreviewScreen() {
                       Prueba con estas alternativas:
                     </p>
                     <div className="space-y-2">
-                      {showExerciseDetail.alternatives.map((alt, i) => (
-                        <Button
-                          key={i}
-                          variant="ghost"
-                          onClick={() => {
-                            // 1. Intentamos buscarlo en tu AppContext
-                            let newExercise = typeof getExerciseByName === 'function' 
-                              ? getExerciseByName(alt) 
-                              : undefined;
-
-                            // 2. Si no existe en los datos falsos, creamos uno al vuelo
-                            // para que la interfaz NUNCA se bloquee.
-                            if (!newExercise) {
-                              newExercise = {
-                                ...showExerciseDetail, // Hereda las series, reps y músculo
-                                id: `mock-alt-${i}`,
-                                name: alt, // Actualiza al nombre de la alternativa
-                                variations: [], // Limpiamos para evitar errores
-                                alternatives: [], // Limpiamos para no hacer bucles infinitos
-                                instructions: `Mantén la técnica adecuada para: ${alt}`,
-                                imageUrl: undefined // Mostrará el icono del Dumbbell automáticamente
-                              };
-                            }
-
-                            // 3. Forzamos la actualización de React
-                            setShowExerciseDetail(newExercise);
-                          }}
-                          className="w-full h-auto min-h-[3rem] py-3 justify-start px-4 text-left font-normal text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl border-none shadow-none text-base transition-colors"
-                        >
-                          {alt}
-                        </Button>
-                      ))}
+                      {alternativeOptions(showExerciseDetail).map(alt => {
+                        const selected = alt === showExerciseDetail.name;
+                        return (
+                          <Button
+                            key={alt}
+                            variant="ghost"
+                            aria-pressed={selected}
+                            onClick={() => chooseAlternative(alt)}
+                            className={`w-full h-auto min-h-[3rem] py-3 justify-start px-4 text-left font-normal rounded-xl border-none shadow-none text-base transition-colors ${selected ? 'bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500 hover:bg-emerald-50' : 'text-stone-700 bg-stone-100 hover:bg-stone-200'}`}
+                          >
+                            <span className="flex-1 whitespace-normal">
+                              {alt}
+                              {alt === showExerciseDetail.swappedFrom && <span className="block text-xs text-stone-400">Ejercicio original</span>}
+                            </span>
+                            {selected && <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />}
+                          </Button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
