@@ -167,6 +167,7 @@ export interface Exercise {
   variations?: ExerciseVariation[];
   alternatives?: string[]; // Alternative exercise names
   swappedFrom?: string; // nombre del ejercicio original si el usuario eligió una alternativa
+  skipped?: boolean; // en el registro del entreno: no se llegó a hacer (sesión terminada antes)
   instructions?: string;
   imageUrl?: string; // GIF demonstration URL
   // ── Campos del Motor Fit-K v1.0 (aditivos, opcionales) ──────────────
