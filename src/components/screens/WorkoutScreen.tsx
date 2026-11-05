@@ -31,6 +31,7 @@ import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClo
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { handleDiscomfort } from '@/lib/fitkSafety';
 import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
+import { clearActiveWorkout, elapsedSince, loadActiveWorkout, saveActiveWorkout } from '@/lib/activeWorkout';
 
 interface ExerciseLog {
   exerciseId: string;
@@ -163,8 +164,14 @@ export function WorkoutScreen() {
   const [simpleDone, setSimpleDone] = useState<Set<string>>(new Set()); // modo simple: ejercicios marcados
 
   // 4. Cronómetro modo simple
-  const [elapsed, setElapsed] = useState(0); // segundos desde que empezó
+  // Hora real de inicio: si la app se cerró a mitad de entreno se reanuda la misma.
+  const [startedAt] = useState(() => {
+    const active = loadActiveWorkout();
+    return active && active.session.id === selectedWeeklySession?.id ? active.startedAt : Date.now();
+  });
+  const [elapsed, setElapsed] = useState(() => elapsedSince(startedAt)); // segundos desde que empezó
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const finishedRef = useRef(false);
   const [durationAlertShown, setDurationAlertShown] = useState(false);
   const [showDurationBanner, setShowDurationBanner] = useState(false);
   const [showClockPicker, setShowClockPicker] = useState(false);
@@ -187,15 +194,24 @@ export function WorkoutScreen() {
       setShowClockPicker(true);
     }
 
-    timerRef.current = setInterval(() => {
-      setElapsed(prev => prev + 1);
-    }, 1000);
+    // Se calcula desde la hora de inicio para que siga contando aunque la
+    // app pase a segundo plano o se cierre.
+    const tick = () => setElapsed(elapsedSince(startedAt));
+    timerRef.current = setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', tick);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      document.removeEventListener('visibilitychange', tick);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Guarda el entreno en curso (también tras cambiar un ejercicio) para poder reanudarlo.
+  useEffect(() => {
+    if (finishedRef.current || !selectedWeeklySession || !workoutMode) return;
+    saveActiveWorkout({ session: selectedWeeklySession, startedAt, mode: workoutMode, includeWarmup });
+  }, [selectedWeeklySession, workoutMode, includeWarmup, startedAt]);
 
   // Alerta cuando alcanza la duración objetivo
   const targetDuration = selectedWeeklySession?.duration ?? 0;
@@ -340,7 +356,13 @@ export function WorkoutScreen() {
     } catch { /* silently ignore */ }
   };
 
+  const finishActiveWorkout = () => {
+    finishedRef.current = true;
+    clearActiveWorkout();
+  };
+
   const handleWorkoutComplete = () => {
+    finishActiveWorkout();
     savePendingActions();
     if (workoutMode === 'simple') {
       setShowRecordPrompt(true);
@@ -353,12 +375,14 @@ export function WorkoutScreen() {
 
   const handleSimpleModeComplete = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    finishActiveWorkout();
     savePendingActions();
     setShowRecordPrompt(true);
   };
   const handleExit = () => setShowExitConfirm(true);
   const confirmExit = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    finishActiveWorkout();
     setScreen('dashboard');
   };
 
