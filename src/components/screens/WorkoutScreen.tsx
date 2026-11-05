@@ -21,6 +21,9 @@ import {
   Hash,
   Flame,
   AlertTriangle,
+  ClipboardList,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import type { Exercise, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
@@ -31,7 +34,7 @@ import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClo
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { handleDiscomfort } from '@/lib/fitkSafety';
 import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
-import { clearActiveWorkout, elapsedSince, loadActiveWorkout, saveActiveWorkout } from '@/lib/activeWorkout';
+import { clearActiveWorkout, elapsedSince, loadActiveWorkout, saveActiveWorkout, type LoggedSet } from '@/lib/activeWorkout';
 
 interface ExerciseLog {
   exerciseId: string;
@@ -122,6 +125,65 @@ function ClockExpandedModal({
   );
 }
 
+// ─── Hoja para registrar series (modo simple) ────────────────────────────────
+function SetLogSheet({
+  exercise, initial, onSave, onClose,
+}: {
+  exercise: Exercise; initial: LoggedSet[]; onSave: (sets: LoggedSet[]) => void; onClose: () => void;
+}) {
+  useScrollLock();
+  const [sets, setSets] = useState<LoggedSet[]>(initial);
+  const unit = exercise.repUnit === 'seconds' ? 'seg' : exercise.repUnit === 'steps' ? 'pasos' : 'reps';
+  const update = (i: number, field: keyof LoggedSet, value: string) =>
+    setSets(prev => prev.map((s, j) => (j === i ? { ...s, [field]: value } : s)));
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[70] bg-black/50 flex items-end justify-center"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        className="glass-modal w-full max-w-md rounded-t-3xl px-6 pt-5 pb-8 max-h-[85vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 bg-stone-200 rounded-full mx-auto mb-4" />
+        <h2 className="text-lg font-bold text-stone-900">{exercise.name}</h2>
+        <p className="text-stone-500 text-sm mb-4">Objetivo: {exercise.sets} series x {formatRepLine(exercise)}</p>
+
+        <div className="grid grid-cols-[3.5rem_1fr_1fr_2.5rem] gap-2 text-xs text-stone-400 font-medium px-1 mb-1">
+          <span>Serie</span><span>kg</span><span>{unit}</span><span />
+        </div>
+        <div className="space-y-2">
+          {sets.map((set, i) => (
+            <div key={i} className="grid grid-cols-[3.5rem_1fr_1fr_2.5rem] gap-2 items-center">
+              <span className="text-stone-700 font-semibold pl-1">{i + 1}</span>
+              <Input type="number" inputMode="decimal" aria-label={`Peso serie ${i + 1}`} value={set.weight}
+                onChange={e => update(i, 'weight', e.target.value)} placeholder="—" className="py-4 rounded-xl text-base" />
+              <Input type="number" inputMode="numeric" aria-label={`${unit} serie ${i + 1}`} value={set.reps}
+                onChange={e => update(i, 'reps', e.target.value)} placeholder="—" className="py-4 rounded-xl text-base" />
+              <button type="button" aria-label={`Quitar serie ${i + 1}`} disabled={sets.length <= 1}
+                onClick={() => setSets(prev => prev.filter((_, j) => j !== i))}
+                className="w-10 h-10 rounded-xl bg-stone-100 hover:bg-red-50 text-stone-500 hover:text-red-500 flex items-center justify-center disabled:opacity-30 transition-colors">
+                <Minus className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <button type="button"
+          onClick={() => setSets(prev => [...prev, { ...(prev[prev.length - 1] ?? { weight: '', reps: '' }) }])}
+          className="mt-3 w-full py-3 rounded-xl border-2 border-dashed border-stone-200 text-stone-500 hover:border-emerald-400 hover:text-emerald-600 flex items-center justify-center gap-2 text-sm font-medium transition-colors">
+          <Plus className="w-4 h-4" /> Añadir serie
+        </button>
+        <Button onClick={() => onSave(sets)} className="mt-5 w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-semibold">
+          Guardar series
+        </Button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export function WorkoutScreen() {
   const {
     user,
@@ -161,14 +223,20 @@ export function WorkoutScreen() {
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [completionStep, setCompletionStep] = useState<1 | 2>(1); // 1=mensaje, 2=compartir
-  const [simpleDone, setSimpleDone] = useState<Set<string>>(new Set()); // modo simple: ejercicios marcados
+  // Entreno guardado si la app se cerró a mitad de sesión (se reanuda).
+  const [resumed] = useState(() => {
+    const active = loadActiveWorkout();
+    return active && active.session.id === selectedWeeklySession?.id ? active : null;
+  });
+  const [simpleDone, setSimpleDone] = useState<Set<string>>(() => new Set(resumed?.done ?? [])); // modo simple: ejercicios marcados
+  const [setLogs, setSetLogs] = useState<Record<string, LoggedSet[]>>(() => resumed?.sets ?? {}); // modo simple: series registradas
+  const [logSheetIndex, setLogSheetIndex] = useState<number | null>(null);
+  const [showPartialConfirm, setShowPartialConfirm] = useState(false);
+  const simpleInstanceRef = useRef<Exercise[] | undefined>(undefined);
 
   // 4. Cronómetro modo simple
   // Hora real de inicio: si la app se cerró a mitad de entreno se reanuda la misma.
-  const [startedAt] = useState(() => {
-    const active = loadActiveWorkout();
-    return active && active.session.id === selectedWeeklySession?.id ? active.startedAt : Date.now();
-  });
+  const [startedAt] = useState(() => resumed?.startedAt ?? Date.now());
   const [elapsed, setElapsed] = useState(() => elapsedSince(startedAt)); // segundos desde que empezó
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const finishedRef = useRef(false);
@@ -210,8 +278,8 @@ export function WorkoutScreen() {
   // Guarda el entreno en curso (también tras cambiar un ejercicio) para poder reanudarlo.
   useEffect(() => {
     if (finishedRef.current || !selectedWeeklySession || !workoutMode) return;
-    saveActiveWorkout({ session: selectedWeeklySession, startedAt, mode: workoutMode, includeWarmup });
-  }, [selectedWeeklySession, workoutMode, includeWarmup, startedAt]);
+    saveActiveWorkout({ session: selectedWeeklySession, startedAt, mode: workoutMode, includeWarmup, done: [...simpleDone], sets: setLogs });
+  }, [selectedWeeklySession, workoutMode, includeWarmup, startedAt, simpleDone, setLogs]);
 
   // Alerta cuando alcanza la duración objetivo
   const targetDuration = selectedWeeklySession?.duration ?? 0;
@@ -357,6 +425,7 @@ export function WorkoutScreen() {
   };
 
   const finishActiveWorkout = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
     finishedRef.current = true;
     clearActiveWorkout();
   };
@@ -373,11 +442,45 @@ export function WorkoutScreen() {
     }
   };
 
-  const handleSimpleModeComplete = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
+  // Modo simple: si quedan ejercicios sin marcar se avisa antes de terminar
+  // (p. ej. te vas antes por falta de tiempo) y se guardan como no hechos.
+  const pendingExercises = exercises.filter(e => !simpleDone.has(e.id));
+
+  const handleSimpleModeComplete = (confirmedPartial = false) => {
+    if (pendingExercises.length > 0 && !confirmedPartial) {
+      setShowPartialConfirm(true);
+      return;
+    }
+    setShowPartialConfirm(false);
     finishActiveWorkout();
     savePendingActions();
-    setShowRecordPrompt(true);
+    const instance = exercises.map(e => (simpleDone.has(e.id) ? e : { ...e, skipped: true }));
+    const logs = exercises.filter(e => simpleDone.has(e.id)).flatMap(e =>
+      (setLogs[e.id] ?? [])
+        .filter(set => set.weight !== '' || set.reps !== '')
+        .map((set, i) => ({
+          exerciseId: e.id,
+          setNumber: i + 1,
+          weight: parseFloat(set.weight) || 0,
+          reps: parseInt(set.reps) || e.reps[i] || e.reps[0],
+          timestamp: new Date(),
+        })),
+    );
+    if (logs.length > 0) {
+      completeWeeklySession(selectedWeeklySession.id, logs, instance);
+      setShowComplete(true);
+    } else {
+      simpleInstanceRef.current = instance;
+      setShowRecordPrompt(true);
+    }
+  };
+
+  const defaultSetsFor = (e: Exercise): LoggedSet[] => {
+    const weight = getLastWeight(e.id) ?? e.suggestedWeightKg;
+    return Array.from({ length: e.sets }, (_, i) => ({
+      weight: weight ? String(weight) : '',
+      reps: String(e.reps[i] ?? e.reps[0] ?? ''),
+    }));
   };
   const handleExit = () => setShowExitConfirm(true);
   const confirmExit = () => {
@@ -395,7 +498,7 @@ export function WorkoutScreen() {
   };
   
   const handleRecordChoice = (_choice: 'now' | 'later' | 'skip') => {
-    completeWeeklySession(selectedWeeklySession.id);
+    completeWeeklySession(selectedWeeklySession.id, undefined, simpleInstanceRef.current);
     setShowRecordPrompt(false);
     setShowComplete(true);
   };
@@ -560,6 +663,14 @@ export function WorkoutScreen() {
     const motivMsg = msgs[totalSessions % msgs.length];
     const sessionName = selectedWeeklySession?.name ?? 'Entrenamiento';
     const sessionDuration = selectedWeeklySession?.duration ?? 45;
+    // Modo simple: solo cuenta lo marcado (y las series registradas si las hay).
+    const doneExercises = workoutMode === 'simple' ? exercises.filter(e => simpleDone.has(e.id)) : exercises;
+    const doneStats = {
+      exercises: doneExercises.length < exercises.length ? `${doneExercises.length}/${exercises.length}` : `${exercises.length}`,
+      sets: workoutMode === 'simple'
+        ? doneExercises.reduce((acc, e) => acc + (setLogs[e.id]?.length ?? e.sets), 0)
+        : totalSets,
+    };
 
     if (completionStep === 1) {
       return (
@@ -575,12 +686,12 @@ export function WorkoutScreen() {
             <div className="glass-card rounded-2xl p-5">
               <div className="flex justify-around text-center">
                 <div>
-                  <p className="text-2xl font-bold text-emerald-600">{exercises.length}</p>
+                  <p className="text-2xl font-bold text-emerald-600">{doneStats.exercises}</p>
                   <p className="text-stone-500 text-sm">ejercicios</p>
                 </div>
                 <div className="w-px bg-stone-200" />
                 <div>
-                  <p className="text-2xl font-bold text-emerald-600">{totalSets}</p>
+                  <p className="text-2xl font-bold text-emerald-600">{doneStats.sets}</p>
                   <p className="text-stone-500 text-sm">series</p>
                 </div>
                 <div className="w-px bg-stone-200" />
@@ -747,6 +858,7 @@ export function WorkoutScreen() {
             )}
             {exercises.map((exercise, index) => {
               const done = simpleDone.has(exercise.id);
+              const logged = setLogs[exercise.id];
               return (
               <motion.div key={exercise.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
                 <Card
@@ -764,12 +876,29 @@ export function WorkoutScreen() {
                       <span className="absolute -top-1.5 -left-1.5 w-6 h-6 bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center justify-center shadow">
                         {index + 1}
                       </span>
+                      {/* Al marcarlo como hecho aparece el registro de series */}
+                      {done && (
+                        <button
+                          type="button"
+                          aria-label={`Registrar series de ${exercise.name}`}
+                          onClick={(e) => { e.stopPropagation(); setLogSheetIndex(index); }}
+                          className={`mt-2 w-16 h-9 rounded-xl flex items-center justify-center gap-1 text-xs font-semibold shadow-sm transition-colors ${logged ? 'bg-emerald-500 text-white' : 'bg-white text-emerald-600 ring-2 ring-emerald-400 animate-pulse'}`}
+                        >
+                          <ClipboardList className="w-4 h-4" />
+                          {logged ? logged.length : '+'}
+                        </button>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className={`font-semibold ${done ? 'text-stone-400 line-through' : 'text-stone-900'}`}>{exercise.name}</p>
                       <p className={`font-medium ${done ? 'text-stone-300' : 'text-emerald-600'}`}>
                         {exercise.sets} series x {formatRepLine(exercise)}
                       </p>
+                      {done && logged && (
+                        <p className="text-emerald-700 dark:text-emerald-400 text-sm font-medium mt-1">
+                          {logged.map(set => `${set.weight || '–'} kg × ${set.reps || '–'}`).join(' · ')}
+                        </p>
+                      )}
                       {exercise.instructions && (
                         <p className="text-stone-400 text-sm mt-1">{exercise.instructions}</p>
                       )}
@@ -797,7 +926,7 @@ export function WorkoutScreen() {
         </div>
 
         <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-stone-100 via-stone-100 to-transparent">
-          <Button onClick={handleSimpleModeComplete} className="w-full py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200">
+          <Button onClick={() => handleSimpleModeComplete()} className="w-full py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200">
             <Check className="w-5 h-5 mr-2" />
             Terminar entreno
           </Button>
@@ -815,6 +944,41 @@ export function WorkoutScreen() {
             </motion.div>
           </div>
         )}
+
+        {showPartialConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-modal rounded-3xl p-6 max-w-sm w-full">
+              <h3 className="text-xl font-bold text-stone-900 mb-2">
+                Has hecho {exercises.length - pendingExercises.length} de {exercises.length} ejercicios
+              </h3>
+              <p className="text-stone-500 mb-2">Quedan sin marcar:</p>
+              <ul className="mb-4 space-y-1">
+                {pendingExercises.map(e => (
+                  <li key={e.id} className="text-stone-700 text-sm font-medium">• {e.name}</li>
+                ))}
+              </ul>
+              <p className="text-stone-500 text-sm mb-6">Si terminas ahora se guardarán como no hechos.</p>
+              <div className="flex gap-3">
+                <Button onClick={() => setShowPartialConfirm(false)} variant="outline" className="flex-1 py-4 rounded-xl">Seguir</Button>
+                <Button onClick={() => handleSimpleModeComplete(true)} className="flex-1 py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600">Terminar</Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {logSheetIndex !== null && exercises[logSheetIndex] && (
+            <SetLogSheet
+              exercise={exercises[logSheetIndex]}
+              initial={setLogs[exercises[logSheetIndex].id] ?? defaultSetsFor(exercises[logSheetIndex])}
+              onSave={sets => {
+                setSetLogs(prev => ({ ...prev, [exercises[logSheetIndex].id]: sets }));
+                setLogSheetIndex(null);
+              }}
+              onClose={() => setLogSheetIndex(null)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* ── Modal: selector de reloj (primera vez) ── */}
         <AnimatePresence>

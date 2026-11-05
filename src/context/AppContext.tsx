@@ -376,7 +376,7 @@ interface AppContextType {
   completeOnboarding: (finalProfile?: Partial<UserProfile>) => void;
   planOptions: WeeklySession[][] | null;
   choosePlanOption: (index: number) => void;
-  completeWeeklySession: (sessionId: string, logs?: ExerciseLog[]) => void;
+  completeWeeklySession: (sessionId: string, logs?: ExerciseLog[], sessionInstance?: Exercise[]) => void;
   moveSession: (sessionId: string, toSessionNumber: number) => void;
   removeSession: (sessionId: string) => void;
   addSessionFromCoach: (workout: import('@/types/user').CoachWorkout) => void;
@@ -853,7 +853,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setScreen('check-in');
   };
 
-  const completeWeeklySession = async (sessionId: string, logs?: ExerciseLog[]) => {
+  const completeWeeklySession = async (sessionId: string, logs?: ExerciseLog[], sessionInstance?: Exercise[]) => {
     if (!user) return;
 
     const updatedSessions = user.weeklySessions.map(session =>
@@ -883,8 +883,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ status: 'completed', completedAt: new Date().toISOString() }),
       }).catch(() => { /* silently ignore */ });
 
-      // Create workout session record + logs
-      if (logs && logs.length > 0) {
+      // Create workout session record + logs (también sin pesos si se indica
+      // qué ejercicios se hicieron: entreno parcial del modo simple).
+      if ((logs && logs.length > 0) || sessionInstance) {
         fetch('/api/workouts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -896,12 +897,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             mode: workoutMode,
             // Ejercicios realmente presentados hoy (Session Instance ya
             // adaptada por energía en EnergyCheckScreen, si aplicó).
-            sessionInstance: selectedWeeklySession?.id === sessionId ? selectedWeeklySession.exercises : undefined,
+            sessionInstance: sessionInstance ?? (selectedWeeklySession?.id === sessionId ? selectedWeeklySession.exercises : undefined),
           }),
         })
           .then(res => res.json())
           .then(data => {
-            if (data.data?.id) {
+            if (data.data?.id && logs && logs.length > 0) {
               fetch(`/api/workouts/${data.data.id}/logs`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

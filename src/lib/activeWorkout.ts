@@ -10,6 +10,14 @@ export interface ActiveWorkout {
   startedAt: number;        // epoch ms
   mode: WorkoutMode;
   includeWarmup: boolean;
+  done?: string[];                       // ejercicios marcados como hechos (modo simple)
+  sets?: Record<string, LoggedSet[]>;    // series registradas por ejercicio
+}
+
+/** Serie registrada en el modo simple (texto tal cual se escribe en los campos). */
+export interface LoggedSet {
+  weight: string;
+  reps: string;
 }
 
 const KEY = 'fitmente-active-workout';
