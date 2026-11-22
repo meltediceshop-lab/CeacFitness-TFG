@@ -21,6 +21,7 @@ export function swapExercise(original: Exercise, replacement: Exercise): Exercis
     slotRole: original.slotRole ?? replacement.slotRole,
     essential: original.essential,
     priority: original.priority,
+    superset: original.superset, // la alternativa sigue en la misma biserie
     alternatives: original.alternatives,
     swappedFrom: replacement.name === originalName ? undefined : originalName,
     reasonCodes: [...(replacement.reasonCodes ?? []), 'USER_ALTERNATIVE'],

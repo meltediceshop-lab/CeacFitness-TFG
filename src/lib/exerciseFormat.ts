@@ -28,3 +28,8 @@ export function formatRepLine(ex: Pick<Exercise, 'reps' | 'repRange' | 'repUnit'
   if (!target) return '';
   return `${target}${repUnitLabel(ex)}${ex.perSide ? '/lado' : ''}`;
 }
+
+/** Descanso en minutos y segundos: 90 → "1:30". */
+export function formatRest(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
+}

@@ -26,6 +26,7 @@ const TIMES: { id: TimeOfDay; label: string; icon: typeof Sun }[] = [
 
 const DURATION_OPTIONS: { id: WorkoutDuration; label: string; description: string }[] = [
   { id: '30min', label: '30 minutos', description: 'Sesiones cortas y efectivas' },
+  { id: '40min', label: '40 minutos', description: 'Lo justo para una sesión completa' },
   { id: '45min', label: '45 minutos', description: 'Un buen equilibrio' },
   { id: '1hour', label: '1 hora', description: 'Sesiones más completas' },
   { id: 'depends', label: 'Depende del día', description: 'Lo ajustamos según tu tiempo' },
@@ -342,6 +343,7 @@ export function OnboardingBeginnerScreen() {
   const getDurationLabel = (duration: WorkoutDuration): string => {
     switch (duration) {
       case '30min': return '30 minutos';
+      case '40min': return '40 minutos';
       case '45min': return '45 minutos';
       case '1hour': return '1 hora';
       case 'depends': return 'Variable';

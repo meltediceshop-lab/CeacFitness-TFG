@@ -248,7 +248,7 @@ function equipmentFix(a: V1Item, b: V1Item): 'none' | V1Item | null {
   return null;
 }
 
-function useVariant(item: V1Item): { from: string; to: string } {
+function switchToVariant(item: V1Item): { from: string; to: string } {
   const from = item.name;
   Object.assign(item, item.pairVariant, { usingVariant: true });
   return { from, to: item.name };
@@ -282,7 +282,7 @@ function pairBest(items: V1Item[], sessionIndex: number): Pairing | null {
       const trial = items.map(x => ({ ...x }));
       const ta = trial[items.indexOf(a)];
       const tb = trial[items.indexOf(b)];
-      if (fix !== 'none') useVariant(fix === a ? ta : tb);
+      if (fix !== 'none') switchToVariant(fix === a ? ta : tb);
       ta.superset = tb.superset = 'trial';
       placeAfter(trial, ta, tb);
       // A igualdad de ahorro, mejor la pareja que no obliga a cambiar de equipo.
@@ -291,7 +291,7 @@ function pairBest(items: V1Item[], sessionIndex: number): Pairing | null {
     }
   }
   if (!best) return null;
-  const swapped = best.fix ? useVariant(best.fix) : undefined;
+  const swapped = best.fix ? switchToVariant(best.fix) : undefined;
   const key = `S${sessionIndex + 1}-${pairCount(items) + 1}`;
   best.a.superset = best.b.superset = key;
   placeAfter(items, best.a, best.b);

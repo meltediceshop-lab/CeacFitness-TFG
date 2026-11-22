@@ -23,7 +23,7 @@ import type {
 import { LIBRARY, libraryById, muscleByCode, resolveLibraryId, variantsFor, type LibraryExercise } from '@/lib/fitkLibrary';
 import { KEEP_STATES, type ProgressState } from '@/lib/fitkProgression';
 import {
-  GROUP_LABEL, PRIORITY_EXTRA_FN, PRIORITY_GROUPS, REST_SECONDS, SETS, SITUATION_LABEL, SPECIAL_STATIONS, TIME_MODEL,
+  GROUP_LABEL, ONLY_BY_PREFERENCE, PRIORITY_EXTRA_FN, PRIORITY_GROUPS, REST_SECONDS, SETS, SITUATION_LABEL, SPECIAL_STATIONS, TIME_MODEL,
   V1_STRUCTURES, VOLUME_REFERENCE, VOL_GROUPS, matrixOf, situationOf,
   type Situation, type V1Structure, type VolGroup,
 } from '@/lib/fitkSpecV1';
@@ -1193,7 +1193,7 @@ function alternativesV1(ex: LibraryExercise, w: V1Work, ctx: Context, sessionIds
     && !sessionIds.has(o.id)
     && !matchesPref(o, ctx.input.preferences?.disliked)
     && !SPECIAL_STATIONS.includes(o.id)
-    && (!group || (matrixOf(o).row[group] ?? 0) >= 1));
+    && (!w.slot.filter || w.slot.filter(o)));
   // Cercanía: misma familia, misma familia de sustitución, misma función u otra función que resuelve el slot.
   const tier = (o: LibraryExercise) => (o.family === ex.family ? 0 : o.substitutionFamily === ex.substitutionFamily ? 1 : functionOf(o) === fn ? 2 : 3);
   const key = (o: LibraryExercise): number[] => [
@@ -1202,8 +1202,8 @@ function alternativesV1(ex: LibraryExercise, w: V1Work, ctx: Context, sessionIds
     tier(o),
     // Equivalente también en cómo se carga: no cambiar un press con peso por flexiones.
     (o.loadSource === 'Externa') === (ex.loadSource === 'Externa') ? 0 : 1,
-    // Si el aparato está ocupado, mejor una alternativa con otro tipo de equipo.
-    equipmentType(o) === equipmentType(ex) ? 1 : 0,
+    // Si el ejercicio ocupa un aparato, mejor una alternativa con otro tipo de equipo (por si está ocupado).
+    !isPortable(ex) && equipmentType(o) === equipmentType(ex) ? 1 : 0,
     -scoreCandidate(o, w.slot, ctx).score,
   ];
   return pool
@@ -1240,6 +1240,10 @@ function buildPlanV1(rawInput: MotorInput, structure: V1Structure, validate: boo
   // 5-6) Patrones de cada sesión. El empuje vertical es contextual: entra
   // con prioridad de hombro o con objetivo de fuerza (Word §4).
   const verticalContext = priorityKey === 'shoulders' || input.goal === 'strength';
+  const previousIdSet = new Set((input.previousPlan ?? []).flatMap(s => s.exercises.map(e => e.libraryId).filter(Boolean).map(id => resolveLibraryId(id as string))));
+  // Algunas funciones solo entran si el usuario las prefiere o ya las hacía.
+  const programmable = (e: LibraryExercise) => !ONLY_BY_PREFERENCE.includes(functionOf(e))
+    || matchesPref(e, input.preferences?.liked) || previousIdSet.has(e.id);
   const work: V1Work[][] = templates.map(t => t.slots
     .filter(sp => sp.when !== 'context' || verticalContext)
     .map(sp => {
@@ -1249,7 +1253,7 @@ function buildPlanV1(rawInput: MotorInput, structure: V1Structure, validate: boo
         slot: {
           fn: sp.fn[0], accept: sp.fn, role: sp.role, optional: sp.when === 'volume', priority, priorityCore: priority,
           // El ejercicio debe ser protagonista del grupo al que sirve el slot.
-          filter: group ? (e: LibraryExercise) => (matrixOf(e).row[group] ?? 0) >= 1 : undefined,
+          filter: (e: LibraryExercise) => programmable(e) && (!group || (matrixOf(e).row[group] ?? 0) >= 1),
         },
         group, keep: sp.keep, optional: sp.when === 'volume',
       };
@@ -1301,7 +1305,7 @@ function buildPlanV1(rawInput: MotorInput, structure: V1Structure, validate: boo
   // 6) Patrón → ejercicio MOTOR. Primero los slots fijos de cada sesión y
   // después los opcionales, para que estos no condicionen a los fijos.
   const weekPicks: LibraryExercise[] = [];
-  const allPreviousIds = new Set((input.previousPlan ?? []).flatMap(s => s.exercises.map(e => e.libraryId).filter(Boolean).map(id => resolveLibraryId(id as string))));
+  const allPreviousIds = previousIdSet;
   const previous = input.previousPlan ?? [];
   const contexts: Context[] = [];
   const week: V1Item[][] = templates.map((t, i) => {

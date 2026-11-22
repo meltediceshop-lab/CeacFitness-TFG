@@ -1,16 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { Dumbbell, Check } from 'lucide-react';
+import { Dumbbell, Check, ChevronDown } from 'lucide-react';
+import { formatRepLine } from '@/lib/exerciseFormat';
 
 // Sección 7 del Motor Fit-K: para 3-4 días/semana hay dos estructuras
 // técnicamente válidas. Ninguna se degrada para "marcar un ganador" — el
 // usuario elige la que más le encaje.
 export function PlanChoiceScreen() {
   const { planOptions, choosePlanOption } = useApp();
+  const [detail, setDetail] = useState<number | null>(null);
 
   if (!planOptions || planOptions.length < 2) return null;
 
@@ -36,14 +39,35 @@ export function PlanChoiceScreen() {
                   {sessions[0]?.motorTrace?.split && (
                     <p className="text-sm text-emerald-700 mb-3">{sessions[0].motorTrace.split}</p>
                   )}
-                  <div className="space-y-2 mb-4">
+                  <div className="space-y-2 mb-3">
                     {sessions.map(s => (
-                      <div key={s.id} className="flex items-center justify-between text-sm">
-                        <span className="text-stone-700">{s.name}</span>
-                        <span className="text-stone-400">{s.targetMuscles} · {s.duration} min</span>
+                      <div key={s.id}>
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className="text-stone-700 font-medium">{s.name}</span>
+                          <span className="text-stone-400 flex-shrink-0">{s.exercises.length} ejercicios · {s.duration} min</span>
+                        </div>
+                        {detail === i && (
+                          <ul className="mt-1.5 mb-2 space-y-1 border-l-2 border-emerald-100 pl-3">
+                            {s.exercises.map(e => (
+                              <li key={e.id} className="flex items-baseline justify-between gap-3 text-xs">
+                                <span className="text-stone-600">{e.name}</span>
+                                <span className="text-stone-400 flex-shrink-0">{e.sets} × {formatRepLine(e)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     ))}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setDetail(detail === i ? null : i)}
+                    aria-expanded={detail === i}
+                    className="flex items-center gap-1 text-sm text-emerald-700 font-medium mb-4"
+                  >
+                    {detail === i ? 'Ocultar ejercicios' : 'Ver ejercicios'}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${detail === i ? 'rotate-180' : ''}`} />
+                  </button>
                   <Button
                     onClick={() => choosePlanOption(i)}
                     className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center gap-2"

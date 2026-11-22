@@ -305,6 +305,8 @@ function motorInputFromUser(u: User): Partial<MotorInput> {
   return {
     goal: ob.goal,
     level: u.level ?? undefined,
+    // Situación actual (Word §1): hoy solo la declara quien entra en modo principiante.
+    experienceLevel: ob.experienceLevel,
     priorityMuscle: ob.priorityMuscle,
     injuries: u.profile?.injuries ?? [],
     excludedExercises: u.profile?.excludedExercises ?? [],
@@ -549,6 +551,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           weeklySessions = generateWeeklySessions(daysPerWeek, workoutDuration, 1, undefined, {
             goal: (ob.beginner_goal ?? ob.advanced_goal) as string | undefined,
             level: ob.level as 'beginner' | 'advanced' | undefined,
+            experienceLevel: ob.experience_level as string | undefined,
             priorityMuscle: ob.priority_muscle as import('@/types/user').MuscleGroup | undefined,
             injuries: (profile.injuries as string[]) ?? [],
             excludedExercises: (profile.excluded_exercises as string[]) ?? [],
@@ -594,6 +597,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 goal: ob.advanced_goal,
                 trainingStyle: ob.training_style,
                 daysPerWeek: ob.days_per_week,
+                workoutDuration: ob.workout_duration ?? undefined,
                 availability: ob.availability,
                 priorityMuscle: ob.priority_muscle,
                 appTone: ob.app_tone,
@@ -735,6 +739,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const motorInput: Partial<MotorInput> = {
       goal: onboarding.goal,
       level: userLevel ?? undefined,
+      experienceLevel: 'experienceLevel' in onboarding ? onboarding.experienceLevel : undefined,
       priorityMuscle: 'priorityMuscle' in onboarding ? onboarding.priorityMuscle : undefined,
       injuries: resolvedProfile.injuries ?? [],
       excludedExercises: resolvedProfile.excludedExercises ?? [],
@@ -819,6 +824,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             advanced_goal: (onboarding as AdvancedOnboarding).goal,
             training_style: (onboarding as AdvancedOnboarding).trainingStyle,
             days_per_week: daysPerWeek,
+            workout_duration: (onboarding as AdvancedOnboarding).workoutDuration,
             availability: (onboarding as AdvancedOnboarding).availability,
             priority_muscle: (onboarding as AdvancedOnboarding).priorityMuscle,
             app_tone: (onboarding as AdvancedOnboarding).appTone,

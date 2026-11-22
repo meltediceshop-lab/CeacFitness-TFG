@@ -24,6 +24,7 @@ import {
   ClipboardList,
   Plus,
   Minus,
+  Repeat,
 } from 'lucide-react';
 import type { Exercise, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
@@ -34,6 +35,7 @@ import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClo
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { handleDiscomfort } from '@/lib/fitkSafety';
 import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
+import { nextGuidedStep, supersetPartner } from '@/lib/workoutFlow';
 import { clearActiveWorkout, elapsedSince, loadActiveWorkout, planSessionId, saveActiveWorkout, secondsUntil, type LoggedSet } from '@/lib/activeWorkout';
 
 interface ExerciseLog {
@@ -432,13 +434,12 @@ export function WorkoutScreen() {
       return;
     }
 
-    if (currentSetIndex < currentExercise.sets - 1) {
-      setCurrentSetIndex(currentSetIndex + 1);
-      startRestTimer(currentExercise.restSeconds);
-    } else if (currentExerciseIndex < exercises.length - 1) {
-      setCurrentExerciseIndex(currentExerciseIndex + 1);
-      setCurrentSetIndex(0);
-      startRestTimer(90);
+    // Siguiente serie; en una biserie se alterna sin descanso entre los dos ejercicios.
+    const next = nextGuidedStep(exercises, currentExerciseIndex, currentSetIndex);
+    if (next) {
+      setCurrentExerciseIndex(next.exerciseIndex);
+      setCurrentSetIndex(next.setIndex);
+      if (next.rest > 0) startRestTimer(next.rest);
     }
 
     setWeight('');
@@ -931,6 +932,12 @@ export function WorkoutScreen() {
                       <p className={`font-medium ${done ? 'text-stone-300' : 'text-emerald-600'}`}>
                         {exercise.sets} series x {formatRepLine(exercise)}
                       </p>
+                      {supersetPartner(exercises, index) !== -1 && (
+                        <p className="flex items-center gap-1 text-teal-700 dark:text-teal-300 text-xs font-semibold mt-0.5">
+                          <Repeat className="w-3.5 h-3.5" />
+                          Biserie con {exercises[supersetPartner(exercises, index)].name}: una serie de cada y descansas
+                        </p>
+                      )}
                       {done && logged && (
                         <p className="text-emerald-700 dark:text-emerald-400 text-sm font-medium mt-1">
                           {logged.map(set => `${set.weight || '–'} kg × ${set.reps || '–'}`).join(' · ')}
@@ -1196,6 +1203,15 @@ export function WorkoutScreen() {
                   </button>
                 </div>
 
+                {supersetPartner(exercises, currentExerciseIndex) !== -1 && (
+                  <div className="mb-4 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-500/15 text-teal-800 dark:text-teal-200 text-sm flex items-center gap-2">
+                    <Repeat className="w-4 h-4 flex-shrink-0" />
+                    <span>
+                      Biserie con <strong>{exercises[supersetPartner(exercises, currentExerciseIndex)].name}</strong>: haz una serie de cada seguida y descansa después.
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex gap-2 mb-4">
                   {Array.from({ length: currentExercise.sets }).map((_, i) => {
                     const setKey = `${currentExerciseIndex}-${i}`;
@@ -1210,7 +1226,7 @@ export function WorkoutScreen() {
                 <div className="glass-bg rounded-2xl p-4">
                   <p className="text-stone-500 text-sm mb-1">Serie {currentSetIndex + 1}</p>
                   <p className="text-2xl font-bold text-stone-900">
-                    {currentExercise.reps[currentSetIndex] || currentExercise.reps[0]} repeticiones
+                    {currentExercise.reps[currentSetIndex] || currentExercise.reps[0]} {currentExercise.repUnit === 'seconds' ? 'segundos' : 'repeticiones'}
                   </p>
                 </div>
               </Card>

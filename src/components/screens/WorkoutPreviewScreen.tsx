@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { formatRepTarget, formatRepLine } from '@/lib/exerciseFormat';
+import { formatRepTarget, formatRepLine, formatRest } from '@/lib/exerciseFormat';
+import { supersetPartner } from '@/lib/workoutFlow';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,6 +24,7 @@ import {
   AlertCircle,
   Flame,
   Check,
+  Repeat,
 } from 'lucide-react';
 import type { WorkoutMode, Exercise } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
@@ -245,8 +247,14 @@ export function WorkoutPreviewScreen() {
                         <div className="min-w-0">
                           <p className="font-medium text-stone-900 dark:text-white truncate">{exercise.name}</p>
                           <p className="text-stone-500 dark:text-white/50 text-sm">
-                            {exercise.sets} series x {formatRepLine(exercise)}
+                            {exercise.sets} series x {formatRepLine(exercise)} · descanso {formatRest(exercise.restSeconds)}
                           </p>
+                          {supersetPartner(selectedWeeklySession.exercises, index) !== -1 && (
+                            <p className="flex items-center gap-1 text-teal-700 dark:text-teal-300 text-xs font-semibold mt-0.5">
+                              <Repeat className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="truncate">Biserie con {selectedWeeklySession.exercises[supersetPartner(selectedWeeklySession.exercises, index)].name}</span>
+                            </p>
+                          )}
                           {lastWeight && (
                             <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs mt-1">
                               <TrendingUp className="w-3 h-3" />

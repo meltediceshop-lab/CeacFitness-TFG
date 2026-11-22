@@ -259,8 +259,15 @@ const slot = (fn: SlotFn | SlotFn[], role: SlotRole, keep: Keep, group?: VolGrou
 // Segunda exposición de rodilla: el Motor elige entre prensa/sentadilla,
 // zancadas o extensión según nivel y tiempo.
 const SECOND_KNEE: SlotFn[] = ['unilateral_rodilla', 'dominante_rodilla', 'extension_rodilla'];
-// Tercer ejercicio de pecho: aperturas o press declinado.
+// Tercer ejercicio de pecho: aperturas; el press declinado, solo si el usuario lo prefiere.
 const EXTRA_CHEST: SlotFn[] = ['aduccion_pecho', 'empuje_declinado'];
+
+/**
+ * Funciones que un slot puede aceptar pero que no se programan por
+ * defecto: solo entran si el usuario prefiere uno de sus ejercicios o ya
+ * lo venía haciendo.
+ */
+export const ONLY_BY_PREFERENCE: SlotFn[] = ['empuje_declinado'];
 
 const FULL_A: V1Template = { key: 'v1FullA', name: 'Full Body A', targetMuscles: 'Todo el cuerpo', slots: [
   slot('dominante_rodilla', 'principal', 1, 'cuadriceps'),

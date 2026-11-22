@@ -12,11 +12,13 @@ import { formatRepLine } from '../src/lib/exerciseFormat';
 export const CASES: Record<string, { title: string; input: MotorInput }> = {
   'principiante-2d': {
     title: 'Principiante, 2 días de 40 min (empieza de cero)',
-    input: { daysPerWeek: 2, workoutDuration: '40min', level: 'beginner', experienceLevel: 'never', goal: 'routine', weight: 72, height: 176, biologicalProfile: 'male', userId: 'caso-principiante', customDays: [0, 3] },
+    // Lo mismo que envía la app tras el onboarding: principiante, "nunca he entrenado", 2 días, 40 min.
+    input: { daysPerWeek: 2, workoutDuration: '40min', level: 'beginner', experienceLevel: 'never', goal: 'routine', injuries: [], excludedExercises: [], weight: 72, height: 176, biologicalProfile: 'male', otherSports: [], otherSportsDays: 0, startFrom: 1, customDays: [0, 3] },
   },
   'hombro-3d': {
     title: 'Usuario de 3 días de 40 min con prioridad de hombro (avanzado, constante)',
-    input: { daysPerWeek: 3, workoutDuration: '40min', level: 'advanced', goal: 'physique', priorityMuscle: 'shoulders', weight: 78, height: 178, biologicalProfile: 'male', userId: 'caso-hombro', customDays: [0, 2, 4] },
+    // Lo mismo que envía la app: "ya entreno con constancia", mejorar el físico, 3 días, 40 min, prioridad hombros.
+    input: { daysPerWeek: 3, workoutDuration: '40min', level: 'advanced', goal: 'physique', priorityMuscle: 'shoulders', injuries: [], excludedExercises: [], weight: 78, height: 178, biologicalProfile: 'male', otherSports: [], otherSportsDays: 0, startFrom: 1 },
   },
 };
 
