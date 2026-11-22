@@ -236,6 +236,8 @@ export interface WeeklySession {
   dayOfWeek?: number;
   /** Plantilla de sesión del Motor (para continuidad entre semanas). */
   templateKey?: string;
+  /** Versión adaptada para hoy (energía/tiempo): id de la sesión del plan de la que sale. */
+  baseSessionId?: string;
   motorTrace?: SessionMotorTrace;
 }
 

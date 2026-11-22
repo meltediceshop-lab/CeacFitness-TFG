@@ -34,7 +34,7 @@ import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClo
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { handleDiscomfort } from '@/lib/fitkSafety';
 import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
-import { clearActiveWorkout, elapsedSince, loadActiveWorkout, saveActiveWorkout, type LoggedSet } from '@/lib/activeWorkout';
+import { clearActiveWorkout, elapsedSince, loadActiveWorkout, planSessionId, saveActiveWorkout, secondsUntil, type LoggedSet } from '@/lib/activeWorkout';
 
 interface ExerciseLog {
   exerciseId: string;
@@ -203,31 +203,49 @@ export function WorkoutScreen() {
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null); // posición en la sesión del ejercicio abierto
   const [warmupDone, setWarmupDone] = useState(false);
-  const [showGuidedWarmup, setShowGuidedWarmup] = useState(includeWarmup);
   const [showWarmupModal, setShowWarmupModal] = useState(false);
-
-  // 2. Estado del Modo Guiado
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [currentSetIndex, setCurrentSetIndex] = useState(0);
-  const [weight, setWeight] = useState('');
-  const [reps, setReps] = useState('');
-  const [isResting, setIsResting] = useState(false);
-  const [restTime, setRestTime] = useState(0);
-  const [restTotal, setRestTotal] = useState(0);
-  const [completedSets, setCompletedSets] = useState<Set<string>>(new Set());
-  const restIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // 3. Estado del Modo Simple / Finalización
-  const [showComplete, setShowComplete] = useState(false);
-  const [showRecordPrompt, setShowRecordPrompt] = useState(false);
-  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [completionStep, setCompletionStep] = useState<1 | 2>(1); // 1=mensaje, 2=compartir
   // Entreno guardado si la app se cerró a mitad de sesión (se reanuda).
   const [resumed] = useState(() => {
     const active = loadActiveWorkout();
     return active && active.session.id === selectedWeeklySession?.id ? active : null;
   });
+  // Punto en el que se quedó el modo guiado, si se reanuda.
+  const [resumedGuided] = useState(() => {
+    const g = resumed?.guided;
+    const list = selectedWeeklySession?.exercises ?? [];
+    if (!g || !list.length) return null;
+    const exerciseIndex = Math.min(Math.max(0, g.exerciseIndex), list.length - 1);
+    const restLeft = g.restEndsAt ? secondsUntil(g.restEndsAt) : 0;
+    return {
+      exerciseIndex,
+      setIndex: Math.min(Math.max(0, g.setIndex), list[exerciseIndex].sets - 1),
+      completed: g.completed,
+      logs: g.logs,
+      restEndsAt: restLeft > 0 ? (g.restEndsAt as number) : null,
+      restTotal: restLeft > 0 ? Math.max(g.restTotal ?? restLeft, restLeft) : 0,
+    };
+  });
+  const [showGuidedWarmup, setShowGuidedWarmup] = useState(includeWarmup && !resumedGuided);
+
+  // 2. Estado del Modo Guiado
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(resumedGuided?.exerciseIndex ?? 0);
+  const [currentSetIndex, setCurrentSetIndex] = useState(resumedGuided?.setIndex ?? 0);
+  const [weight, setWeight] = useState('');
+  const [reps, setReps] = useState('');
+  // Descanso: se guarda la hora real a la que termina, no los segundos que
+  // quedan, para que siga contando con la app en segundo plano o cerrada.
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(resumedGuided?.restEndsAt ?? null);
+  const [restTime, setRestTime] = useState(() => (resumedGuided?.restEndsAt ? secondsUntil(resumedGuided.restEndsAt) : 0));
+  const [restTotal, setRestTotal] = useState(resumedGuided?.restTotal ?? 0);
+  const [completedSets, setCompletedSets] = useState<Set<string>>(() => new Set(resumedGuided?.completed ?? []));
+  const isResting = restEndsAt !== null;
+
+  // 3. Estado del Modo Simple / Finalización
+  const [showComplete, setShowComplete] = useState(false);
+  const [showRecordPrompt, setShowRecordPrompt] = useState(false);
+  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(() => resumedGuided?.logs ?? []);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [completionStep, setCompletionStep] = useState<1 | 2>(1); // 1=mensaje, 2=compartir
   const [simpleDone, setSimpleDone] = useState<Set<string>>(() => new Set(resumed?.done ?? [])); // modo simple: ejercicios marcados
   const [setLogs, setSetLogs] = useState<Record<string, LoggedSet[]>>(() => resumed?.sets ?? {}); // modo simple: series registradas
   const [logSheetIndex, setLogSheetIndex] = useState<number | null>(null);
@@ -248,12 +266,27 @@ export function WorkoutScreen() {
   // 5. Safety Flow (SAFE-001): molestia declarada por el usuario
   const [discomfortMessage, setDiscomfortMessage] = useState<string | null>(null);
 
-  // Limpieza del temporizador de descanso
+  // Cuenta atrás del descanso: siempre a partir de la hora real de fin. Al
+  // volver a la app (o desbloquear el móvil) se recalcula al instante.
   useEffect(() => {
-    return () => {
-      if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    if (restEndsAt === null) return;
+    const sync = () => {
+      const left = secondsUntil(restEndsAt);
+      setRestTime(left);
+      if (left <= 0) setRestEndsAt(null);
     };
-  }, []);
+    sync();
+    const interval = setInterval(sync, 250);
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('pageshow', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('pageshow', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [restEndsAt]);
 
   // Cronómetro: arranca en ambos modos al montar el entreno
   useEffect(() => {
@@ -267,10 +300,14 @@ export function WorkoutScreen() {
     const tick = () => setElapsed(elapsedSince(startedAt));
     timerRef.current = setInterval(tick, 1000);
     document.addEventListener('visibilitychange', tick);
+    window.addEventListener('pageshow', tick);
+    window.addEventListener('focus', tick);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('pageshow', tick);
+      window.removeEventListener('focus', tick);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -278,8 +315,14 @@ export function WorkoutScreen() {
   // Guarda el entreno en curso (también tras cambiar un ejercicio) para poder reanudarlo.
   useEffect(() => {
     if (finishedRef.current || !selectedWeeklySession || !workoutMode) return;
-    saveActiveWorkout({ session: selectedWeeklySession, startedAt, mode: workoutMode, includeWarmup, done: [...simpleDone], sets: setLogs });
-  }, [selectedWeeklySession, workoutMode, includeWarmup, startedAt, simpleDone, setLogs]);
+    saveActiveWorkout({
+      session: selectedWeeklySession, startedAt, mode: workoutMode, includeWarmup, done: [...simpleDone], sets: setLogs,
+      guided: workoutMode === 'guided'
+        ? { exerciseIndex: currentExerciseIndex, setIndex: currentSetIndex, completed: [...completedSets], logs: exerciseLogs, restEndsAt: restEndsAt ?? undefined, restTotal }
+        : undefined,
+    });
+  }, [selectedWeeklySession, workoutMode, includeWarmup, startedAt, simpleDone, setLogs,
+    currentExerciseIndex, currentSetIndex, completedSets, exerciseLogs, restEndsAt, restTotal]);
 
   // Alerta cuando alcanza la duración objetivo
   const targetDuration = selectedWeeklySession?.duration ?? 0;
@@ -296,6 +339,8 @@ export function WorkoutScreen() {
   if (!selectedWeeklySession) return null;
 
   const exercises = selectedWeeklySession.exercises ?? [];
+  // Sesión del plan que se marca como hecha (la versión adaptada por energía tiene id propio).
+  const sessionId = planSessionId(selectedWeeklySession);
 
   if (exercises.length === 0) {
     return (
@@ -327,26 +372,18 @@ export function WorkoutScreen() {
   const startRestTimer = (seconds: number) => {
     setRestTime(seconds);
     setRestTotal(seconds);
-    setIsResting(true);
-
-    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-
-    restIntervalRef.current = setInterval(() => {
-      setRestTime(prev => {
-        if (prev <= 1) {
-          if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-          setIsResting(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    setRestEndsAt(Date.now() + seconds * 1000);
   };
 
   const skipRest = () => {
-    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-    setIsResting(false);
+    setRestEndsAt(null);
     setRestTime(0);
+  };
+
+  const extendRest = (seconds: number) => {
+    setRestEndsAt(endsAt => (endsAt === null ? endsAt : endsAt + seconds * 1000));
+    setRestTime(t => t + seconds);
+    setRestTotal(t => t + seconds);
   };
 
   // Safety Flow (SAFE-001 🔒): cancela el ejercicio actual sin bajar carga
@@ -354,9 +391,7 @@ export function WorkoutScreen() {
   // resto de la sesión con normalidad.
   const handleReportDiscomfort = () => {
     if (!currentExercise) return;
-    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-    setIsResting(false);
-    setRestTime(0);
+    skipRest();
 
     const { message, event } = handleDiscomfort(currentExercise);
     setDiscomfortMessage(message);
@@ -381,17 +416,19 @@ export function WorkoutScreen() {
     newCompletedSets.add(setKey);
     setCompletedSets(newCompletedSets);
 
-    if (weight || reps) {
-      setExerciseLogs([...exerciseLogs, {
-        exerciseId: currentExercise.id,
-        setNumber: currentSetIndex + 1,
-        weight: parseFloat(weight) || 0,
-        reps: parseInt(reps) || currentExercise.reps[currentSetIndex] || currentExercise.reps[0],
-      }]);
-    }
+    // La última serie también cuenta: se pasa al cierre sin esperar al estado.
+    const logs = weight || reps
+      ? [...exerciseLogs, {
+          exerciseId: currentExercise.id,
+          setNumber: currentSetIndex + 1,
+          weight: parseFloat(weight) || 0,
+          reps: parseInt(reps) || currentExercise.reps[currentSetIndex] || currentExercise.reps[0],
+        }]
+      : exerciseLogs;
+    if (logs !== exerciseLogs) setExerciseLogs(logs);
 
     if (newCompletedSets.size >= totalSets) {
-      handleWorkoutComplete();
+      handleWorkoutComplete(logs);
       return;
     }
 
@@ -413,8 +450,8 @@ export function WorkoutScreen() {
     try {
       const KEY = 'fitmente-session-actions';
       const existing: Record<string, unknown> = JSON.parse(localStorage.getItem(KEY) || '{}');
-      existing[selectedWeeklySession.id] = {
-        sessionId:          selectedWeeklySession.id,
+      existing[sessionId] = {
+        sessionId,
         sessionName:        selectedWeeklySession.name,
         completedAt:        new Date().toISOString(),
         dismissedRegister:  false,
@@ -430,14 +467,14 @@ export function WorkoutScreen() {
     clearActiveWorkout();
   };
 
-  const handleWorkoutComplete = () => {
+  const handleWorkoutComplete = (logs: ExerciseLog[] = exerciseLogs) => {
     finishActiveWorkout();
     savePendingActions();
     if (workoutMode === 'simple') {
       setShowRecordPrompt(true);
     } else {
-      const logsToSave = exerciseLogs.map(l => ({ ...l, timestamp: new Date() }));
-      completeWeeklySession(selectedWeeklySession.id, logsToSave);
+      const logsToSave = logs.map(l => ({ ...l, timestamp: new Date() }));
+      completeWeeklySession(sessionId, logsToSave);
       setShowComplete(true);
     }
   };
@@ -467,7 +504,7 @@ export function WorkoutScreen() {
         })),
     );
     if (logs.length > 0) {
-      completeWeeklySession(selectedWeeklySession.id, logs, instance);
+      completeWeeklySession(sessionId, logs, instance);
       setShowComplete(true);
     } else {
       simpleInstanceRef.current = instance;
@@ -498,7 +535,7 @@ export function WorkoutScreen() {
   };
   
   const handleRecordChoice = (_choice: 'now' | 'later' | 'skip') => {
-    completeWeeklySession(selectedWeeklySession.id, undefined, simpleInstanceRef.current);
+    completeWeeklySession(sessionId, undefined, simpleInstanceRef.current);
     setShowRecordPrompt(false);
     setShowComplete(true);
   };
@@ -1129,7 +1166,7 @@ export function WorkoutScreen() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button onClick={() => { setRestTime(t => t + 15); setRestTotal(t => t + 15); }} variant="outline" className="rounded-xl px-5">
+                <Button onClick={() => extendRest(15)} variant="outline" className="rounded-xl px-5">
                   +15s
                 </Button>
                 <Button onClick={skipRest} className="rounded-xl px-6 bg-emerald-500 hover:bg-emerald-600">Saltar descanso</Button>
