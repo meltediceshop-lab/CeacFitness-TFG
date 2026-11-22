@@ -8,6 +8,7 @@ import {
 } from '../src/lib/fitkMotor';
 import { evaluateProgression, returnAdjustment, type ProgressionEntry } from '../src/lib/fitkProgression';
 import { handleDiscomfort } from '../src/lib/fitkSafety';
+import { planSessionId, secondsUntil } from '../src/lib/activeWorkout';
 import { LIBRARY, LIBRARY_META, LEGACY_ID_ALIASES, MUSCLES, libraryById, libraryPromptSummary } from '../src/lib/fitkLibrary';
 import type { WeeklySession } from '../src/types/user';
 
@@ -115,6 +116,10 @@ check('muy baja: versión más corta que conserva lo esencial', vlow.exercises.l
 const high = adaptSessionForToday(s0, { energy: 'high' });
 check('alta: no añade media rutina', high.exercises.length === s0.exercises.length && totalSets([high]) === totalSets([s0]));
 check('el Plan Base no se muta', s0.exercises.length === p3.sessions[0].exercises.length && low.id !== s0.id);
+check('la versión de hoy recuerda su sesión del plan (para marcarla hecha y reanudarla)', low.baseSessionId === s0.id
+  && planSessionId(low) === s0.id && planSessionId(s0) === s0.id
+  && adaptSessionForToday(low, { energy: 'very-low' }).baseSessionId === s0.id);
+check('el descanso se mide con la hora real de fin', secondsUntil(Date.now() + 90_400) === 91 && secondsUntil(Date.now() - 5_000) === 0);
 const time20 = adaptSessionForToday(s0, { energy: 'normal', minutesAvailable: 20 });
 check('poco tiempo: sesión esencial cabe y conserva lo esencial', estimateSessionMinutes(time20) <= 20 * 1.05
   && s0.exercises.filter(e => e.essential).every(e => time20.exercises.some(x => x.id === e.id)), `${estimateSessionMinutes(time20)} min`);

@@ -1684,7 +1684,9 @@ export function adaptSessionForToday(session: WeeklySession, adapt: DailyAdapter
     }
   }
 
-  const adapted: WeeklySession = { ...session, id: crypto.randomUUID(), exercises };
+  // La versión de hoy tiene id propio, pero recuerda la sesión del plan: es
+  // esa la que se marca como hecha y la que se busca al reanudar el entreno.
+  const adapted: WeeklySession = { ...session, id: crypto.randomUUID(), baseSessionId: session.baseSessionId ?? session.id, exercises };
   adapted.duration = adapt.minutesAvailable
     ? Math.min(adapt.minutesAvailable, Math.max(5, estimateSessionMinutes(adapted)))
     : session.duration;
