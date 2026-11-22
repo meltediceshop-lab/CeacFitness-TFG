@@ -22,6 +22,12 @@ import type {
 } from '@/types/user';
 import { LIBRARY, libraryById, muscleByCode, resolveLibraryId, variantsFor, type LibraryExercise } from '@/lib/fitkLibrary';
 import { KEEP_STATES, type ProgressState } from '@/lib/fitkProgression';
+import {
+  GROUP_LABEL, PRIORITY_EXTRA_FN, PRIORITY_GROUPS, REST_SECONDS, SETS, SITUATION_LABEL, SPECIAL_STATIONS, TIME_MODEL,
+  V1_STRUCTURES, VOLUME_REFERENCE, VOL_GROUPS, matrixOf, situationOf,
+  type Situation, type V1Structure, type VolGroup,
+} from '@/lib/fitkSpecV1';
+import { distributeIdeal, fitWeek, sessionSeconds as v1SessionSeconds, weekCoverage, type V1Item, type V1Variant } from '@/lib/fitkWeekV1';
 
 export const MOTOR_VERSION = '2.17';
 
@@ -181,6 +187,10 @@ function roleFits(ex: LibraryExercise, role: SlotRole): boolean {
 // semanal lo justifica y el tiempo lo permite.
 interface SlotDef {
   fn: SlotFn;
+  /** Motor V1: funciones que resuelven el slot (el ejercicio elegido fija `fn`). */
+  accept?: SlotFn[];
+  /** Motor V1: condición extra del candidato (trabajo directo del grupo del slot). */
+  filter?: (ex: LibraryExercise) => boolean;
   role: SlotRole;
   optional: boolean;
   /** Cubre la prioridad del usuario (orden, scoring, dosis). */
@@ -249,16 +259,16 @@ const TEMPLATES: Record<string, SessionTemplate> = {
 };
 
 // ── Política de splits (MOTOR-SPLIT-037, sec. 3) ─────────────────────
-interface SplitDef { name: string; reason: string; sessions: string[] }
+interface SplitDef { name: string; reason: string; sessions: string[]; /** Estructura del Motor V1 (Word del 20/11/2026). */ v1?: V1Structure }
+
+const v1Split = (st: V1Structure): SplitDef => ({ name: st.name, reason: st.reason, sessions: st.sessions.map(t => t.key), v1: st });
 
 function splitOptions(days: number, priority: PriorityGroup | null): SplitDef[] {
   switch (days) {
     case 1: return [{ name: 'Full Body', reason: '1 día: una sesión completa', sessions: ['fullA'] }];
-    case 2: return [{ name: 'Full Body A/B', reason: '2 días: Full Body es la estructura base', sessions: ['fullA', 'fullB'] }];
-    case 3: return [
-      { name: 'Pecho+Tríceps / Espalda+Bíceps / Pierna+Hombro', reason: '3 días: split por grupos (no Full Body estándar)', sessions: ['pechoTriceps', 'espaldaBiceps', 'piernaHombro'] },
-      { name: 'Empuje / Tirón / Pierna', reason: '3 días: PPL, válido pero no automático', sessions: ['push', 'pull', 'legs'] },
-    ];
+    // 2 y 3 días: Motor V1 (Word del 20/11/2026). El resto de días migra en la siguiente fase.
+    case 2:
+    case 3: return V1_STRUCTURES[days].map(v1Split);
     case 4: return [
       { name: 'Torso / Pierna x2', reason: '4 días: buena distribución, cada zona 2x/semana', sessions: ['torsoA', 'piernaA', 'torsoB', 'piernaB'] },
       priority === 'legs'
@@ -318,9 +328,13 @@ function hardFilterReason(ex: LibraryExercise, input: MotorInput, temporaryUnava
 // ── Entrada del Motor ────────────────────────────────────────────────
 export interface MotorInput {
   daysPerWeek: number;
-  workoutDuration: string;             // '30min' | '45min' | '1hour' | 'depends'
+  workoutDuration: string;             // '30min' | '40min' | '45min' | '1hour' | 'depends'
   goal?: string;
   level?: 'beginner' | 'advanced';
+  /** Situación actual (Word §1). Sin definir se deduce del modo y de `experienceLevel`. */
+  situation?: Situation;
+  /** Respuesta del onboarding de principiante: 'never' | 'inconsistent'. */
+  experienceLevel?: string;
   priorityMuscle?: MuscleGroup;
   injuries?: string[];
   excludedExercises?: string[];
@@ -429,6 +443,10 @@ interface Context {
   previousIds: Set<string>;
   /** Sesiones de ≤30 min: la eficiencia temporal pasa a puntuar. */
   timePressure: boolean;
+  /** Motor V1: no elegir por defecto fichas que piden una estación poco habitual. */
+  avoidSpecial?: boolean;
+  /** Motor V1 con el tiempo justo: entre candidatos equivalentes, el que menos tiempo cuesta. */
+  efficiencyFirst?: boolean;
 }
 
 const matchesPref = (ex: LibraryExercise, list?: string[]) => !!list?.some(x => refersTo(ex, x));
@@ -520,7 +538,8 @@ interface Selection {
 
 function selectForSlot(slot: SlotDef, ctx: Context, previousForSlot: string | undefined, seed: string): Selection | null {
   const usedIds = new Set(ctx.sessionPicks.map(p => p.id));
-  const fnPool = LIBRARY.filter(e => FUNCTIONS[slot.fn].matches(e) && !usedIds.has(e.id));
+  const solves = (e: LibraryExercise) => (slot.accept ?? [slot.fn]).some(fn => FUNCTIONS[fn].matches(e)) && (!slot.filter || slot.filter(e));
+  const fnPool = LIBRARY.filter(e => solves(e) && !usedIds.has(e.id));
   let pool = fnPool.filter(e => roleFits(e, slot.role) && hardFilterReason(e, ctx.input) === null);
   if (pool.length === 0) {
     // Sin candidato con ese rol: se relaja el rol (nunca Safety/Hard Filters).
@@ -528,6 +547,10 @@ function selectForSlot(slot: SlotDef, ctx: Context, previousForSlot: string | un
   }
   const disliked = pool.filter(e => matchesPref(e, ctx.input.preferences?.disliked));
   if (disliked.length && disliked.length < pool.length) pool = pool.filter(e => !disliked.includes(e));
+  if (ctx.avoidSpecial) {
+    const common = pool.filter(e => !SPECIAL_STATIONS.includes(e.id) || e.id === previousForSlot || matchesPref(e, ctx.input.preferences?.liked));
+    if (common.length) pool = common;
+  }
   if (pool.length === 0) return null;
 
   const scored = pool.map(e => scoreCandidate(e, slot, ctx)).sort((a, b) => b.score - a.score);
@@ -561,12 +584,17 @@ function selectForSlot(slot: SlotDef, ctx: Context, previousForSlot: string | un
   // que el desempate no convierta toda la rutina en máquinas.
   const loadRedundancy = (e: LibraryExercise) =>
     ctx.sessionPicks.filter(p => equipmentType(p) === equipmentType(e)).length
-    + 0.5 * ctx.weekPicks.filter(p => FUNCTIONS[slot.fn].matches(p) && equipmentType(p) === equipmentType(e)).length;
+    + 0.5 * ctx.weekPicks.filter(p => solves(p) && equipmentType(p) === equipmentType(e)).length;
   const key = (s: Scored): number[] => [
     history[s.ex.id] && KEEP_STATES.includes(history[s.ex.id]) ? 1 : 0,
     matchesPref(s.ex, ctx.input.preferences?.liked) ? 1 : 0,
     ctx.previousIds.has(s.ex.id) ? 1 : 0,
+    // Motor V1: entre equivalentes, el que ya tiene fila en la matriz del Word
+    // (la asignación del resto de fichas está pendiente, Word §12).
+    ctx.avoidSpecial && matrixOf(s.ex).source === 'word' ? 1 : 0,
     level(s.ex.progressionSuitability),
+    // "Elegir ejercicios eficientes" (Word §5 punto 4) antes que variar el tipo de equipo.
+    ctx.efficiencyFirst ? -v1TimeCost(s.ex, slot.role) : 0,
     -loadRedundancy(s.ex),
     -level(s.ex.executionTimeCost),
     -level(s.ex.setupCost),
@@ -612,11 +640,8 @@ const MAX_EXERCISES = { beginner: 6, advanced: 8 };
 /** Por debajo de esta fracción del presupuesto, la dosis se completa con prudencia. */
 const MIN_FILL = 0.8;
 
-function prescribe(ex: LibraryExercise, slot: SlotDef, userLevel: 'beginner' | 'advanced', goal?: string): Prescription {
-  const beginner = userLevel === 'beginner';
-  let sets = slot.role === 'principal' ? (beginner ? 3 : 4) : slot.role === 'secundario' ? 3 : (beginner ? 2 : 3);
-  if (slot.priorityCore) sets = Math.min(5, sets + 1);
-
+/** Rango de repeticiones del slot, siempre dentro del rango de la ficha. */
+function repTarget(ex: LibraryExercise, role: SlotRole, beginner: boolean, goal?: string): { repRange: [number, number]; target: number } {
   const spec = ex.repSpec;
   let repRange: [number, number];
   if (spec.byCapacity || spec.min === null || spec.max === null) {
@@ -625,12 +650,22 @@ function prescribe(ex: LibraryExercise, slot: SlotDef, userLevel: 'beginner' | '
     repRange = [spec.min, spec.max];
   } else {
     // Bandas habituales y comprensibles, siempre dentro del rango de la Biblioteca.
-    const prefs = REP_BANDS[slot.role === 'principal' && goal === 'strength' ? 'fuerza' : slot.role];
+    const prefs = REP_BANDS[role === 'principal' && goal === 'strength' ? 'fuerza' : role];
     const min = spec.min, max = spec.max;
     repRange = prefs.find(([lo, hi]) => lo >= min && hi <= max) ?? [min, Math.min(max, min + 8)];
   }
   // Doble progresión: se empieza en la zona baja/media del rango.
   const target = spec.unit === 'reps' ? Math.round(repRange[0] + (repRange[1] - repRange[0]) * 0.4) : repRange[0];
+  return { repRange, target };
+}
+
+function prescribe(ex: LibraryExercise, slot: SlotDef, userLevel: 'beginner' | 'advanced', goal?: string): Prescription {
+  const beginner = userLevel === 'beginner';
+  let sets = slot.role === 'principal' ? (beginner ? 3 : 4) : slot.role === 'secundario' ? 3 : (beginner ? 2 : 3);
+  if (slot.priorityCore) sets = Math.min(5, sets + 1);
+
+  const spec = ex.repSpec;
+  const { repRange, target } = repTarget(ex, slot.role, beginner, goal);
 
   const nearFailure = level(ex.nearFailureSuitability);
   const rirTarget: [number, number] = beginner || nearFailure <= 0.25
@@ -834,11 +869,30 @@ export interface PlanResult {
   split: string;
   splitReason: string;
   warnings: string[];
+  /** Motor V1: series semanales por grupo frente a la referencia del Word. */
+  coverage?: PlanCoverage[];
+  /** Motor V1: situación con la que se ha leído la tabla de volumen. */
+  situation?: Situation;
+}
+
+export interface PlanCoverage {
+  group: VolGroup;
+  label: string;
+  /** Series en las que el grupo es protagonista. */
+  direct: number;
+  /** Series equivalentes contando el trabajo indirecto de la matriz. */
+  equivalent: number;
+  reference: [number, number];
+  priority: boolean;
 }
 
 function durationMinutes(d: string): number {
-  return d === '30min' ? 30 : d === '1hour' ? 60 : 45;
+  const exact = /^(\d+)min$/.exec(d);
+  if (exact) return Number(exact[1]);
+  return d === '1hour' ? 60 : 45;
 }
+
+const splitSessionNames = (o: SplitDef) => (o.v1 ? o.v1.sessions.map(t => t.name) : o.sessions.map(k => TEMPLATES[k]?.name ?? k));
 
 function resolveOption(days: number, input: MotorInput, options: SplitDef[]): number {
   if (input.planOption !== undefined) return Math.min(Math.max(0, input.planOption), options.length - 1);
@@ -847,6 +901,14 @@ function resolveOption(days: number, input: MotorInput, options: SplitDef[]): nu
   if (prevKeys?.length) {
     const idx = options.findIndex(o => o.sessions.join() === prevKeys.join());
     if (idx >= 0) return idx;
+  }
+  // La plantilla no siempre se conserva al recargar: se reconoce por los nombres de sesión.
+  const prevNames = (input.previousPlan ?? []).map(s => s.name);
+  if (prevNames.length) {
+    const idx = options.findIndex(o => { const names = splitSessionNames(o); return names.length === prevNames.length && names.every(n => prevNames.includes(n)); });
+    if (idx >= 0) return idx;
+    // Semanas de 3 días anteriores a la V1: "Empuje / Tirón / Pierna" era la segunda opción.
+    if (days === 3 && options.length > 1 && prevNames.some(n => n === 'Empuje' || n === 'Tirón')) return 1;
   }
   return 0;
 }
@@ -858,6 +920,7 @@ export function generatePlanWithTrace(input: MotorInput): PlanResult {
 }
 
 function buildPlan(rawInput: MotorInput, split: SplitDef, validate: boolean, extraSlots: SlotFn[] = []): PlanResult {
+  if (split.v1) return buildPlanV1(rawInput, split.v1, validate);
   // Historial guardado con IDs de versiones anteriores de la Biblioteca.
   const input: MotorInput = rawInput.exerciseHistory
     ? { ...rawInput, exerciseHistory: Object.fromEntries(Object.entries(rawInput.exerciseHistory).map(([id, st]) => [resolveLibraryId(id), st])) }
@@ -997,6 +1060,361 @@ function buildPlan(rawInput: MotorInput, split: SplitDef, validate: boolean, ext
   // 11) Validación semanal: cobertura mínima (avisa, no parchea en silencio).
   if (validate) warnings.push(...validateWeek(sessions, days));
   return { sessions, split: split.name, splitReason: split.reason, warnings };
+}
+
+// ── Motor V1 (Word del 20/11/2026): semana de 2 y 3 días ─────────────
+// Flujo maestro del Word (§11): restricciones → situación → objetivo →
+// deportes y prioridad → estructura → patrones, ejercicios y alternativas
+// → volumen + matriz + cobertura directa → verificar tiempo según jerarquía.
+// Los números del Word están en fitkSpecV1.ts; el reparto de volumen y el
+// ajuste al tiempo, en fitkWeekV1.ts. Aquí se eligen los ejercicios.
+
+interface V1Work {
+  slot: SlotDef;
+  group?: VolGroup;
+  keep: number;
+  /** Slot 'volume': solo entra si el grupo no alcanza su referencia con los anteriores. */
+  optional: boolean;
+  sel?: Selection;
+  /** Variante con equipo portátil, usada solo si una biserie la necesita. */
+  variantSel?: Selection | null;
+  item?: V1Item;
+}
+
+/** Descanso según el Word §7, siempre dentro del rango de la ficha. */
+function restV1(ex: LibraryExercise, role: SlotRole): number {
+  const compound = role !== 'complementario' && ex.compatibleRoles.includes('Principal');
+  const reference = !compound ? REST_SECONDS.accessory
+    : level(ex.systemicDemand) >= 0.75 ? REST_SECONDS.heavyCompound : REST_SECONDS.compound;
+  const lo = ex.restSpec.min ?? reference;
+  const hi = ex.restSpec.max ?? reference;
+  return Math.min(Math.max(reference, lo), hi);
+}
+
+/** Etiqueta interna de precaución (Word §8): mayor consecuencia potencial ante un fallo. */
+const needsCaution = (ex: LibraryExercise) => level(ex.nearFailureSuitability) <= 0.5;
+
+/** RIR de referencia (Word §8): sin buscar el fallo en ejercicios con etiqueta de precaución. */
+function rirV1(ex: LibraryExercise, role: SlotRole, beginner: boolean): [number, number] {
+  if (beginner || needsCaution(ex)) return [2, 3];
+  return role === 'complementario' ? [1, 2] : [1, 3];
+}
+
+/** Lo que el modelo de tiempo necesita de un ejercicio (Word §7). */
+function v1Variant(ex: LibraryExercise, role: SlotRole, beginner: boolean, goal?: string): V1Variant {
+  const t = TIME_MODEL;
+  const execLevel = level(ex.executionTimeCost);
+  const perSet = ex.repSpec.unit === 'seconds'
+    ? repTarget(ex, role, beginner, goal).target
+    : execLevel <= 0.25 ? t.execSeconds.low : execLevel <= 0.6 ? t.execSeconds.medium : t.execSeconds.high;
+  const setupLevel = level(ex.setupCost);
+  return {
+    name: ex.name,
+    row: matrixOf(ex).row,
+    rest: restV1(ex, role),
+    exec: ex.repSpec.perSide ? perSet * 2 + 10 : perSet,
+    setup: ex.setupCost === 'Mínimo' ? t.setupSeconds.minimal : setupLevel <= 0.25 ? t.setupSeconds.low : setupLevel <= 0.6 ? t.setupSeconds.medium : t.setupSeconds.high,
+    block: ex.block,
+    costlySetup: setupLevel >= 1,
+    station: isPortable(ex) ? 'portable' : equipmentType(ex) === 'cable' ? 'cable' : 'fixed',
+  };
+}
+
+/** Se puede hacer al lado de otro aparato: solo mancuernas, banda o el propio cuerpo, sin banco ni estación. */
+const isPortable = (ex: LibraryExercise) => (ex.equipmentOptions[0] ?? []).every(item => item === 'mancuernas' || item === 'banda');
+
+/** Segundos que cuesta un ejercicio de tres series: para comparar candidatos equivalentes. */
+function v1TimeCost(ex: LibraryExercise, role: SlotRole): number {
+  const v = v1Variant(ex, role, false);
+  return v.setup + 3 * v.exec + 2 * v.rest;
+}
+
+/** Biserie: solo accesorios cuya ficha tiene buena aptitud de densidad. */
+const fitsSuperset = (ex: LibraryExercise, role: SlotRole) => role === 'complementario' && level(ex.densitySuitability) >= 0.75;
+
+function v1Item(w: V1Work, sel: Selection, key: string, order: number, beginner: boolean, goal?: string): V1Item {
+  const role = w.slot.role;
+  const min = role === 'principal' ? SETS.principalMin : SETS.min;
+  return {
+    ...v1Variant(sel.ex, role, beginner, goal),
+    key, order, group: w.group, keep: w.keep, role,
+    sets: min, min, max: SETS.max,
+    priority: !!w.slot.priority,
+    optional: w.optional,
+    active: !w.optional,
+    pairable: fitsSuperset(sel.ex, role),
+  };
+}
+
+/**
+ * Variante del mismo slot con equipo que se puede tener al lado (mancuernas
+ * o peso corporal), por si hace falta para montar una biserie sin ocupar
+ * dos aparatos. Mismos filtros que la elección normal.
+ */
+function pairVariantFor(w: V1Work, ctx: Context): Selection | null {
+  const sel = w.sel as Selection;
+  if (!fitsSuperset(sel.ex, w.slot.role) || isPortable(sel.ex)) return null;
+  const used = new Set(ctx.sessionPicks.map(p => p.id));
+  // La variante sustituye al ejercicio elegido: este no cuenta como repetido.
+  const without: Context = { ...ctx, sessionPicks: ctx.sessionPicks.filter(p => p.id !== sel.ex.id), weekPicks: ctx.weekPicks.filter(p => p.id !== sel.ex.id) };
+  const pool = LIBRARY.filter(e => !used.has(e.id)
+    && (w.slot.accept ?? [w.slot.fn]).some(fn => FUNCTIONS[fn].matches(e))
+    && (!w.slot.filter || w.slot.filter(e))
+    && roleFits(e, w.slot.role)
+    && hardFilterReason(e, ctx.input) === null
+    && !matchesPref(e, ctx.input.preferences?.disliked)
+    && !SPECIAL_STATIONS.includes(e.id)
+    && isPortable(e)
+    && fitsSuperset(e, w.slot.role));
+  if (!pool.length) return null;
+  // Lo más parecido al ejercicio elegido: misma familia antes que otra.
+  const best = pool
+    .map(e => ({ e, near: e.family === sel.ex.family ? 0 : e.substitutionFamily === sel.ex.substitutionFamily ? 1 : 2, score: scoreCandidate(e, w.slot, without).score }))
+    .sort((a, b) => a.near - b.near || b.score - a.score || (a.e.id < b.e.id ? -1 : 1))[0];
+  return { ex: best.e, slot: w.slot, score: best.score, alternative: sel.ex.name, redundancy: 'aceptable', history: 'sin datos',
+    reason: `Variante de ${sel.ex.name} para hacer biserie sin ocupar dos aparatos` };
+}
+
+/**
+ * Dos alternativas válidas (Word §4 y §9): mismo patrón y rol, pasan los
+ * filtros del usuario, dan trabajo directo al mismo grupo y no repiten un
+ * ejercicio de la sesión. En principiantes, primero las de menor
+ * consecuencia ante un fallo (Word §8).
+ */
+function alternativesV1(ex: LibraryExercise, w: V1Work, ctx: Context, sessionIds: Set<string>, weekIds: Set<string>): string[] {
+  const fn = functionOf(ex);
+  const beginner = ctx.userLevel === 'beginner';
+  const group = w.group;
+  const accept = w.slot.accept ?? [fn];
+  const pool = LIBRARY.filter(o => o.id !== ex.id
+    && accept.some(f => FUNCTIONS[f].matches(o))
+    && roleFits(o, w.slot.role)
+    && hardFilterReason(o, ctx.input) === null
+    && !sessionIds.has(o.id)
+    && !matchesPref(o, ctx.input.preferences?.disliked)
+    && !SPECIAL_STATIONS.includes(o.id)
+    && (!group || (matrixOf(o).row[group] ?? 0) >= 1));
+  // Cercanía: misma familia, misma familia de sustitución, misma función u otra función que resuelve el slot.
+  const tier = (o: LibraryExercise) => (o.family === ex.family ? 0 : o.substitutionFamily === ex.substitutionFamily ? 1 : functionOf(o) === fn ? 2 : 3);
+  const key = (o: LibraryExercise): number[] => [
+    beginner && needsCaution(o) ? 1 : 0,
+    weekIds.has(o.id) ? 1 : 0,
+    tier(o),
+    // Equivalente también en cómo se carga: no cambiar un press con peso por flexiones.
+    (o.loadSource === 'Externa') === (ex.loadSource === 'Externa') ? 0 : 1,
+    // Si el aparato está ocupado, mejor una alternativa con otro tipo de equipo.
+    equipmentType(o) === equipmentType(ex) ? 1 : 0,
+    -scoreCandidate(o, w.slot, ctx).score,
+  ];
+  return pool
+    .map(o => ({ o, k: key(o) }))
+    .sort((a, b) => {
+      for (let i = 0; i < a.k.length; i++) if (a.k[i] !== b.k[i]) return a.k[i] - b.k[i];
+      return a.o.id < b.o.id ? -1 : 1;
+    })
+    .slice(0, 2)
+    .map(x => x.o.name);
+}
+
+function buildPlanV1(rawInput: MotorInput, structure: V1Structure, validate: boolean): PlanResult {
+  const input: MotorInput = rawInput.exerciseHistory
+    ? { ...rawInput, exerciseHistory: Object.fromEntries(Object.entries(rawInput.exerciseHistory).map(([id, st]) => [resolveLibraryId(id), st])) }
+    : rawInput;
+  const templates = structure.sessions;
+  const days = templates.length;
+  const minutes = durationMinutes(input.workoutDuration);
+  const userLevel = input.level ?? 'beginner';
+  const beginner = userLevel === 'beginner';
+  // 2) Situación actual → tabla de volumen de referencia.
+  const situation = input.situation ?? situationOf(userLevel, input.experienceLevel);
+  const reference = VOLUME_REFERENCE[situation];
+  const priorityKey = priorityGroupOf(input.priorityMuscle);
+  const priorityGroups: VolGroup[] = (priorityKey && PRIORITY_GROUPS[priorityKey]) || [];
+  const sportLoad = legSportLoad(input);
+  const warnings: string[] = [];
+  const planNotes: string[] = [
+    `Situación: ${SITUATION_LABEL[situation]}. Techo de ${minutes} min por sesión; la primera semana apunta al mínimo de cada rango de volumen.`,
+  ];
+  if (sportLoad !== 'ninguna') planNotes.push(`Otros deportes con carga de piernas (${sportLoad}): se elige trabajo de pierna de menor demanda, sin restar series fijas.`);
+
+  // 5-6) Patrones de cada sesión. El empuje vertical es contextual: entra
+  // con prioridad de hombro o con objetivo de fuerza (Word §4).
+  const verticalContext = priorityKey === 'shoulders' || input.goal === 'strength';
+  const work: V1Work[][] = templates.map(t => t.slots
+    .filter(sp => sp.when !== 'context' || verticalContext)
+    .map(sp => {
+      const group = sp.group;
+      const priority = !!group && priorityGroups.includes(group);
+      return {
+        slot: {
+          fn: sp.fn[0], accept: sp.fn, role: sp.role, optional: sp.when === 'volume', priority, priorityCore: priority,
+          // El ejercicio debe ser protagonista del grupo al que sirve el slot.
+          filter: group ? (e: LibraryExercise) => (matrixOf(e).row[group] ?? 0) >= 1 : undefined,
+        },
+        group, keep: sp.keep, optional: sp.when === 'volume',
+      };
+    }));
+
+  // 4) Prioridad muscular: mejor colocación y volumen protegido.
+  if (priorityGroups.length) {
+    const main = priorityGroups[0];
+    const withMain = work.map(ws => ws.some(w => w.group === main && !w.optional));
+    if (days >= 3 && withMain.filter(Boolean).length === 1) {
+      const first = withMain.indexOf(true);
+      // En la sesión con menos patrones fijos; a igualdad, la más alejada de la primera exposición.
+      const fixed = (i: number) => work[i].filter(w => !w.optional).length;
+      const target = work.map((_, i) => i).filter(i => i !== first)
+        .sort((a, b) => fixed(a) - fixed(b) || Math.abs(b - first) - Math.abs(a - first) || a - b)[0];
+      const dormant = work[target].find(w => w.group === main && w.optional);
+      const fn = PRIORITY_EXTRA_FN[main];
+      if (dormant) {
+        dormant.optional = false;
+        dormant.slot.optional = false;
+        dormant.keep = 5;
+      } else if (fn) {
+        work[target].push({
+          slot: { fn, accept: [fn], role: 'complementario', optional: false, priority: true, priorityCore: true, added: 'segunda exposición de la prioridad',
+            filter: (e: LibraryExercise) => (matrixOf(e).row[main] ?? 0) >= 1 },
+          group: main, keep: 5, optional: false,
+        });
+      }
+      if (dormant || fn) planNotes.push(`Prioridad: ${GROUP_LABEL[main]} recibe una segunda exposición en ${templates[target].name}.`);
+    }
+    const rank: Record<SlotRole, number> = { principal: 0, secundario: 1, complementario: 2 };
+    for (const ws of work) {
+      const pri = ws.filter(w => w.slot.priority);
+      if (pri.length && !pri.some(w => w.slot.role === 'principal')) {
+        const promote = pri.find(w => w.slot.role === 'secundario');
+        if (promote) promote.slot.role = 'principal';
+      }
+      const indexed = ws.map((w, i) => ({ w, i }));
+      indexed.sort((a, b) => rank[a.w.slot.role] - rank[b.w.slot.role] || Number(!!b.w.slot.priority) - Number(!!a.w.slot.priority) || a.i - b.i);
+      ws.splice(0, ws.length, ...indexed.map(x => x.w));
+    }
+  }
+
+  // Si las referencias mínimas no caben en la semana, la eficiencia temporal
+  // puntúa al elegir ("elegir ejercicios eficientes", Word §5 punto 4).
+  const neededSets = VOL_GROUPS.reduce((sum, g) => sum + reference[g][0], 0);
+  const timePressure = neededSets * TIME_MODEL.minutesPerSet > days * minutes;
+
+  // 6) Patrón → ejercicio MOTOR. Primero los slots fijos de cada sesión y
+  // después los opcionales, para que estos no condicionen a los fijos.
+  const weekPicks: LibraryExercise[] = [];
+  const allPreviousIds = new Set((input.previousPlan ?? []).flatMap(s => s.exercises.map(e => e.libraryId).filter(Boolean).map(id => resolveLibraryId(id as string))));
+  const previous = input.previousPlan ?? [];
+  const contexts: Context[] = [];
+  const week: V1Item[][] = templates.map((t, i) => {
+    const ctx: Context = { input, userLevel, sportLoad, sessionPicks: [], weekPicks, previousIds: allPreviousIds, timePressure, avoidSpecial: true, efficiencyFirst: timePressure };
+    contexts.push(ctx);
+    // Continuidad: misma plantilla, mismo nombre o misma posición de la semana anterior.
+    const prevSession = previous.find(s => s.templateKey === t.key) ?? previous.find(s => s.name === t.name)
+      ?? (previous.length === days && !previous.some(s => s.templateKey) ? previous[i] : undefined);
+    const prevByFn = new Map<string, string[]>();
+    for (const e of prevSession?.exercises ?? []) {
+      const lib = e.libraryId ? libraryById.get(resolveLibraryId(e.libraryId)) : undefined;
+      if (!lib) continue;
+      const fn = functionOf(lib);
+      prevByFn.set(fn, [...(prevByFn.get(fn) ?? []), lib.id]);
+    }
+    const fnCount = new Map<string, number>();
+    const ws = work[i];
+    for (const w of [...ws.filter(x => !x.optional), ...ws.filter(x => x.optional)]) {
+      const accept = w.slot.accept ?? [w.slot.fn];
+      const prevId = accept.map(fn => prevByFn.get(fn)?.[fnCount.get(fn) ?? 0]).find(Boolean);
+      const sel = selectForSlot(w.slot, ctx, prevId, `${input.userId ?? 'anon'}|${input.planVersion ?? 1}|${t.key}|${i}|${accept.join('+')}|${fnCount.get(accept[0]) ?? 0}`);
+      if (!sel) {
+        if (!w.optional) {
+          const msg = `${t.name}: sin ejercicio válido para "${FUNCTIONS[w.slot.fn].label}" (filtros de seguridad/equipo)`;
+          warnings.push(msg);
+        }
+        continue;
+      }
+      const fn = functionOf(sel.ex);
+      w.slot.fn = fn; // el ejercicio elegido fija la función del slot
+      fnCount.set(fn, (fnCount.get(fn) ?? 0) + 1);
+      w.sel = sel;
+      ctx.sessionPicks.push(sel.ex);
+      if (!w.optional) weekPicks.push(sel.ex);
+    }
+    return ws.filter(w => w.sel).map((w, order) => {
+      w.item = v1Item(w, w.sel as Selection, `${i}-${order}`, order, beginner, input.goal);
+      w.variantSel = pairVariantFor(w, ctx);
+      if (w.variantSel) w.item.pairVariant = v1Variant(w.variantSel.ex, w.slot.role, beginner, input.goal);
+      return w.item;
+    });
+  });
+  /** Ejercicio que queda en la tabla: el elegido o, si una biserie lo pidió, su variante. */
+  const chosen = (it: V1Item): Selection => {
+    const w = workByKey.get(it.key) as V1Work;
+    return (it.usingVariant && w.variantSel ? w.variantSel : w.sel) as Selection;
+  };
+  const workByKey = new Map(work.flat().filter(w => w.item).map(w => [(w.item as V1Item).key, w]));
+
+  // 7) Volumen + matriz + cobertura directa: tabla ideal sin mirar el reloj.
+  distributeIdeal(week, reference);
+  // 8) Verificar tiempo y optimizar según la jerarquía.
+  const log: string[][] = templates.map(() => []);
+  fitWeek(week, { budgetSeconds: minutes * 60, reference, log }, priorityGroups);
+
+  const weekIds = new Set(week.flat().filter(it => it.active).map(it => chosen(it).ex.id));
+  const startFrom = input.startFrom ?? 1;
+  const equipmentNote = input.availableEquipment ? 'disponible en tu gimnasio' : 'gimnasio completo (sin perfil de equipo)';
+  const sessions: WeeklySession[] = templates.map((t, i) => {
+    const items = week[i].filter(it => it.active);
+    const seconds = v1SessionSeconds(week[i]);
+    if (seconds > minutes * 60 * (1 + TIME_MODEL.tolerance)) {
+      warnings.push(`${t.name}: estimada en ${Math.round(seconds / 60)} min para un techo de ${minutes} min`);
+    }
+    const sessionIds = new Set(items.map(it => chosen(it).ex.id));
+    const exercises = items.map(it => {
+      const w = workByKey.get(it.key) as V1Work;
+      const sel = chosen(it);
+      const rep = repTarget(sel.ex, w.slot.role, beginner, input.goal);
+      const p: Prescription = {
+        sets: it.sets, repRange: rep.repRange, target: rep.target, rirTarget: rirV1(sel.ex, w.slot.role, beginner),
+        restSeconds: it.rest, unit: sel.ex.repSpec.unit, perSide: sel.ex.repSpec.perSide,
+      };
+      const adjusted = log[i].some(n => n.includes(sel.ex.name));
+      const exercise = buildExercise(sel, p, input, userLevel, adjusted ? 'ajustado al tiempo' : 'OK', it.keep <= 2 || it.priority, equipmentNote);
+      exercise.alternatives = alternativesV1(sel.ex, w, contexts[i], sessionIds, weekIds);
+      if (it.superset) exercise.superset = it.superset;
+      exercise.reasonCodes = [...(exercise.reasonCodes ?? []), 'MOTOR_V1', matrixOf(sel.ex).source === 'word' ? 'MATRIX_WORD' : 'MATRIX_LIBRARY'];
+      return exercise;
+    });
+    const estimated = Math.round(seconds / 60);
+    return {
+      id: crypto.randomUUID(),
+      sessionNumber: startFrom + i,
+      name: t.name,
+      targetMuscles: t.targetMuscles,
+      // El tiempo es un techo, no una duración que rellenar: se muestra la estimación.
+      duration: estimated,
+      exercises,
+      status: i === 0 ? 'available' : 'locked',
+      dayOfWeek: input.customDays?.[i] ?? i,
+      templateKey: t.key,
+      motorTrace: {
+        split: structure.name,
+        splitReason: structure.reason,
+        sessionRole: 'principal',
+        estimatedMinutes: estimated,
+        budgetMinutes: minutes,
+        notes: [...(i === 0 ? planNotes : []), ...log[i]],
+      },
+    };
+  });
+
+  const cov = weekCoverage(week, reference);
+  const coverage: PlanCoverage[] = VOL_GROUPS.map(g => ({
+    group: g, label: GROUP_LABEL[g],
+    direct: cov[g].direct,
+    equivalent: Math.round(cov[g].equivalent * 10) / 10,
+    reference: reference[g],
+    priority: priorityGroups.includes(g),
+  }));
+  if (validate) warnings.push(...validateWeek(sessions, days));
+  return { sessions, split: structure.name, splitReason: structure.reason, warnings, coverage, situation };
 }
 
 // ── Sesión puntual pedida por el Coach (ARCH-COACH-001) ──────────────
