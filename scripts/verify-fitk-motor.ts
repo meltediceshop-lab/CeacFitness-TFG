@@ -3,7 +3,7 @@
 // Uso: npx tsx scripts/verify-fitk-motor.ts
 import {
   generatePlan, generatePlanWithTrace, generatePlanOptions, planOptionCount, motorCatalog,
-  adaptSessionForToday, substituteExercise, estimateSessionMinutes, generateFocusSession, SESSION_FOCUS,
+  adaptSessionForToday, sessionForMinutes, substituteExercise, estimateSessionMinutes, generateFocusSession, SESSION_FOCUS,
   durationFromMinutes, slotFunctionsOf, canonicalExerciseId, EXTRA_FUNCTIONS, type MotorInput,
 } from '../src/lib/fitkMotor';
 import { evaluateProgression, returnAdjustment, type ProgressionEntry } from '../src/lib/fitkProgression';
@@ -130,6 +130,20 @@ check('el descanso se mide con la hora real de fin', secondsUntil(Date.now() + 9
 const time20 = adaptSessionForToday(s0, { energy: 'normal', minutesAvailable: 20 });
 check('poco tiempo: sesión esencial cabe y conserva lo esencial', estimateSessionMinutes(time20) <= 20 * 1.05
   && s0.exercises.filter(e => e.essential).every(e => time20.exercises.some(x => x.id === e.id)), `${estimateSessionMinutes(time20)} min`);
+
+// Tiempo elegido para hoy: el Motor rehace la sesión con ese techo.
+{
+  const input3 = base({ daysPerWeek: 3, workoutDuration: '40min' as never, level: 'advanced', priorityMuscle: 'shoulders' });
+  const plan3 = generatePlan(input3);
+  const s1 = plan3[2];
+  const corto = sessionForMinutes(s1, input3, 25);
+  const largo = sessionForMinutes(s1, input3, 75);
+  check('tiempo de hoy: menos tiempo, misma sesión y cabe', corto.name === s1.name && corto.baseSessionId === s1.id
+    && (corto.motorTrace?.estimatedMinutes ?? 99) <= 25 && corto.duration === 25, `${corto.motorTrace?.estimatedMinutes} min, ${totalSets([corto])} series`);
+  check('tiempo de hoy: más tiempo, más trabajo y cabe', largo.name === s1.name && totalSets([largo]) > totalSets([s1])
+    && (largo.motorTrace?.estimatedMinutes ?? 99) <= 75, `${totalSets([s1])} → ${totalSets([largo])} series`);
+  check('tiempo de hoy: el plan no cambia', plan3[2].exercises.length === s1.exercises.length);
+}
 
 // ── 8. Sesión perdida ────────────────────────────────────────────────
 head('Sesión perdida');
