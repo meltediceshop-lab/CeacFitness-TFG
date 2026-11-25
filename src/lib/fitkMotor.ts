@@ -1392,8 +1392,9 @@ function buildPlanV1(rawInput: MotorInput, structure: V1Structure, validate: boo
       sessionNumber: startFrom + i,
       name: t.name,
       targetMuscles: t.targetMuscles,
-      // El tiempo es un techo, no una duración que rellenar: se muestra la estimación.
-      duration: estimated,
+      // Se muestra el tiempo que eligió el usuario; la estimación (siempre
+      // dentro de ese techo) queda en motorTrace.estimatedMinutes.
+      duration: minutes,
       exercises,
       status: i === 0 ? 'available' : 'locked',
       dayOfWeek: input.customDays?.[i] ?? i,

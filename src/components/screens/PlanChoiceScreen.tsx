@@ -40,7 +40,7 @@ export function PlanChoiceScreen() {
           const copy = STRUCTURE_COPY[split];
           const open = detail === i;
           const weekSets = sessions.reduce((a, s) => a + totalSets(s), 0);
-          const longest = Math.max(...sessions.map(s => s.duration));
+          const budget = Math.max(...sessions.map(s => s.duration));
           return (
             <motion.div key={i} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 + i * 0.08 }}>
               <Card className="p-5 rounded-3xl space-y-4">
@@ -66,7 +66,7 @@ export function PlanChoiceScreen() {
                 </ol>
 
                 <p className="text-xs text-stone-500 tabular-nums">
-                  {weekSets} series a la semana · ninguna sesión pasa de {longest} min
+                  {weekSets} series a la semana · todas las sesiones caben en {budget} min
                 </p>
 
                 <AnimatePresence initial={false}>

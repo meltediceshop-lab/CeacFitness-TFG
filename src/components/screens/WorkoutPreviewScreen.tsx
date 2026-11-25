@@ -119,7 +119,7 @@ export function WorkoutPreviewScreen() {
         <Card className="p-4">
           <div className="grid grid-cols-3 divide-x divide-stone-200/70 dark:divide-white/10 text-center">
             {[
-              { value: selectedWeeklySession.duration, unit: 'min', label: 'estimados' },
+              { value: selectedWeeklySession.duration, unit: 'min', label: 'de sesión' },
               { value: selectedWeeklySession.exercises.length, unit: '', label: 'ejercicios' },
               { value: selectedWeeklySession.exercises.reduce((a, e) => a + e.sets, 0), unit: '', label: 'series' },
             ].map(stat => (
