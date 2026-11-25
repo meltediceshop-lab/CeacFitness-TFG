@@ -1611,7 +1611,9 @@ export function motorCatalog(): Exercise[] {
     const role: SlotRole = ex.compatibleRoles[0] === 'Principal' ? 'principal' : ex.compatibleRoles.includes('Principal') ? 'secundario' : 'complementario';
     const slot: SlotDef = { fn: functionOf(ex), role, optional: false };
     const sel: Selection = { ex, slot, score: 0, alternative: null, redundancy: '—', history: 'catálogo', reason: 'Entrada de catálogo' };
-    return buildExercise(sel, prescribe(ex, slot, 'beginner'), {} as MotorInput, 'beginner', 'OK', role === 'principal', 'catálogo');
+    const built = buildExercise(sel, prescribe(ex, slot, 'beginner'), {} as MotorInput, 'beginner', 'OK', role === 'principal', 'catálogo');
+    // Descansos con la regla de la V1 (2:30 / 2:00 / 1:30), no el punto medio de la ficha.
+    return { ...built, restSeconds: restV1(ex, role) };
   });
 }
 
