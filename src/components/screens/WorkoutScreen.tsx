@@ -31,6 +31,7 @@ import {
 import type { Exercise, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { WorkoutCoachChat } from '@/components/workout/WorkoutCoachChat';
+import { LastWeightsButton } from '@/components/workout/LastWeightsSheet';
 import { WarmupModal } from '@/components/workout/WarmupModal';
 import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
@@ -970,6 +971,7 @@ export function WorkoutScreen() {
         </AnimatePresence>
 
         <WorkoutCoachChat sessionName={selectedWeeklySession.name} />
+        <LastWeightsButton exercises={exercises} getExerciseHistory={getExerciseHistory} />
 
         <AnimatePresence>
           {showWarmupModal && <WarmupModal onClose={() => setShowWarmupModal(false)} />}
