@@ -4,7 +4,7 @@ import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { planSessionId, resumableWorkout } from '@/lib/activeWorkout';
-import { canonicalExerciseId, estimateSessionMinutes, generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
+import { canonicalExerciseId, estimateSessionMinutes, sessionForMinutes, generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import type {
   User,
   AppScreen,
@@ -384,6 +384,8 @@ interface AppContextType {
   addSessionFromCoach: (workout: import('@/types/user').CoachWorkout) => void;
   /** Entrenamiento libre: sesión de hoy con los ejercicios que elige el usuario. */
   addFreeSession: (exercises: Exercise[]) => WeeklySession | null;
+  /** Cambia el tiempo de una sesión de la semana: el Motor la rehace y se guarda. */
+  changeSessionMinutes: (session: WeeklySession, minutes: number) => WeeklySession;
   handleWeeklyCheckIn: (preference: 'same' | 'change' | 'decide-later') => void;
   /** true cuando todas las sesiones de la semana están completadas y el usuario aún no ha planificado la siguiente */
   weekPlannerPending: boolean;
@@ -959,6 +961,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // El tiempo del onboarding solo crea la primera semana: cada sesión puede
+  // cambiar de tiempo cuando se quiera y el Motor la rehace con ese techo.
+  const changeSessionMinutes = (session: WeeklySession, minutes: number): WeeklySession => {
+    if (!user || session.status === 'completed' || minutes === session.duration) return session;
+    const ob = user.onboarding as Partial<BeginnerOnboarding & AdvancedOnboarding>;
+    const rebuilt = sessionForMinutes(session, {
+      daysPerWeek: ob.daysPerWeek || 3,
+      workoutDuration: ob.workoutDuration || '45min',
+      startFrom: 1,
+      ...motorInputFromUser(user),
+    } as MotorInput, minutes);
+    const updated: WeeklySession = { ...rebuilt, id: session.id, baseSessionId: session.baseSessionId };
+    const updatedSessions = user.weeklySessions.map(s => (s.id === session.id ? updated : s));
+    setUser({ ...user, weeklySessions: updatedSessions });
+    if (supabaseUserId) {
+      fetch('/api/sessions/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSessions),
+      }).catch(() => {});
+    }
+    return updated;
+  };
+
   const addFreeSession = (exercises: Exercise[]): WeeklySession | null => {
     if (!user || exercises.length === 0) return null;
     const labels: Record<string, string> = { chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', legs: 'Pierna', arms: 'Brazos', core: 'Core' };
@@ -1324,6 +1350,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         removeSession,
         addSessionFromCoach,
         addFreeSession,
+        changeSessionMinutes,
         handleWeeklyCheckIn,
         weekPlannerPending,
         generateNextWeekPreview,

@@ -1654,6 +1654,31 @@ export function estimateSessionMinutes(session: WeeklySession): number {
  * trabajo. Poco tiempo: sesión esencial (MOTOR-ESSENTIAL-042).
  * Nunca muta el Plan Base: devuelve una copia (Session Instance).
  */
+/**
+ * Versión de hoy de una sesión del plan para otro tiempo (más o menos que el
+ * elegido en el onboarding). El Motor rehace ese mismo día de la estructura
+ * con el nuevo techo, manteniendo los ejercicios del plan (continuidad). Las
+ * sesiones que no salen de la estructura (libres o del Coach) solo se ajustan
+ * a la baja. El plan no se toca: la versión de hoy tiene id propio.
+ */
+export function sessionForMinutes(session: WeeklySession, input: MotorInput, minutes: number): WeeklySession {
+  if (minutes === session.duration) return session;
+  const baseSessionId = session.baseSessionId ?? session.id;
+  const workoutDuration = `${minutes}min` as MotorInput['workoutDuration'];
+  for (let option = 0; option < planOptionCount(input.daysPerWeek); option++) {
+    const plan = generatePlan({ ...input, workoutDuration, planOption: option, startFrom: 1 });
+    const match = plan.find(s => (session.templateKey && s.templateKey === session.templateKey) || s.name === session.name);
+    if (match) {
+      return {
+        ...match, id: crypto.randomUUID(), baseSessionId, sessionNumber: session.sessionNumber,
+        status: session.status, dayOfWeek: session.dayOfWeek, duration: minutes,
+      };
+    }
+  }
+  const trimmed = adaptSessionForToday(session, { energy: 'normal', minutesAvailable: minutes });
+  return minutes > session.duration ? { ...trimmed, duration: session.duration } : trimmed;
+}
+
 /** Sesión mínima con energía muy baja: 2 ejercicios, 7 series (4 + 3). */
 export const VERY_LOW_MIN = { exercises: 2, leadSets: 4, otherSets: 3 } as const;
 

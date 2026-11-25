@@ -43,7 +43,10 @@ export function WorkoutPreviewScreen() {
     updateSessionExercises,
     includeWarmup,
     setIncludeWarmup,
+    changeSessionMinutes,
+    setSelectedWeeklySession,
   } = useApp();
+  const [showTime, setShowTime] = useState(false);
   const [showModeModal, setShowModeModal] = useState(false);
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null); // posición en la sesión del ejercicio abierto
@@ -119,18 +122,55 @@ export function WorkoutPreviewScreen() {
         <Card className="p-4">
           <div className="grid grid-cols-3 divide-x divide-stone-200/70 dark:divide-white/10 text-center">
             {[
-              { value: selectedWeeklySession.duration, unit: 'min', label: 'de sesión' },
-              { value: selectedWeeklySession.exercises.length, unit: '', label: 'ejercicios' },
-              { value: selectedWeeklySession.exercises.reduce((a, e) => a + e.sets, 0), unit: '', label: 'series' },
+              { value: selectedWeeklySession.duration, unit: 'min', label: 'de sesión', time: true },
+              { value: selectedWeeklySession.exercises.length, unit: '', label: 'ejercicios', time: false },
+              { value: selectedWeeklySession.exercises.reduce((a, e) => a + e.sets, 0), unit: '', label: 'series', time: false },
             ].map(stat => (
-              <div key={stat.label} className="px-1">
+              <button
+                key={stat.label}
+                type="button"
+                disabled={!stat.time || selectedWeeklySession.status === 'completed'}
+                onClick={() => setShowTime(v => !v)}
+                className="px-1 disabled:cursor-default"
+              >
                 <p className="text-2xl font-bold text-stone-900 tabular-nums leading-none">
                   {stat.value}<span className="text-sm font-semibold text-stone-500 ml-0.5">{stat.unit}</span>
                 </p>
-                <p className="text-[11px] uppercase tracking-wide text-stone-500 mt-1.5">{stat.label}</p>
-              </div>
+                <p className={`text-[11px] uppercase tracking-wide mt-1.5 ${stat.time && selectedWeeklySession.status !== 'completed' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-stone-500'}`}>
+                  {stat.time && selectedWeeklySession.status !== 'completed' ? 'Cambiar tiempo' : stat.label}
+                </p>
+              </button>
             ))}
           </div>
+
+          <AnimatePresence initial={false}>
+            {showTime && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                <div className="pt-4 space-y-2">
+                  <p className="text-sm font-semibold text-stone-800 text-center">¿Cuánto tiempo tienes para esta sesión?</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {[...new Set([20, 30, 40, 45, 60, 75, 90, selectedWeeklySession.duration])].sort((a, b) => a - b).map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        aria-pressed={selectedWeeklySession.duration === m}
+                        onClick={() => {
+                          setSelectedWeeklySession(changeSessionMinutes(selectedWeeklySession, m));
+                          setShowTime(false);
+                        }}
+                        className={`min-w-[3.5rem] px-3 py-2 rounded-full text-sm font-semibold tabular-nums transition-colors ${
+                          selectedWeeklySession.duration === m ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-white/80'
+                        }`}
+                      >
+                        {m} min
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-stone-500 text-center">El Motor rehace la sesión para que quepa en ese tiempo.</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <button
             onClick={() => setShowWarmupInfo(v => !v)}
