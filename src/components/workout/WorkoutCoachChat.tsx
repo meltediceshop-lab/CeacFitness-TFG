@@ -87,7 +87,7 @@ export function WorkoutCoachChat({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-28 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-300/50 flex items-center justify-center active:scale-95 transition-transform"
+        className="fixed bottom-28 right-5 z-40 w-14 h-14 rounded-full bg-emerald-500 shadow-lg flex items-center justify-center active:scale-95 transition-transform"
         title="Preguntar al Coach"
       >
         <Sparkles className="w-6 h-6 text-white" />
@@ -108,7 +108,7 @@ export function WorkoutCoachChat({
             >
               {/* Header */}
               <div className="flex items-center gap-3 px-5 pt-5 pb-3 flex-shrink-0 border-b border-stone-200/50 dark:border-stone-700/50">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">

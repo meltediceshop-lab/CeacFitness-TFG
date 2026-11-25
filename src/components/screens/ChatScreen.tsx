@@ -220,7 +220,7 @@ export function ChatScreen() {
         className="px-6 pt-8 pb-3 flex-shrink-0"
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-sm">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -315,7 +315,7 @@ export function ChatScreen() {
           animate={{ opacity: 1, y: 0 }}
           className="flex gap-3 mt-2"
         >
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 mt-1">
+          <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
           <div className="glass-card rounded-2xl rounded-tl-md px-4 py-3 max-w-[82%]">
@@ -374,7 +374,7 @@ export function ChatScreen() {
             className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {msg.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 mt-1">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
             )}
@@ -417,7 +417,7 @@ export function ChatScreen() {
             animate={{ opacity: 1, y: 0 }}
             className="flex gap-3"
           >
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 mt-1">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div className="glass-card rounded-2xl rounded-tl-md px-4 py-3 flex items-center gap-1">
@@ -471,7 +471,7 @@ function WorkoutCard({ workout, saved, onAdd }: { workout: CoachWorkout; saved: 
       animate={{ opacity: 1, y: 0 }}
       className="mt-2 glass-card rounded-2xl overflow-hidden border border-emerald-200/50 dark:border-emerald-500/20"
     >
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3 flex items-center gap-2">
+      <div className="bg-emerald-500 px-4 py-3 flex items-center gap-2">
         <Dumbbell className="w-4 h-4 text-white" />
         <div className="flex-1 min-w-0">
           <p className="text-white font-bold text-sm truncate">{workout.name}</p>

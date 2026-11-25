@@ -409,7 +409,7 @@ export function OnboardingBeginnerScreen() {
         <div className="flex-1">
           <div className="h-1.5 bg-stone-200 rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full"
+              className="h-full bg-emerald-500 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
@@ -657,8 +657,8 @@ export function OnboardingBeginnerScreen() {
                         className={`px-4 py-3 rounded-xl font-medium transition-all relative ${
                           isSelected
                             ? hasTime
-                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
-                              : 'bg-emerald-400 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-300 ring-offset-2'
+                              ? 'bg-emerald-500 text-white shadow-sm'
+                              : 'bg-emerald-400 text-white shadow-md ring-2 ring-emerald-300 ring-offset-2'
                             : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
                         }`}
                       >
@@ -795,7 +795,7 @@ export function OnboardingBeginnerScreen() {
                                           onClick={() => handleDayTimeSelect(day, time.id)}
                                           className={`flex-1 py-3 px-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all ${
                                             isSelected
-                                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                                              ? 'bg-emerald-500 text-white shadow-sm'
                                               : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                           }`}
                                         >
@@ -948,7 +948,7 @@ export function OnboardingBeginnerScreen() {
               {/* Plan Summary */}
               <div className="space-y-4">
                 {/* Week info */}
-                <Card className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 rounded-2xl">
+                <Card className="p-4 bg-emerald-50 border-emerald-200 rounded-2xl">
                   <div className="flex items-center gap-3">
                     <Calendar className="w-5 h-5 text-emerald-600" />
                     <div>
@@ -1006,7 +1006,7 @@ export function OnboardingBeginnerScreen() {
               <div className="space-y-3 pt-4">
                 <Button
                   onClick={handleConfirmPlan}
-                  className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200"
+                  className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm"
                 >
                   Confirmar y continuar
                 </Button>

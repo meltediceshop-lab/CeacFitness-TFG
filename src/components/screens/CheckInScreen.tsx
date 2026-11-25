@@ -32,7 +32,7 @@ export function CheckInScreen() {
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-          className="w-24 h-24 mx-auto bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl flex items-center justify-center shadow-xl shadow-emerald-200"
+          className="w-24 h-24 mx-auto bg-emerald-500 rounded-3xl flex items-center justify-center shadow-xl"
         >
           <Heart className="w-12 h-12 text-white" />
         </motion.div>
@@ -81,7 +81,7 @@ export function CheckInScreen() {
           >
             <Button
               onClick={handleContinue}
-              className="w-full py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200"
+              className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm"
             >
               Ver mi plan
               <ChevronRight className="w-5 h-5 ml-2" />

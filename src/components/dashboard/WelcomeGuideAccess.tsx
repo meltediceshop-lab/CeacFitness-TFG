@@ -37,7 +37,7 @@ export function WelcomeGuideAccess() {
               <div className="w-10 h-1 bg-stone-300 dark:bg-white/20 rounded-full mx-auto mb-5" />
 
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0 shadow-sm">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">

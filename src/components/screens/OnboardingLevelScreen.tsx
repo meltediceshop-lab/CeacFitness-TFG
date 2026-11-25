@@ -30,7 +30,7 @@ export function OnboardingLevelScreen() {
         </button>
         <div className="flex-1">
           <div className="h-1.5 bg-stone-200 rounded-full overflow-hidden">
-            <div className="h-full w-[10%] bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full" />
+            <div className="h-full w-[10%] bg-emerald-500 rounded-full" />
           </div>
         </div>
       </motion.div>
@@ -63,7 +63,7 @@ export function OnboardingLevelScreen() {
               className="p-6 cursor-pointer border-2 border-transparent hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-100 transition-all duration-300 glass-card rounded-2xl group"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center group-hover:from-emerald-200 group-hover:to-teal-200 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:from-emerald-200 group-hover:to-teal-200 transition-colors">
                   <Target className="w-6 h-6 text-emerald-600" />
                 </div>
                 <div className="flex-1">

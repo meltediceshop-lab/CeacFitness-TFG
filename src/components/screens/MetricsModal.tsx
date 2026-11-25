@@ -340,7 +340,7 @@ export function MetricsModal({ gender, currentWeight, lastRecord, history = [], 
                 ) : (
                   <motion.div key="btn">
                     <Button onClick={handleSave}
-                      className="w-full py-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-semibold text-base shadow-lg shadow-emerald-100">
+                      className="w-full py-5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold text-base shadow-lg shadow-emerald-100">
                       Guardar métricas
                     </Button>
                   </motion.div>

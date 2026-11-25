@@ -134,7 +134,7 @@ function PlanDisplay({ plan, onReset, onShopping, onEditMeal, onRegenerateMeal, 
 }) {
   return (
     <div className="space-y-4">
-      <Card className="p-5 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
+      <Card className="p-5 bg-emerald-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl flex items-center justify-center">
@@ -810,12 +810,12 @@ export function NutritionScreen() {
             <span className="text-sm font-semibold text-emerald-600">{Math.round(progress)}%</span>
           </div>
           <div className="h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
-            <motion.div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full" animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} />
+            <motion.div className="h-full bg-emerald-500 rounded-full" animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} />
           </div>
         </div>
         <AnimatePresence mode="wait">
           <motion.div key={step} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25 }} className="flex-1 flex flex-col">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center mb-6">
               <Sparkles className="w-7 h-7 text-white" />
             </div>
             <h2 className="text-xl font-bold text-stone-900 mb-6">{currentQ.question}</h2>
@@ -861,7 +861,7 @@ export function NutritionScreen() {
   if (isGenerating) {
     return (
       <div className="min-h-screen glass-bg flex flex-col items-center justify-center px-6">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mb-6">
+        <div className="w-20 h-20 rounded-3xl bg-emerald-500 flex items-center justify-center mb-6">
           <Loader2 className="w-10 h-10 text-white animate-spin" />
         </div>
         <h2 className="text-xl font-bold text-stone-900 mb-2 text-center">Creando tu plan</h2>
@@ -902,7 +902,7 @@ export function NutritionScreen() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <button
               onClick={() => setShowPlan(s => !s)}
-              className="w-full flex items-center justify-between p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+              className="w-full flex items-center justify-between p-4 rounded-2xl bg-emerald-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 shadow-sm"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
@@ -940,9 +940,9 @@ export function NutritionScreen() {
           </motion.div>
         ) : (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl cursor-pointer" onClick={() => setShowQuestionnaire(true)}>
+            <Card className="p-6 bg-emerald-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl cursor-pointer" onClick={() => setShowQuestionnaire(true)}>
               <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
                   <Sparkles className="w-7 h-7 text-white" />
                 </div>
                 <div className="flex-1">

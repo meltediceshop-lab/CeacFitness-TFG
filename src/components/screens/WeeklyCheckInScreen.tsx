@@ -27,7 +27,7 @@ export function WeeklyCheckInScreen() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: 'spring' }}
-            className="w-20 h-20 mx-auto bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-200"
+            className="w-20 h-20 mx-auto bg-emerald-500 rounded-2xl flex items-center justify-center shadow-sm"
           >
             <Calendar className="w-10 h-10 text-white" />
           </motion.div>

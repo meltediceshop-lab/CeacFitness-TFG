@@ -434,7 +434,7 @@ export function DashboardScreen() {
           </div>
           <button
             onClick={() => setScreen('profile')}
-            className="w-11 h-11 rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 mt-1"
+            className="w-11 h-11 rounded-2xl overflow-hidden bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1"
           >
             {user.profile.avatarUrl ? (
               <img src={user.profile.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
@@ -497,7 +497,7 @@ export function DashboardScreen() {
               setNextWeekPreview(preview);
               setShowWeekPlanner(true);
             }}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white mb-4 shadow-lg active:scale-95 transition-transform"
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-emerald-500 text-white mb-4 shadow-lg active:scale-95 transition-transform"
           >
             <span className="text-2xl">🎉</span>
             <div className="flex-1 text-left">
@@ -531,7 +531,7 @@ export function DashboardScreen() {
           </div>
           <div className="h-3 bg-stone-100 rounded-full overflow-hidden mb-3">
             <motion.div
-              className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full"
+              className="h-full bg-emerald-500 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progressData.percentage}%` }}
               transition={{ duration: 0.8, delay: 0.3 }}

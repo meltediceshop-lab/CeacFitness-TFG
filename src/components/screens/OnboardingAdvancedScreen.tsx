@@ -83,7 +83,7 @@ export function OnboardingAdvancedScreen() {
         <div className="flex-1">
           <div className="h-1.5 bg-stone-200 rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full"
+              className="h-full bg-emerald-500 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
