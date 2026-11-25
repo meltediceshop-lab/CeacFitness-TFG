@@ -384,6 +384,10 @@ interface AppContextType {
   addSessionFromCoach: (workout: import('@/types/user').CoachWorkout) => void;
   /** Entrenamiento libre: sesión de hoy con los ejercicios que elige el usuario. */
   addFreeSession: (exercises: Exercise[]) => WeeklySession | null;
+  /** Sesiones guardadas de otra semana (-1 la pasada, 1 la próxima). */
+  loadWeekSessions: (offset: number) => Promise<WeeklySession[]>;
+  /** Guarda ya la próxima semana; se aplica sola cuando llegue. */
+  saveNextWeekPlan: (sessions: WeeklySession[]) => Promise<boolean>;
   /** Cambia el tiempo de una sesión de la semana: el Motor la rehace y se guarda. */
   changeSessionMinutes: (session: WeeklySession, minutes: number) => WeeklySession;
   handleWeeklyCheckIn: (preference: 'same' | 'change' | 'decide-later') => void;
@@ -985,6 +989,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return updated;
   };
 
+  const loadWeekSessions = async (offset: number): Promise<WeeklySession[]> => {
+    if (!supabaseUserId) {
+      // Sin cuenta: las semanas pasadas salen del historial guardado en el dispositivo.
+      const history = [...(user?.weeklyHistory ?? [])].sort((a, b) => a.weekNumber - b.weekNumber);
+      return offset < 0 ? history[history.length + offset]?.sessions ?? [] : [];
+    }
+    try {
+      const res = await fetch(`/api/sessions/weekly?offset=${offset}`);
+      const json = await res.json();
+      return ((json.data ?? []) as Record<string, unknown>[]).map(s => ({
+        id: s.id as string,
+        sessionNumber: s.session_number as number,
+        name: s.name as string,
+        targetMuscles: s.target_muscles as string,
+        duration: s.duration as number,
+        exercises: (s.exercises as Exercise[] | null) ?? [],
+        status: s.status as 'completed' | 'available' | 'locked',
+        completedAt: s.completed_at ? new Date(s.completed_at as string) : undefined,
+        dayOfWeek: typeof s.day_of_week === 'number' ? s.day_of_week : undefined,
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  const saveNextWeekPlan = async (sessions: WeeklySession[]): Promise<boolean> => {
+    if (!supabaseUserId) return false;
+    try {
+      const res = await fetch('/api/sessions/weekly?offset=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessions),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
   const addFreeSession = (exercises: Exercise[]): WeeklySession | null => {
     if (!user || exercises.length === 0) return null;
     const labels: Record<string, string> = { chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', legs: 'Pierna', arms: 'Brazos', core: 'Core' };
@@ -1351,6 +1394,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addSessionFromCoach,
         addFreeSession,
         changeSessionMinutes,
+        loadWeekSessions,
+        saveNextWeekPlan,
         handleWeeklyCheckIn,
         weekPlannerPending,
         generateNextWeekPreview,
