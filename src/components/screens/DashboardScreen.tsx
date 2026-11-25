@@ -11,11 +11,12 @@ import { WelcomeGuideAccess } from '@/components/dashboard/WelcomeGuideAccess';
 import { ReviewBanner } from '@/components/dashboard/ReviewBanner';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { FreeWorkoutSheet } from '@/components/dashboard/FreeWorkoutSheet';
-import { relativeDay, sameDay, sessionDate, weekStart } from '@/lib/weekCalendar';
+import { planWeekStart, relativeDay, sameDay, sessionDate } from '@/lib/weekCalendar';
 import { SparkLine } from '@/components/metrics/LineChart';
-import type { BodyMeasurementRecord } from '@/types/user';
+import type { BodyMeasurementRecord, WeeklySession } from '@/types/user';
 
 import {
+  Sparkles,
   Plus,
   MessageCircle,
   ChevronRight,
@@ -155,7 +156,7 @@ function saveSessionLogs(userId: string, map: SessionLogsMap) {
 }
 
 export function DashboardScreen() {
-  const { user, setUser, setScreen, setSelectedWeeklySession, weekPlannerPending, generateNextWeekPreview, startNewWeekWithPlan } = useApp();
+  const { user, setUser, setScreen, setSelectedWeeklySession, weekPlannerPending, generateNextWeekPreview, startNewWeekWithPlan, loadWeekSessions, saveNextWeekPlan, supabaseUserId } = useApp();
   const [showMetricsModal, setShowMetricsModal] = useState(false);
   const [dismissedMetricAlert, setDismissedMetricAlert] = useState(false);
   const [metricsHistory, setMetricsHistory] = useState<BodyMeasurementRecord[]>([]);
@@ -168,6 +169,7 @@ export function DashboardScreen() {
   const [sessionLogsMap, setSessionLogsMap] = useState<SessionLogsMap>({});
   const [dashboardShareData, setDashboardShareData] = useState<{ content: string; minutes: number; exercises: number } | null>(null);
   const [showWeekPlanner, setShowWeekPlanner] = useState(false);
+  const [planningAhead, setPlanningAhead] = useState(false); // configurar la próxima semana sin cerrar la actual
   const [nextWeekPreview, setNextWeekPreview] = useState<import('@/types/user').WeeklySession[]>([]);
 
   // Carga historial completo de medidas para sparklines y evolución
@@ -338,20 +340,42 @@ export function DashboardScreen() {
 
   // Calendario de la semana: cada sesión en su día (el elegido o, si ya se
   // hizo, el día real en que se entrenó), ordenadas por fecha.
-  const sessionDates = useMemo(() => {
-    const list = user?.weeklySessions ?? [];
-    return new Map(list.map((s, i) => [s.id, sessionDate(s, i, list.length)]));
-  }, [user?.weeklySessions]);
   const [showFreeWorkout, setShowFreeWorkout] = useState(false);
-  const orderedSessions = useMemo(() => {
-    if (!user?.weeklySessions) return [];
-    return [...user.weeklySessions].sort((a, b) =>
-      (sessionDates.get(a.id)?.getTime() ?? 0) - (sessionDates.get(b.id)?.getTime() ?? 0) || a.sessionNumber - b.sessionNumber);
-  }, [user?.weeklySessions, sessionDates]);
+  // Semana que se está viendo: 0 la actual, negativas las pasadas, positivas las próximas.
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [otherWeek, setOtherWeek] = useState<WeeklySession[] | null>(null);
+  const [nextWeekSaved, setNextWeekSaved] = useState(false);
+  useEffect(() => {
+    if (weekOffset === 0) return;
+    let alive = true;
+    setOtherWeek(null);
+    loadWeekSessions(weekOffset).then(list => { if (alive) setOtherWeek(list); });
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekOffset]);
+  const viewSessions = useMemo(
+    () => (weekOffset === 0 ? user?.weeklySessions ?? [] : otherWeek ?? []),
+    [weekOffset, user?.weeklySessions, otherWeek],
+  );
+  const sessionDates = useMemo(() => {
+    const reference = weekOffset === 0 ? new Date() : planWeekStart(new Date(), weekOffset);
+    return new Map(viewSessions.map((s, i) => [s.id, sessionDate(s, i, viewSessions.length, reference)]));
+  }, [viewSessions, weekOffset]);
+  const orderedSessions = useMemo(() =>
+    [...viewSessions].sort((a, b) =>
+      (sessionDates.get(a.id)?.getTime() ?? 0) - (sessionDates.get(b.id)?.getTime() ?? 0) || a.sessionNumber - b.sessionNumber),
+  [viewSessions, sessionDates]);
   const weekDays = useMemo(() => {
-    const start = weekStart();
+    const start = planWeekStart(new Date(), weekOffset);
     return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
-  }, []);
+  }, [weekOffset]);
+  const weekLabel = weekOffset === 0 ? 'Esta semana' : weekOffset === -1 ? 'Semana pasada' : weekOffset === 1 ? 'Próxima semana'
+    : weekOffset < 0 ? `Hace ${-weekOffset} semanas` : `Dentro de ${weekOffset} semanas`;
+  const configureNextWeek = () => {
+    setNextWeekPreview(generateNextWeekPreview());
+    setPlanningAhead(true);
+    setShowWeekPlanner(true);
+  };
 
   const nextSession = useMemo(() =>
     user?.weeklySessions?.find(s => s.status === 'available') || null,
@@ -555,11 +579,24 @@ export function DashboardScreen() {
 
       {/* Session List */}
       <div className="flex-1 px-4 space-y-3 overflow-y-auto pb-32">
-        <div className="flex items-baseline justify-between mb-1">
-          <h2 className="text-stone-900 text-base font-semibold">Calendario</h2>
-          <p className="text-stone-500 text-xs capitalize">
-            {weekDays[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} – {weekDays[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-          </p>
+        <div className="flex items-center justify-between mb-1 gap-2">
+          <div>
+            <h2 className="text-stone-900 text-base font-semibold">{weekLabel}</h2>
+            <p className="text-stone-500 text-xs">
+              {weekDays[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} – {weekDays[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            {weekOffset !== 0 && (
+              <button type="button" onClick={() => setWeekOffset(0)} className="px-2.5 h-8 rounded-full text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-[rgba(118,118,128,0.12)]">Hoy</button>
+            )}
+            <button type="button" aria-label="Semana anterior" disabled={weekOffset <= -52} onClick={() => setWeekOffset(o => o - 1)} className="w-8 h-8 rounded-full glass-btn flex items-center justify-center disabled:opacity-30">
+              <ChevronRight className="w-4 h-4 text-stone-600 rotate-180" />
+            </button>
+            <button type="button" aria-label="Semana siguiente" disabled={weekOffset >= 4} onClick={() => setWeekOffset(o => o + 1)} className="w-8 h-8 rounded-full glass-btn flex items-center justify-center disabled:opacity-30">
+              <ChevronRight className="w-4 h-4 text-stone-600" />
+            </button>
+          </div>
         </div>
 
         {/* Franja de la semana */}
@@ -574,7 +611,7 @@ export function DashboardScreen() {
                   key={i}
                   type="button"
                   disabled={!onDay.length}
-                  onClick={() => onDay[0] && handleSessionClick(onDay.find(s => s.status !== 'completed') ?? onDay[0])}
+                  onClick={() => weekOffset === 0 && onDay[0] && handleSessionClick(onDay.find(s => s.status !== 'completed') ?? onDay[0])}
                   className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${today ? 'bg-emerald-500 text-white' : onDay.length ? 'hover:bg-stone-100' : ''}`}
                 >
                   <span className={`text-[10px] font-semibold uppercase tracking-wide ${today ? 'text-white/85' : 'text-stone-400'}`}>
@@ -592,8 +629,41 @@ export function DashboardScreen() {
           </div>
         </Card>
 
+        {weekOffset > 0 && (
+          <Card className="p-4 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Coach</p>
+                <p className="text-sm text-stone-700 leading-relaxed">
+                  Cada domingo preparo las sesiones de la semana siguiente teniendo en cuenta lo que hayas hecho en esta.
+                  {weekOffset === 1 && (orderedSessions.length > 0
+                    ? ' Esta ya la tienes configurada; si quieres, puedes cambiarla.'
+                    : ' Si prefieres dejarla lista ya, configúrala ahora.')}
+                </p>
+                {weekOffset === 1 && supabaseUserId && (
+                  <button type="button" onClick={configureNextWeek} className="h-9 px-4 rounded-full bg-emerald-500 text-white text-sm font-semibold">
+                    {orderedSessions.length > 0 ? 'Cambiar la próxima semana' : 'Configurar la próxima semana'}
+                  </button>
+                )}
+                {nextWeekSaved && weekOffset === 1 && <p className="text-xs text-emerald-700 dark:text-emerald-400">Guardada. Se aplicará el domingo.</p>}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {weekOffset !== 0 && otherWeek === null && (
+          <p className="text-sm text-stone-400 text-center py-4">Cargando…</p>
+        )}
+        {weekOffset < 0 && otherWeek !== null && orderedSessions.length === 0 && (
+          <p className="text-sm text-stone-400 text-center py-4">No hay sesiones guardadas de esta semana.</p>
+        )}
+
         {orderedSessions.map((session, index) => {
-          const isNext = nextSession?.id === session.id;
+          const isNext = weekOffset === 0 && nextSession?.id === session.id;
+          const otherWeekView = weekOffset !== 0;
           const isCompleted = session.status === 'completed';
           const completedIndex = user?.weeklySessions
             ?.filter(s => s.status === 'completed')
@@ -610,7 +680,7 @@ export function DashboardScreen() {
               className="relative"
             >
               <Card
-                onClick={() => handleSessionClick(session)}
+                onClick={() => !otherWeekView && handleSessionClick(session)}
                 className={`p-4 cursor-pointer border-0 rounded-2xl transition-all ${
                   isNext ? 'bg-emerald-50 dark:bg-emerald-500/15 shadow-md hover:shadow-lg ring-1 ring-emerald-200 dark:ring-emerald-500/25'
                   : isCompleted ? 'bg-stone-50 dark:bg-white/5 hover:bg-stone-100 dark:hover:bg-white/8'
@@ -634,7 +704,12 @@ export function DashboardScreen() {
                       <p className={`font-semibold first-letter:uppercase ${isCompleted ? 'text-stone-600 dark:text-white/50' : 'text-stone-900 dark:text-white'}`}>
                         {date ? date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }) : `Sesión ${session.sessionNumber ?? ''}`}
                       </p>
-                      {date && relativeDay(date) && !isNext && (
+                      {otherWeekView && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${isCompleted ? 'bg-emerald-100 text-emerald-800 dark:text-emerald-300' : 'bg-stone-100 dark:bg-white/10 text-stone-500'}`}>
+                          {isCompleted ? 'Hecha' : weekOffset < 0 ? 'No hecha' : 'Planificada'}
+                        </span>
+                      )}
+                      {!otherWeekView && date && relativeDay(date) && !isNext && (
                         <span className="text-xs text-stone-500 bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-full">{relativeDay(date)}</span>
                       )}
                       {isNext && (
@@ -678,16 +753,16 @@ export function DashboardScreen() {
           );
         })}
 
-        <button
+        {weekOffset === 0 && <button
           type="button"
           onClick={() => setShowFreeWorkout(true)}
           className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-300 dark:border-white/15 py-3.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:border-emerald-400 transition-colors"
         >
           <Plus className="w-4 h-4" /> Entrenamiento libre
-        </button>
+        </button>}
         <FreeWorkoutSheet open={showFreeWorkout} onClose={() => setShowFreeWorkout(false)} />
 
-        {progressData.completedSessions > 0 && progressData.completedSessions < progressData.totalSessions && (
+        {weekOffset === 0 && progressData.completedSessions > 0 && progressData.completedSessions < progressData.totalSessions && (
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1152,11 +1227,17 @@ export function DashboardScreen() {
           <WeekPlannerModal
             sessions={nextWeekPreview}
             weekNumber={user.currentWeek}
-            onConfirm={sessions => {
-              startNewWeekWithPlan(sessions);
+            onConfirm={async sessions => {
+              if (planningAhead) {
+                const ok = await saveNextWeekPlan(sessions);
+                if (ok) { setOtherWeek(sessions); setNextWeekSaved(true); }
+              } else {
+                startNewWeekWithPlan(sessions);
+              }
+              setPlanningAhead(false);
               setShowWeekPlanner(false);
             }}
-            onClose={() => setShowWeekPlanner(false)}
+            onClose={() => { setPlanningAhead(false); setShowWeekPlanner(false); }}
           />
         )}
       </AnimatePresence>
