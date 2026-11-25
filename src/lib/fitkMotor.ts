@@ -16,6 +16,7 @@
 // Determinista: misma entrada y mismo estado → mismas decisiones (sec. 19).
 // Los pesos numéricos son parámetros de producto V1 (🟡), no fisiología.
 // ─────────────────────────────────────────────────────────────────────
+import { defaultDay } from '@/lib/weekCalendar';
 import type {
   Exercise, ExerciseMotorTrace, ExerciseVariation, ExerciseVariationType,
   EnergyLevel, MuscleGroup, SessionMotorTrace, WeeklySession,
@@ -1044,7 +1045,7 @@ function buildPlan(rawInput: MotorInput, split: SplitDef, validate: boolean, ext
       duration: minutes,
       exercises,
       status: i === 0 ? 'available' : 'locked',
-      dayOfWeek: input.customDays?.[i] ?? i,
+      dayOfWeek: input.customDays?.[i] ?? defaultDay(i, input.daysPerWeek),
       templateKey: t.key,
       motorTrace: {
         split: split.name,
@@ -1397,7 +1398,7 @@ function buildPlanV1(rawInput: MotorInput, structure: V1Structure, validate: boo
       duration: minutes,
       exercises,
       status: i === 0 ? 'available' : 'locked',
-      dayOfWeek: input.customDays?.[i] ?? i,
+      dayOfWeek: input.customDays?.[i] ?? defaultDay(i, input.daysPerWeek),
       templateKey: t.key,
       motorTrace: {
         split: structure.name,

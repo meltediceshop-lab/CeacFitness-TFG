@@ -10,6 +10,7 @@ import { CoachCardModal } from '@/components/dashboard/CoachCardModal';
 import { WelcomeGuideAccess } from '@/components/dashboard/WelcomeGuideAccess';
 import { ReviewBanner } from '@/components/dashboard/ReviewBanner';
 import { BottomNav } from '@/components/ui/BottomNav';
+import { relativeDay, sameDay, sessionDate, weekStart } from '@/lib/weekCalendar';
 import { SparkLine } from '@/components/metrics/LineChart';
 import type { BodyMeasurementRecord } from '@/types/user';
 
@@ -333,13 +334,21 @@ export function DashboardScreen() {
     return { percentage: baseProgress + sessionProgress, completedSessions, totalSessions };
   }, [user?.weeklySessions]);
 
+  // Calendario de la semana: cada sesión en su día (el elegido o, si ya se
+  // hizo, el día real en que se entrenó), ordenadas por fecha.
+  const sessionDates = useMemo(() => {
+    const list = user?.weeklySessions ?? [];
+    return new Map(list.map((s, i) => [s.id, sessionDate(s, i, list.length)]));
+  }, [user?.weeklySessions]);
   const orderedSessions = useMemo(() => {
     if (!user?.weeklySessions) return [];
-    const completed = user.weeklySessions.filter(s => s.status === 'completed');
-    const available = user.weeklySessions.filter(s => s.status === 'available');
-    const locked = user.weeklySessions.filter(s => s.status === 'locked');
-    return [...completed, ...available, ...locked];
-  }, [user?.weeklySessions]);
+    return [...user.weeklySessions].sort((a, b) =>
+      (sessionDates.get(a.id)?.getTime() ?? 0) - (sessionDates.get(b.id)?.getTime() ?? 0) || a.sessionNumber - b.sessionNumber);
+  }, [user?.weeklySessions, sessionDates]);
+  const weekDays = useMemo(() => {
+    const start = weekStart();
+    return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+  }, []);
 
   const nextSession = useMemo(() =>
     user?.weeklySessions?.find(s => s.status === 'available') || null,
@@ -543,7 +552,42 @@ export function DashboardScreen() {
 
       {/* Session List */}
       <div className="flex-1 px-4 space-y-3 overflow-y-auto pb-32">
-        <h2 className="text-stone-600 text-sm font-medium mb-2">Sesiones</h2>
+        <div className="flex items-baseline justify-between mb-1">
+          <h2 className="text-stone-900 text-base font-semibold">Calendario</h2>
+          <p className="text-stone-500 text-xs capitalize">
+            {weekDays[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} – {weekDays[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+          </p>
+        </div>
+
+        {/* Franja de la semana */}
+        <Card className="p-2.5 rounded-2xl">
+          <div className="grid grid-cols-7 gap-1">
+            {weekDays.map((day, i) => {
+              const today = sameDay(day, new Date());
+              const onDay = orderedSessions.filter(s => { const d = sessionDates.get(s.id); return d && sameDay(d, day); });
+              const done = onDay.some(s => s.status === 'completed');
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={!onDay.length}
+                  onClick={() => onDay[0] && handleSessionClick(onDay.find(s => s.status !== 'completed') ?? onDay[0])}
+                  className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${today ? 'bg-emerald-500 text-white' : onDay.length ? 'hover:bg-stone-100' : ''}`}
+                >
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${today ? 'text-white/85' : 'text-stone-400'}`}>
+                    {['L', 'M', 'X', 'J', 'V', 'S', 'D'][i]}
+                  </span>
+                  <span className={`text-base font-semibold tabular-nums leading-none ${today ? 'text-white' : onDay.length ? 'text-stone-900' : 'text-stone-400'}`}>{day.getDate()}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    !onDay.length ? 'bg-transparent'
+                    : done ? (today ? 'bg-[#fff]' : 'bg-emerald-500')
+                    : today ? 'ring-1 ring-[#fff] bg-transparent' : 'ring-1 ring-emerald-500 bg-transparent'
+                  }`} />
+                </button>
+              );
+            })}
+          </div>
+        </Card>
 
         {orderedSessions.map((session, index) => {
           const isNext = nextSession?.id === session.id;
@@ -552,6 +596,7 @@ export function DashboardScreen() {
             ?.filter(s => s.status === 'completed')
             .findIndex(s => s.id === session.id) ?? 0;
           const hasPendingAction = isCompleted && activeIds.has(session.id);
+          const date = sessionDates.get(session.id);
 
           return (
             <motion.div
@@ -570,21 +615,27 @@ export function DashboardScreen() {
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${
                     isCompleted ? 'bg-emerald-100 dark:bg-emerald-500/20' : isNext ? 'bg-emerald-500' : 'bg-stone-100 dark:bg-white/10'
                   }`}>
                     {isCompleted
                       ? <Check className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                      : <span className={`text-lg font-bold ${isNext ? 'text-white' : 'text-stone-600 dark:text-white/70'}`}>{session.sessionNumber ?? ''}</span>
+                      : <>
+                          <span className={`text-[10px] font-semibold uppercase leading-none ${isNext ? 'text-white/80' : 'text-stone-500'}`}>{date?.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span>
+                          <span className={`text-lg font-semibold leading-tight tabular-nums ${isNext ? 'text-white' : 'text-stone-700 dark:text-white/80'}`}>{date?.getDate()}</span>
+                        </>
                     }
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className={`font-semibold ${isCompleted ? 'text-stone-600 dark:text-white/50' : 'text-stone-900 dark:text-white'}`}>
-                        Sesión {session.sessionNumber ?? ''}
+                      <p className={`font-semibold first-letter:uppercase ${isCompleted ? 'text-stone-600 dark:text-white/50' : 'text-stone-900 dark:text-white'}`}>
+                        {date ? date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }) : `Sesión ${session.sessionNumber ?? ''}`}
                       </p>
+                      {date && relativeDay(date) && !isNext && (
+                        <span className="text-xs text-stone-500 bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-full">{relativeDay(date)}</span>
+                      )}
                       {isNext && (
-                        <span className="text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full">Siguiente</span>
+                        <span className="text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full">{date && relativeDay(date) ? `${relativeDay(date)} · siguiente` : 'Siguiente'}</span>
                       )}
                     </div>
                     <p className={`text-sm ${isCompleted ? 'text-stone-400 dark:text-white/35' : 'text-stone-600 dark:text-white/60'}`}>{session.name ?? ''}</p>

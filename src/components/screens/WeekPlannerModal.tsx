@@ -1,5 +1,6 @@
 'use client';
 
+import { defaultDay } from '@/lib/weekCalendar';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronDown, Pencil, Check, Bell } from 'lucide-react';
@@ -52,7 +53,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
   const [sessions, setSessions] = useState<WeeklySession[]>(() =>
     initialSessions.map((s, i) => ({
       ...s,
-      dayOfWeek: s.dayOfWeek ?? i * 2, // por defecto lun, mié, vie...
+      dayOfWeek: s.dayOfWeek ?? defaultDay(i, initialSessions.length), // reparto por defecto
     }))
   );
   const [editingId, setEditingId]       = useState<string | null>(null);
