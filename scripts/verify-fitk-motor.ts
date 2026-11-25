@@ -115,8 +115,11 @@ check('baja: reduce dosis', low.exercises.reduce((a, e) => a + e.sets, 0) < s0.e
 check('baja: el trabajo principal conserva sus series', low.exercises.filter(e => e.slotRole === 'principal').every(e => e.sets === s0.exercises.find(x => x.id === e.id)?.sets));
 check('baja: RIR objetivo más conservador', low.exercises.every((e, i) => (e.rirTarget?.[0] ?? 0) > (s0.exercises[i].rirTarget?.[0] ?? 0)));
 const vlow = adaptSessionForToday(s0, { energy: 'very-low' });
-check('muy baja: versión más corta que conserva lo esencial', vlow.exercises.length <= s0.exercises.length
-  && s0.exercises.filter(e => e.essential).every(e => vlow.exercises.some(x => x.id === e.id)));
+check('muy baja: mínimo de 2 ejercicios y 7 series, uno con 4', vlow.exercises.length === 2
+  && totalSets([vlow]) >= 7 && vlow.exercises.some(e => e.sets >= 4), vlow.exercises.map(e => `${e.name} ${e.sets}`).join(' + '));
+check('muy baja: se queda el trabajo principal', vlow.exercises.some(e => e.slotRole === 'principal' || e.essential));
+const vlowShort = adaptSessionForToday(s0, { energy: 'very-low', minutesAvailable: 10 });
+check('muy baja con poco tiempo: no baja del mínimo', vlowShort.exercises.length === 2 && totalSets([vlowShort]) >= 7);
 const high = adaptSessionForToday(s0, { energy: 'high' });
 check('alta: no añade media rutina', high.exercises.length === s0.exercises.length && totalSets([high]) === totalSets([s0]));
 check('el Plan Base no se muta', s0.exercises.length === p3.sessions[0].exercises.length && low.id !== s0.id);
