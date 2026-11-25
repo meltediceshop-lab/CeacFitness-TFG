@@ -1,6 +1,7 @@
 // Batería reproducible del Motor Fit-K — Biblioteca v2.17 (FIT-K_Instrucciones sec. 18-19).
 // Cada cambio importante del Motor debe volver a pasar estos casos.
 // Uso: npx tsx scripts/verify-fitk-motor.ts
+import { reassignDays } from '../src/lib/weekCalendar';
 import {
   generatePlan, generatePlanWithTrace, generatePlanOptions, planOptionCount, motorCatalog,
   adaptSessionForToday, sessionForMinutes, substituteExercise, estimateSessionMinutes, generateFocusSession, SESSION_FOCUS,
@@ -143,6 +144,21 @@ check('poco tiempo: sesión esencial cabe y conserva lo esencial', estimateSessi
   check('tiempo de hoy: más tiempo, más trabajo y cabe', largo.name === s1.name && totalSets([largo]) > totalSets([s1])
     && (largo.motorTrace?.estimatedMinutes ?? 99) <= 75, `${totalSets([s1])} → ${totalSets([largo])} series`);
   check('tiempo de hoy: el plan no cambia', plan3[2].exercises.length === s1.exercises.length);
+}
+
+// Entrenar otro día: la sesión hecha se queda hoy y la de hoy pasa al hueco.
+{
+  const mk = (id: string, day: number, status: 'completed' | 'available' | 'locked' = 'available') =>
+    ({ id, sessionNumber: 1, name: id, targetMuscles: '', duration: 40, exercises: [], status, dayOfWeek: day });
+  const week = [mk('lun', 0, 'completed'), mk('mie', 2), mk('vie', 4)];
+  const miercoles = new Date(2026, 10, 25); // miércoles
+  const r = reassignDays(week, 'vie', miercoles);
+  check('otro día: la del viernes hecha el miércoles se queda el miércoles', r.find(s => s.id === 'vie')?.dayOfWeek === 2);
+  check('otro día: la del miércoles pasa al viernes', r.find(s => s.id === 'mie')?.dayOfWeek === 4);
+  check('otro día: lo ya hecho no se mueve', r.find(s => s.id === 'lun')?.dayOfWeek === 0);
+  const tarde = reassignDays([mk('lun', 0), mk('mie', 2), mk('vie', 4)], 'lun', miercoles);
+  check('otro día: si el hueco ya pasó, la desplazada va al siguiente día libre', tarde.find(s => s.id === 'lun')?.dayOfWeek === 2
+    && tarde.find(s => s.id === 'mie')?.dayOfWeek === 3);
 }
 
 // ── 8. Sesión perdida ────────────────────────────────────────────────

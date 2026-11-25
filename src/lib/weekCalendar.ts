@@ -54,3 +54,27 @@ export function relativeDay(date: Date, today = new Date()): string | null {
   const diff = Math.round((d.getTime() - t.getTime()) / 86400000);
   return diff === 0 ? 'Hoy' : diff === 1 ? 'Mañana' : diff === -1 ? 'Ayer' : null;
 }
+
+/**
+ * Al hacer una sesión en un día distinto del previsto, la sesión hecha se
+ * queda en el día de hoy y la que estaba prevista hoy pasa al día que ha
+ * quedado libre (o, si ese día ya pasó, al siguiente día libre de la semana).
+ */
+export function reassignDays(sessions: WeeklySession[], doneId: string, today = new Date()): WeeklySession[] {
+  const todayIdx = weekdayIndex(today);
+  const list = sessions.map((s, i) => ({ ...s, dayOfWeek: s.dayOfWeek ?? defaultDay(i, sessions.length) }));
+  const done = list.find(s => s.id === doneId);
+  if (!done || done.dayOfWeek === todayIdx) return list;
+  const freedDay = done.dayOfWeek!;
+  done.dayOfWeek = todayIdx;
+  const displaced = list.find(s => s.id !== doneId && s.status !== 'completed' && s.dayOfWeek === todayIdx);
+  if (displaced) {
+    const taken = new Set(list.filter(s => s.id !== displaced.id).map(s => s.dayOfWeek));
+    if (freedDay > todayIdx) displaced.dayOfWeek = freedDay;
+    else {
+      const next = [1, 2, 3, 4, 5, 6].map(k => todayIdx + k).find(d => d <= 6 && !taken.has(d));
+      if (next !== undefined) displaced.dayOfWeek = next;
+    }
+  }
+  return list;
+}
