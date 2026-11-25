@@ -124,7 +124,7 @@ export function MetricsModal({ currentWeight, height, lastRecord, history = [], 
           <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)] mt-4 mb-3">
             {([['summary', 'Resumen'], ['register', 'Registrar']] as const).map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} aria-pressed={tab === id}
-                className={`h-8 rounded-lg text-sm font-semibold transition-colors ${tab === id ? 'bg-white dark:bg-white/15 text-stone-900 shadow-sm' : 'text-stone-500'}`}>
+                className={`h-8 rounded-lg text-sm font-semibold transition-colors ${tab === id ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm' : 'text-stone-500'}`}>
                 {label}
               </button>
             ))}
