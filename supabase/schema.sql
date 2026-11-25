@@ -56,6 +56,7 @@ create table if not exists weekly_sessions (
   year integer not null,
   sort_order integer default 0,
   exercises jsonb default '[]',        -- array de ejercicios (Exercise[])
+  day_of_week smallint,                -- día elegido para entrenar (0 = lunes)
   created_at timestamptz default now()
 );
 

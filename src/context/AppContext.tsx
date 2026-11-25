@@ -541,6 +541,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             exercises,
             status: s.status as 'completed' | 'available' | 'locked',
             completedAt: s.completed_at ? new Date(s.completed_at as string) : undefined,
+            dayOfWeek: typeof s.day_of_week === 'number' ? s.day_of_week : undefined,
           };
         });
 

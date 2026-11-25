@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     year,
     sort_order: index,
     exercises: s.exercises,
+    day_of_week: typeof s.dayOfWeek === 'number' ? s.dayOfWeek : null,
   }));
 
   const { error } = await supabase.from('weekly_sessions').upsert(rows);
