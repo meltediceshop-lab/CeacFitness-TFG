@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { planSessionId, resumableWorkout } from '@/lib/activeWorkout';
 import { buildMotorWorkout, buildOutdoorSession } from '@/lib/coachMotor';
+import { reassignDays } from '@/lib/weekCalendar';
 import { canonicalExerciseId, estimateSessionMinutes, sessionForMinutes, generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import type {
   User,
@@ -875,11 +876,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const completeWeeklySession = async (sessionId: string, logs?: ExerciseLog[], sessionInstance?: Exercise[]) => {
     if (!user) return;
 
-    const updatedSessions = user.weeklySessions.map(session =>
+    // Si se entrena otro día del previsto, las sesiones se reordenan (la hecha
+    // se queda hoy y la de hoy pasa al día que queda libre).
+    const daysBefore = new Map(user.weeklySessions.map(s => [s.id, s.dayOfWeek]));
+    const updatedSessions = reassignDays(user.weeklySessions, sessionId).map(session =>
       session.id === sessionId
         ? { ...session, status: 'completed' as const, completedAt: new Date() }
         : session
     );
+    const daysChanged = updatedSessions.some(s => s.id !== sessionId && daysBefore.get(s.id) !== s.dayOfWeek);
 
     const currentTotal = user.totalCompletedSessions || 0;
 
@@ -896,6 +901,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Persist to DB if authenticated
     if (supabaseUserId) {
       // Mark session as completed
+      if (daysChanged) {
+        fetch('/api/sessions/weekly', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedSessions),
+        }).catch(() => { /* silently ignore */ });
+      }
       fetch(`/api/sessions/${sessionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
