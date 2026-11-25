@@ -370,6 +370,19 @@ export const V1_STRUCTURES: Record<number, V1Structure[]> = {
   ],
 };
 
+/** Cómo se presenta cada estructura al usuario al elegir (pantalla de elección). */
+export const STRUCTURE_COPY: Record<string, { title: string; summary: string }> = {
+  'Full Body A/B': { title: 'Cuerpo completo A/B', summary: 'Dos sesiones de cuerpo completo que se alternan.' },
+  'Pecho-Tríceps-Hombro / Espalda-Bíceps-Trapecio / Pierna': {
+    title: 'Por grupos musculares',
+    summary: 'Cada día se centra en un bloque: empuje, tirón y pierna.',
+  },
+  'Empuje+cuádriceps / Tirón+cadena posterior / Mixto': {
+    title: 'Empuje, tirón y mixto',
+    summary: 'La pierna se reparte entre los dos primeros días y el tercero completa lo que falta.',
+  },
+};
+
 /** Slot que se añade para dar una segunda exposición al grupo prioritario. */
 export const PRIORITY_EXTRA_FN: Partial<Record<VolGroup, SlotFn>> = {
   pecho: 'aduccion_pecho', espalda: 'pullover', cuadriceps: 'extension_rodilla', isquios: 'flexion_rodilla',
