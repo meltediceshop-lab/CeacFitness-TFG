@@ -22,6 +22,10 @@ import {
   TreePine,
   Zap,
   Utensils,
+  Mic,
+  Paperclip,
+  Square,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -88,6 +92,25 @@ interface ChatMessage {
   content: string;
   workout?: CoachWorkout;
   nutritionPlan?: CoachNutritionPlan;
+  /** Foto adjunta por el usuario (data URL). */
+  image?: string;
+  /** El mensaje se dictó con una nota de voz. */
+  voice?: boolean;
+}
+
+/** Reduce la foto en el móvil (lado mayor 1024 px, JPEG) antes de enviarla. */
+async function photoToDataUrl(file: File): Promise<string | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.82);
+  } catch {
+    return null;
+  }
 }
 
 
@@ -107,6 +130,14 @@ export function ChatScreen() {
   const [coachMode, setCoachMode] = useState<CoachMode>('gym');
   const [showModeMenu, setShowModeMenu] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Adjuntos y notas de voz
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [attachment, setAttachment] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const messages = messagesByMode[coachMode];
 
@@ -145,14 +176,16 @@ export function ChatScreen() {
 
   const isAdvanced = user.level === 'advanced';
 
-  async function sendMessage(text: string) {
+  async function sendMessage(text: string, opts: { image?: string | null; voice?: boolean } = {}) {
     const trimmed = text.trim();
-    if (!trimmed || isLoading) return;
+    const image = opts.image ?? null;
+    if ((!trimmed && !image) || isLoading) return;
 
     const mode = coachMode;
-    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed };
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed, image: image ?? undefined, voice: opts.voice };
     setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], userMsg] }));
     setInput('');
+    setAttachment(null);
     setIsLoading(true);
 
     try {
@@ -160,7 +193,7 @@ export function ChatScreen() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, history, mode }),
+        body: JSON.stringify({ message: trimmed || '¿Qué te parece esta foto?', history, mode, image: image ?? undefined }),
       });
       const data = await res.json();
       if (data.response) {
@@ -181,6 +214,49 @@ export function ChatScreen() {
       }] }));
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function pickPhoto(file?: File) {
+    if (!file) return;
+    const dataUrl = await photoToDataUrl(file);
+    if (dataUrl) setAttachment(dataUrl);
+  }
+
+  async function toggleRecording() {
+    setVoiceError(null);
+    if (recording) { recorderRef.current?.stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = e => { if (e.data.size) chunksRef.current.push(e.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        setRecording(false);
+        const type = recorder.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type });
+        if (blob.size < 1000) return;
+        setTranscribing(true);
+        try {
+          const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm';
+          const form = new FormData();
+          form.append('file', new File([blob], `nota.${ext}`, { type }));
+          const res = await fetch('/api/chat/transcribe', { method: 'POST', body: form });
+          const data = await res.json();
+          if (data.text) sendMessage(data.text, { voice: true, image: attachment });
+          else setVoiceError(data.error ?? 'No se ha entendido el audio');
+        } catch {
+          setVoiceError('No se ha podido enviar el audio');
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      recorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setVoiceError('Permite el micrófono para enviar notas de voz');
     }
   }
 
@@ -243,7 +319,7 @@ export function ChatScreen() {
       </motion.div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 pb-64 space-y-3">
         {/* Cargando historial */}
         {isLoadingHistory && (
           <div className="flex justify-center py-4">
@@ -301,13 +377,20 @@ export function ChatScreen() {
               </div>
             )}
             <div className={`max-w-[82%] ${msg.role === 'user' ? '' : 'flex-1'}`}>
-              <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-emerald-500 text-white rounded-tr-md'
-                  : 'glass-card text-stone-800 dark:text-stone-100 rounded-tl-md'
-              }`}>
-                {msg.content}
-              </div>
+              {msg.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={msg.image} alt="Foto enviada al Coach" className="mb-1.5 ml-auto max-h-56 rounded-2xl object-cover" />
+              )}
+              {msg.content && (
+                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-emerald-500 text-white rounded-tr-md'
+                    : 'glass-card text-stone-800 dark:text-stone-100 rounded-tl-md'
+                }`}>
+                  {msg.voice && <span className="flex items-center gap-1 text-[11px] font-semibold text-white/80 mb-0.5"><Mic className="w-3 h-3" /> Nota de voz</span>}
+                  {msg.content}
+                </div>
+              )}
 
               {/* Tarjeta de entreno creado */}
               {msg.workout && (
@@ -353,32 +436,66 @@ export function ChatScreen() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
-      <div className="flex-shrink-0 px-4 pb-36">
-        <div className="glass-card rounded-[22px] flex items-end gap-2 p-1.5 pl-2">
-          <textarea
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Pregúntale al Coach…"
-            rows={1}
-            style={{ resize: 'none', maxHeight: 96 }}
-            className="bare-input flex-1 bg-transparent px-2 py-2 text-stone-800 dark:text-stone-100 placeholder-stone-400 outline-none text-[15px] leading-relaxed"
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || isLoading}
-            aria-label="Enviar"
-            className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-[rgba(118,118,128,0.24)] disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
-          >
-            {isLoading
-              ? <Loader2 className="w-4 h-4 text-white animate-spin" />
-              : <Send className="w-4 h-4 text-white" />}
-          </button>
+      {/* Barra de escritura fija encima de la navegación */}
+      <div
+        className="fixed inset-x-0 z-30 px-4"
+        style={{ bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom) + 0.5rem) + 4.75rem)' }}
+      >
+        <div className="max-w-2xl mx-auto">
+          {attachment && (
+            <div className="mb-2 inline-flex items-start gap-2 glass-card rounded-2xl p-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={attachment} alt="Foto para enviar" className="w-16 h-16 rounded-xl object-cover" />
+              <button type="button" aria-label="Quitar la foto" onClick={() => setAttachment(null)} className="w-6 h-6 rounded-full bg-[rgba(118,118,128,0.2)] flex items-center justify-center">
+                <X className="w-3.5 h-3.5 text-stone-700" />
+              </button>
+            </div>
+          )}
+          {(recording || transcribing || voiceError) && (
+            <p className={`mb-1.5 px-2 text-xs font-medium ${voiceError ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
+              {voiceError ?? (recording ? 'Grabando… pulsa el cuadrado para enviar' : 'Transcribiendo tu nota de voz…')}
+            </p>
+          )}
+          <div className="glass-card rounded-[22px] flex items-end gap-1.5 p-1.5">
+            <button type="button" aria-label="Adjuntar foto" onClick={() => fileRef.current?.click()} disabled={recording}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-stone-500 hover:text-stone-800 disabled:opacity-40 flex-shrink-0">
+              <Paperclip className="w-5 h-5" />
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+            <textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={recording ? 'Te escucho…' : 'Pregúntale al Coach…'}
+              rows={1}
+              disabled={recording}
+              style={{ resize: 'none', maxHeight: 96 }}
+              className="bare-input flex-1 bg-transparent px-1 py-2 text-stone-800 dark:text-stone-100 placeholder-stone-400 outline-none text-[15px] leading-relaxed"
+            />
+            {input.trim() || attachment ? (
+              <button
+                onClick={() => sendMessage(input, { image: attachment })}
+                disabled={isLoading}
+                aria-label="Enviar"
+                className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center transition-colors flex-shrink-0"
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
+              </button>
+            ) : (
+              <button
+                onClick={toggleRecording}
+                disabled={transcribing || isLoading}
+                aria-label={recording ? 'Parar y enviar la nota de voz' : 'Grabar una nota de voz'}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-50 ${recording ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+              >
+                {transcribing ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : recording ? <Square className="w-3.5 h-3.5 text-white fill-white" /> : <Mic className="w-4 h-4 text-white" />}
+              </button>
+            )}
+          </div>
+          <p className="text-center text-[10px] text-stone-400 mt-1.5">
+            Respuestas generadas por IA. Consulta a un profesional para decisiones médicas.
+          </p>
         </div>
-        <p className="text-center text-[10px] text-stone-400 mt-2">
-          Respuestas generadas por IA. Consulta a un profesional para decisiones médicas.
-        </p>
       </div>
 
       <BottomNav active="chat" />
