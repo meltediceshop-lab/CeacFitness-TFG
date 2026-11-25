@@ -29,11 +29,14 @@ type CoachMode = 'nutrition' | 'gym' | 'outdoor';
 
 const CHAT_MODES: CoachMode[] = ['nutrition', 'gym', 'outdoor'];
 
-const MODE_CONFIG: Record<CoachMode, { label: string; sublabel: string; emoji: string; color: string }> = {
-  nutrition: { label: 'Nutrición',  sublabel: 'Dieta y comidas',   emoji: '🥗', color: 'emerald' },
-  gym:       { label: 'Gimnasio',   sublabel: 'Pesas y máquinas',  emoji: '🏋️', color: 'blue'    },
-  outdoor:   { label: 'Aire libre', sublabel: 'Running y parque',  emoji: '🌿', color: 'teal'    },
+const MODE_CONFIG: Record<CoachMode, { label: string; icon: LucideIcon; intro: string }> = {
+  gym:       { label: 'Gimnasio',   icon: Dumbbell, intro: 'Te preparo entrenos con tu Motor, adapto la sesión si hoy vas con poca energía o poco tiempo y resuelvo tus dudas.' },
+  outdoor:   { label: 'Aire libre', icon: TreePine, intro: 'Entrenos en el parque o la calle, running y alternativas sin máquinas cuando no puedas ir al gimnasio.' },
+  nutrition: { label: 'Nutrición',  icon: Utensils, intro: 'Planes de comidas, macros y qué comer antes y después de entrenar, adaptado a tu objetivo.' },
 };
+// Orden del selector y color del icono de cada sugerencia
+const MODE_ORDER: CoachMode[] = ['gym', 'outdoor', 'nutrition'];
+const ACTION_TINTS = ['bg-emerald-500', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-violet-500'];
 
 const QUICK_ACTIONS_BY_MODE: Record<CoachMode, { id: string; label: string; icon: LucideIcon }[]> = {
   nutrition: [
@@ -213,151 +216,70 @@ export function ChatScreen() {
 
   return (
     <div className="min-h-dvh glass-bg flex flex-col">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="px-6 pt-8 pb-3 flex-shrink-0"
-      >
+      {/* Cabecera: Coach y modo */}
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="px-4 pt-6 pb-3 flex-shrink-0 space-y-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(16,185,129,0.6)]">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-stone-900">Coach K</h1>
-            <p className="text-stone-500 text-xs">Tu entrenador y nutricionista de IA</p>
+            <h1 className="text-lg font-semibold text-stone-900 leading-tight">Coach K</h1>
+            <p className="text-stone-500 text-xs">Tu entrenador y nutricionista</p>
           </div>
-          {/* Mode selector */}
-          <div className="relative ml-auto">
-            <button
-              onClick={() => setShowModeMenu(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card border border-stone-200/60 dark:border-stone-700/60 text-xs font-medium text-stone-700 dark:text-stone-200 hover:border-emerald-400/40 transition-all"
-            >
-              <span className="text-sm leading-none">{MODE_CONFIG[coachMode].emoji}</span>
-              <span>{MODE_CONFIG[coachMode].label}</span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${showModeMenu ? 'rotate-180' : ''}`} />
-            </button>
-
-            <AnimatePresence>
-              {showModeMenu && (
-                <>
-                  {/* Backdrop */}
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowModeMenu(false)}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full mt-2 glass-modal rounded-2xl p-2 min-w-[176px] z-50 shadow-xl"
-                  >
-                    {/* Nutrición */}
-                    <button
-                      onClick={() => { setCoachMode('nutrition'); setShowModeMenu(false); }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        coachMode === 'nutrition'
-                          ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400'
-                          : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/40'
-                      }`}
-                    >
-                      <span className="text-base leading-none">🥗</span>
-                      <span className="flex-1 text-left">Nutrición</span>
-                      {coachMode === 'nutrition' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                    </button>
-
-                    {/* Separator */}
-                    <div className="px-3 pt-2 pb-0.5">
-                      <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">Entrenamiento</span>
-                    </div>
-
-                    {/* Gym */}
-                    <button
-                      onClick={() => { setCoachMode('gym'); setShowModeMenu(false); }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        coachMode === 'gym'
-                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400'
-                          : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/40'
-                      }`}
-                    >
-                      <span className="text-base leading-none">🏋️</span>
-                      <span className="flex-1 text-left">Gimnasio</span>
-                      {coachMode === 'gym' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                    </button>
-
-                    {/* Outdoor */}
-                    <button
-                      onClick={() => { setCoachMode('outdoor'); setShowModeMenu(false); }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        coachMode === 'outdoor'
-                          ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400'
-                          : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/40'
-                      }`}
-                    >
-                      <span className="text-base leading-none">🌿</span>
-                      <span className="flex-1 text-left">Aire libre</span>
-                      {coachMode === 'outdoor' && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                    </button>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]">
+          {MODE_ORDER.map(m => {
+            const Icon = MODE_CONFIG[m].icon;
+            return (
+              <button key={m} type="button" onClick={() => setCoachMode(m)} aria-pressed={coachMode === m}
+                className={`h-9 rounded-lg flex items-center justify-center gap-1.5 text-sm font-semibold transition-colors ${
+                  coachMode === m ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm' : 'text-stone-500'
+                }`}>
+                <Icon className="w-4 h-4" /> {MODE_CONFIG[m].label}
+              </button>
+            );
+          })}
         </div>
       </motion.div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
-        {/* Welcome message */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex gap-3 mt-2"
-        >
-          <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <div className="glass-card rounded-2xl rounded-tl-md px-4 py-3 max-w-[82%]">
-            <p className="text-stone-800 dark:text-stone-100 text-sm leading-relaxed">
-              {isAdvanced
-                ? `Soy tu coach IA. Puedo crearte entrenos y planes de comidas a medida, ajustar tu plan y resolver dudas. Conozco tu perfil. Dime qué necesitas.`
-                : `¡Hola, ${user.profile.name}! Soy tu coach personal de IA. Puedo crearte entrenos, planes de comidas, adaptar tu plan… y guardarlos directamente en tu app. ¿Qué necesitas hoy?`}
-            </p>
-          </div>
-        </motion.div>
-
-        {/* Loading history */}
+        {/* Cargando historial */}
         {isLoadingHistory && (
           <div className="flex justify-center py-4">
             <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
           </div>
         )}
 
-        {/* Quick action chips */}
-        <AnimatePresence>
+        {/* Bienvenida y sugerencias con el chat vacío */}
+        <AnimatePresence mode="wait">
           {showQuickActions && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="pl-11"
-            >
-              <p className="text-xs text-stone-400 mb-2 font-medium">
-                {MODE_CONFIG[coachMode].emoji} {MODE_CONFIG[coachMode].sublabel} · Prueba con:
-              </p>
-              <div className="flex flex-col gap-2">
+            <motion.div key={coachMode} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="pt-4 space-y-5">
+              <div className="text-center px-4">
+                <div className="w-16 h-16 mx-auto rounded-full glass-card flex items-center justify-center mb-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-semibold text-stone-900 text-balance">Hola, {user.profile.name}</h2>
+                <p className="text-sm text-stone-500 mt-1 text-balance">{MODE_CONFIG[coachMode].intro}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
                 {QUICK_ACTIONS_BY_MODE[coachMode].map(({ id, label, icon: Icon }, i) => (
                   <motion.button
                     key={id}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04 }}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 + i * 0.04 }}
                     onClick={() => sendMessage(QUICK_MESSAGES_BY_MODE[coachMode][id] ?? label)}
-                    className="flex items-center gap-3 px-4 py-2.5 glass-card rounded-xl text-left hover:ring-1 hover:ring-emerald-400/40 transition-all group"
+                    className={`glass-card rounded-2xl p-3.5 text-left flex flex-col gap-2.5 active:scale-[0.98] transition-transform ${
+                      i === 0 && QUICK_ACTIONS_BY_MODE[coachMode].length % 2 === 1 ? 'col-span-2' : ''
+                    }`}
                   >
-                    <Icon className="w-4 h-4 text-stone-400 group-hover:text-emerald-500 transition-colors flex-shrink-0" />
-                    <span className="text-sm text-stone-700 dark:text-stone-200">{label}</span>
+                    <span className={`w-8 h-8 rounded-[10px] flex items-center justify-center ${ACTION_TINTS[i % ACTION_TINTS.length]}`}>
+                      <Icon className="w-4 h-4 text-white" />
+                    </span>
+                    <span className="text-sm font-medium text-stone-800 dark:text-stone-100 leading-snug">{label}</span>
                   </motion.button>
                 ))}
               </div>
@@ -374,7 +296,7 @@ export function ChatScreen() {
             className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {msg.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
             )}
@@ -417,7 +339,7 @@ export function ChatScreen() {
             animate={{ opacity: 1, y: 0 }}
             className="flex gap-3"
           >
-            <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1">
+            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div className="glass-card rounded-2xl rounded-tl-md px-4 py-3 flex items-center gap-1">
@@ -433,20 +355,21 @@ export function ChatScreen() {
 
       {/* Input bar */}
       <div className="flex-shrink-0 px-4 pb-36">
-        <div className="glass-card rounded-2xl flex items-end gap-2 p-2">
+        <div className="glass-card rounded-[22px] flex items-end gap-2 p-1.5 pl-2">
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Escribe tu pregunta…"
+            placeholder="Pregúntale al Coach…"
             rows={1}
             style={{ resize: 'none', maxHeight: 96 }}
-            className="flex-1 bg-transparent px-2 py-2 text-stone-800 dark:text-stone-100 placeholder-stone-400 outline-none text-sm leading-relaxed"
+            className="bare-input flex-1 bg-transparent px-2 py-2 text-stone-800 dark:text-stone-100 placeholder-stone-400 outline-none text-[15px] leading-relaxed"
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
-            className="w-9 h-9 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
+            aria-label="Enviar"
+            className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-[rgba(118,118,128,0.24)] disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
           >
             {isLoading
               ? <Loader2 className="w-4 h-4 text-white animate-spin" />

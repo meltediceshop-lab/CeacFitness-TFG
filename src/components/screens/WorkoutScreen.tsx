@@ -894,7 +894,7 @@ export function WorkoutScreen() {
           </div>
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-stone-100 via-stone-100 to-transparent">
+        <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[var(--app-bg)] via-[var(--app-bg)]/90 to-transparent">
           <Button onClick={() => handleSimpleModeComplete()} className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm">
             <Check className="w-5 h-5 mr-2" />
             Terminar entreno

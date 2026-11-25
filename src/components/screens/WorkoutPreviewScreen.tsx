@@ -305,7 +305,7 @@ export function WorkoutPreviewScreen() {
       </div>
 
       {/* Start Button */}
-      <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[#eef2f1] via-[#eef2f1]/90 to-transparent dark:from-[#050806] dark:via-[#050806]/90">
+      <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[var(--app-bg)] via-[var(--app-bg)]/90 to-transparent">
         <Button
           onClick={handleStartSession}
           className="w-full h-14 rounded-2xl text-lg font-semibold"

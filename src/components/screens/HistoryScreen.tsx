@@ -161,7 +161,7 @@ export function HistoryScreen() {
             onClick={() => setActiveTab('sessions')}
             className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
               activeTab === 'sessions'
-                ? 'bg-white dark:bg-white/15 text-stone-900 shadow-sm'
+                ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm'
                 : 'text-stone-600'
             }`}
           >
@@ -171,7 +171,7 @@ export function HistoryScreen() {
             onClick={() => setActiveTab('progress')}
             className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
               activeTab === 'progress'
-                ? 'bg-white dark:bg-white/15 text-stone-900 shadow-sm'
+                ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm'
                 : 'text-stone-600'
             }`}
           >

@@ -170,7 +170,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                     <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]">
                       {([['gym', 'Gimnasio'], ['outdoor', 'Calle y barras']] as const).map(([id, label]) => (
                         <button key={id} type="button" onClick={() => setPlace(id)} aria-pressed={place === id}
-                          className={`h-8 rounded-lg text-sm font-semibold transition-colors ${place === id ? 'bg-white dark:bg-white/15 text-stone-900 shadow-sm' : 'text-stone-500'}`}>
+                          className={`h-8 rounded-lg text-sm font-semibold transition-colors ${place === id ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm' : 'text-stone-500'}`}>
                           {label}
                         </button>
                       ))}
