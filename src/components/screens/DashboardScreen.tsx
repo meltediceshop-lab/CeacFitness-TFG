@@ -10,11 +10,13 @@ import { CoachCardModal } from '@/components/dashboard/CoachCardModal';
 import { WelcomeGuideAccess } from '@/components/dashboard/WelcomeGuideAccess';
 import { ReviewBanner } from '@/components/dashboard/ReviewBanner';
 import { BottomNav } from '@/components/ui/BottomNav';
+import { FreeWorkoutSheet } from '@/components/dashboard/FreeWorkoutSheet';
 import { relativeDay, sameDay, sessionDate, weekStart } from '@/lib/weekCalendar';
 import { SparkLine } from '@/components/metrics/LineChart';
 import type { BodyMeasurementRecord } from '@/types/user';
 
 import {
+  Plus,
   MessageCircle,
   ChevronRight,
   Check,
@@ -340,6 +342,7 @@ export function DashboardScreen() {
     const list = user?.weeklySessions ?? [];
     return new Map(list.map((s, i) => [s.id, sessionDate(s, i, list.length)]));
   }, [user?.weeklySessions]);
+  const [showFreeWorkout, setShowFreeWorkout] = useState(false);
   const orderedSessions = useMemo(() => {
     if (!user?.weeklySessions) return [];
     return [...user.weeklySessions].sort((a, b) =>
@@ -674,6 +677,15 @@ export function DashboardScreen() {
             </motion.div>
           );
         })}
+
+        <button
+          type="button"
+          onClick={() => setShowFreeWorkout(true)}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-300 dark:border-white/15 py-3.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:border-emerald-400 transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Entrenamiento libre
+        </button>
+        <FreeWorkoutSheet open={showFreeWorkout} onClose={() => setShowFreeWorkout(false)} />
 
         {progressData.completedSessions > 0 && progressData.completedSessions < progressData.totalSessions && (
           <motion.p

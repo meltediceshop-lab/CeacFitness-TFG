@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { X, Search, Plus } from 'lucide-react';
 import type { Exercise } from '@/types/user';
 import { ExercisePreview } from './ExercisePreview';
+import { formatRepLine } from '@/lib/exerciseFormat';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
 function normalize(s: string): string {
@@ -29,14 +30,16 @@ export function ExercisePickerModal({
 }) {
   useScrollLock();
   const [query, setQuery] = useState('');
+  const [muscle, setMuscle] = useState<string | null>(null);
+  const muscles = useMemo(() => Object.keys(MUSCLE_LABELS).filter(m => catalog.some(e => e.targetMuscle === m)), [catalog]);
 
   const filtered = useMemo(() => {
     const q = normalize(query.trim());
-    if (!q) return catalog;
     return catalog.filter(e =>
-      normalize(e.name).includes(q) || normalize(MUSCLE_LABELS[e.targetMuscle] || '').includes(q)
+      (!muscle || e.targetMuscle === muscle)
+      && (!q || normalize(e.name).includes(q) || normalize(MUSCLE_LABELS[e.targetMuscle] || '').includes(q))
     );
-  }, [catalog, query]);
+  }, [catalog, query, muscle]);
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[70] flex items-end justify-center">
@@ -66,6 +69,18 @@ export function ExercisePickerModal({
               className="flex-1 bg-transparent outline-none text-sm text-stone-800 dark:text-stone-100 placeholder-stone-400"
             />
           </div>
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-3 -mx-5 px-5">
+            {[null, ...muscles].map(m => (
+              <button
+                key={m ?? 'todos'}
+                type="button"
+                onClick={() => setMuscle(m)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${muscle === m ? 'bg-emerald-500 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'}`}
+              >
+                {m ? MUSCLE_LABELS[m] : 'Todos'}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-8">
@@ -81,8 +96,8 @@ export function ExercisePickerModal({
                 >
                   <ExercisePreview name={ex.name} muscle={ex.targetMuscle} className="w-14 h-14 flex-shrink-0" rounded="rounded-lg" animate={false} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">{ex.name}</p>
-                    <p className="text-[11px] text-stone-400">{MUSCLE_LABELS[ex.targetMuscle] || 'General'} · {ex.sets}×{ex.reps[0] ?? ''}</p>
+                    <p className="text-sm font-medium text-stone-800 dark:text-stone-100 leading-snug">{ex.name}</p>
+                    <p className="text-[11px] text-stone-400">{MUSCLE_LABELS[ex.targetMuscle] || 'General'} · {ex.sets} × {formatRepLine(ex)}</p>
                   </div>
                   <Plus className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                 </button>

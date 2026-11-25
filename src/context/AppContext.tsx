@@ -4,7 +4,7 @@ import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { planSessionId, resumableWorkout } from '@/lib/activeWorkout';
-import { canonicalExerciseId, generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
+import { canonicalExerciseId, estimateSessionMinutes, generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import type {
   User,
   AppScreen,
@@ -382,6 +382,8 @@ interface AppContextType {
   moveSession: (sessionId: string, toSessionNumber: number) => void;
   removeSession: (sessionId: string) => void;
   addSessionFromCoach: (workout: import('@/types/user').CoachWorkout) => void;
+  /** Entrenamiento libre: sesión de hoy con los ejercicios que elige el usuario. */
+  addFreeSession: (exercises: Exercise[]) => WeeklySession | null;
   handleWeeklyCheckIn: (preference: 'same' | 'change' | 'decide-later') => void;
   /** true cuando todas las sesiones de la semana están completadas y el usuario aún no ha planificado la siguiente */
   weekPlannerPending: boolean;
@@ -957,6 +959,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const addFreeSession = (exercises: Exercise[]): WeeklySession | null => {
+    if (!user || exercises.length === 0) return null;
+    const labels: Record<string, string> = { chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', legs: 'Pierna', arms: 'Brazos', core: 'Core' };
+    const muscles = [...new Set(exercises.map(e => labels[e.targetMuscle]).filter(Boolean))];
+    const session: WeeklySession = {
+      id: crypto.randomUUID(),
+      sessionNumber: user.weeklySessions.length + 1,
+      name: 'Entrenamiento libre',
+      targetMuscles: muscles.join(', ') || 'Libre',
+      duration: 0,
+      exercises,
+      status: 'available',
+      dayOfWeek: (new Date().getDay() + 6) % 7,
+    };
+    session.duration = estimateSessionMinutes(session);
+    const updatedSessions = [...user.weeklySessions, session];
+    setUser({ ...user, weeklySessions: updatedSessions });
+    if (supabaseUserId) {
+      fetch('/api/sessions/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSessions),
+      }).catch(() => {});
+    }
+    return session;
+  };
+
   const addSessionFromCoach = (workout: import('@/types/user').CoachWorkout) => {
     if (!user) return;
 
@@ -1294,6 +1323,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         moveSession,
         removeSession,
         addSessionFromCoach,
+        addFreeSession,
         handleWeeklyCheckIn,
         weekPlannerPending,
         generateNextWeekPreview,
