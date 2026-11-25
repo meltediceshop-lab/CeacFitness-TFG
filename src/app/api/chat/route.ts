@@ -224,17 +224,49 @@ PERFIL DE ${name.toUpperCase()}:
   return prompt;
 }
 
+const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+
+async function describeImage(dataUrl: string, question: string): Promise<string> {
+  try {
+    const res = await deepseek.chat.completions.create({
+      model: VISION_MODEL,
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: `Describe en español, con detalle y sin inventar, lo que se ve en esta foto, centrándote en lo útil para un entrenador o nutricionista: alimentos y cantidades aproximadas, máquinas o ejercicios, postura y técnica, texto visible (etiquetas, informes). Pregunta del usuario: "${question.slice(0, 300)}"` },
+          { type: 'image_url', image_url: { url: dataUrl } },
+        ],
+      }],
+    });
+    return res.choices[0]?.message?.content?.trim() || 'no se ha podido describir la imagen';
+  } catch (err) {
+    console.error('[chat vision]', err);
+    return 'no se ha podido analizar la imagen';
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { message, history, mode, context: exerciseContext } = await req.json() as {
+    const body = await req.json() as {
       message: string;
       history?: { role: string; content: string }[];
       mode?: string;
       context?: ExerciseContext;
+      /** Foto adjunta (data URL, ya reducida en el móvil). */
+      image?: string;
     };
+    const { history, mode, context: exerciseContext } = body;
+    let message = body.message ?? '';
+
+    // Foto adjunta: un modelo con visión la describe y el Coach responde con esa descripción.
+    if (typeof body.image === 'string' && body.image.startsWith('data:image/') && body.image.length < 8_000_000) {
+      const description = await describeImage(body.image, message);
+      message = `${message.trim() || '¿Qué te parece esta foto?'}\n\n[Foto adjunta. Lo que se ve: ${description}]`;
+    }
 
     if (!message?.trim()) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 });

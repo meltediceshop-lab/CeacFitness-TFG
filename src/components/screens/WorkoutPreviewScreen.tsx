@@ -26,7 +26,7 @@ import {
   Check,
   Repeat,
 } from 'lucide-react';
-import type { WorkoutMode, Exercise } from '@/types/user';
+import type { Exercise } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 import { resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
@@ -47,7 +47,6 @@ export function WorkoutPreviewScreen() {
     setSelectedWeeklySession,
   } = useApp();
   const [showTime, setShowTime] = useState(false);
-  const [showModeModal, setShowModeModal] = useState(false);
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null); // posición en la sesión del ejercicio abierto
   const [showSessionOptions, setShowSessionOptions] = useState(false);
@@ -57,14 +56,10 @@ export function WorkoutPreviewScreen() {
     return null;
   }
 
+  // Los entrenos se hacen siempre en modo simple (lista de ejercicios con
+  // registro de series); antes de empezar se pregunta la energía del día.
   const handleStartSession = () => {
-    setShowModeModal(true);
-  };
-
-  const handleModeSelect = (mode: WorkoutMode) => {
-    setWorkoutMode(mode);
-    setShowModeModal(false);
-    // Go to energy check before workout
+    setWorkoutMode('simple');
     setScreen('energy-check');
   };
 
@@ -314,84 +309,6 @@ export function WorkoutPreviewScreen() {
           Empezar sesión
         </Button>
       </div>
-
-      {/* Mode Selection Modal */}
-      <AnimatePresence>
-        {showModeModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-end justify-center z-50"
-            onClick={() => setShowModeModal(false)}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25 }}
-              className="glass-modal rounded-t-3xl p-6 w-full max-w-md"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="w-12 h-1 bg-stone-300 rounded-full mx-auto mb-6" />
-
-              <h2 className="text-xl font-bold text-stone-900 mb-2">
-                ¿Cómo quieres hacer este entreno?
-              </h2>
-              <p className="text-stone-500 text-sm mb-6">
-                Puedes elegir esto en cada sesión
-              </p>
-
-              <div className="space-y-3">
-                <Card
-                  onClick={() => handleModeSelect('guided')}
-                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                      <Timer className="w-6 h-6 text-emerald-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-stone-900 mb-1">Modo guiado</p>
-                      <ul className="text-stone-500 text-sm space-y-1">
-                        <li>La app te guía paso a paso</li>
-                        <li>Incluye temporizador de descanso</li>
-                        <li>Registra peso y repeticiones</li>
-                      </ul>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card
-                  onClick={() => handleModeSelect('simple')}
-                  className="glass-card p-5 cursor-pointer border-2 border-transparent hover:border-emerald-300 transition-all rounded-2xl"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-stone-200 rounded-xl flex items-center justify-center">
-                      <ListChecks className="w-6 h-6 text-stone-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-stone-900 mb-1">Modo simple</p>
-                      <ul className="text-stone-500 text-sm space-y-1">
-                        <li>Solo muestra la lista de ejercicios</li>
-                        <li>Sin temporizadores</li>
-                        <li>Sin interrupciones</li>
-                      </ul>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-
-              <button
-                onClick={() => setShowModeModal(false)}
-                className="w-full mt-6 py-4 text-stone-500 font-medium"
-              >
-                Cancelar
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Session Options Modal (Move/Remove) */}
       <AnimatePresence>
