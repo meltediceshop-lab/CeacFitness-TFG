@@ -199,6 +199,7 @@ export function WorkoutScreen() {
     getExerciseByName,
     updateSessionExercises,
     supabaseUserId,
+    todayEnergy,
   } = useApp();
 
   // 1. Estado del Modal (Compartido para Modo Simple y Guiado)
@@ -225,9 +226,11 @@ export function WorkoutScreen() {
       logs: g.logs,
       restEndsAt: restLeft > 0 ? (g.restEndsAt as number) : null,
       restTotal: restLeft > 0 ? Math.max(g.restTotal ?? restLeft, restLeft) : 0,
+      warmupPending: g.warmupPending ?? false,
     };
   });
-  const [showGuidedWarmup, setShowGuidedWarmup] = useState(includeWarmup && !resumedGuided);
+  // Al reanudar solo se salta si ya se había pasado de la pantalla de calentamiento.
+  const [showGuidedWarmup, setShowGuidedWarmup] = useState(includeWarmup && (!resumedGuided || resumedGuided.warmupPending));
 
   // 2. Estado del Modo Guiado
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(resumedGuided?.exerciseIndex ?? 0);
@@ -252,7 +255,7 @@ export function WorkoutScreen() {
   const [setLogs, setSetLogs] = useState<Record<string, LoggedSet[]>>(() => resumed?.sets ?? {}); // modo simple: series registradas
   const [logSheetIndex, setLogSheetIndex] = useState<number | null>(null);
   const [showPartialConfirm, setShowPartialConfirm] = useState(false);
-  const simpleInstanceRef = useRef<Exercise[] | undefined>(undefined);
+  const [showGuidedFinish, setShowGuidedFinish] = useState(false); // modo guiado: terminar con series sin hacer
 
   // 4. Cronómetro modo simple
   // Hora real de inicio: si la app se cerró a mitad de entreno se reanuda la misma.
@@ -299,7 +302,7 @@ export function WorkoutScreen() {
 
     // Se calcula desde la hora de inicio para que siga contando aunque la
     // app pase a segundo plano o se cierre.
-    const tick = () => setElapsed(elapsedSince(startedAt));
+    const tick = () => { if (!finishedRef.current) setElapsed(elapsedSince(startedAt)); };
     timerRef.current = setInterval(tick, 1000);
     document.addEventListener('visibilitychange', tick);
     window.addEventListener('pageshow', tick);
@@ -319,12 +322,13 @@ export function WorkoutScreen() {
     if (finishedRef.current || !selectedWeeklySession || !workoutMode) return;
     saveActiveWorkout({
       session: selectedWeeklySession, startedAt, mode: workoutMode, includeWarmup, done: [...simpleDone], sets: setLogs,
+      energy: todayEnergy,
       guided: workoutMode === 'guided'
-        ? { exerciseIndex: currentExerciseIndex, setIndex: currentSetIndex, completed: [...completedSets], logs: exerciseLogs, restEndsAt: restEndsAt ?? undefined, restTotal }
+        ? { exerciseIndex: currentExerciseIndex, setIndex: currentSetIndex, completed: [...completedSets], logs: exerciseLogs, restEndsAt: restEndsAt ?? undefined, restTotal, warmupPending: showGuidedWarmup }
         : undefined,
     });
-  }, [selectedWeeklySession, workoutMode, includeWarmup, startedAt, simpleDone, setLogs,
-    currentExerciseIndex, currentSetIndex, completedSets, exerciseLogs, restEndsAt, restTotal]);
+  }, [selectedWeeklySession, workoutMode, includeWarmup, startedAt, simpleDone, setLogs, todayEnergy,
+    currentExerciseIndex, currentSetIndex, completedSets, exerciseLogs, restEndsAt, restTotal, showGuidedWarmup]);
 
   // Alerta cuando alcanza la duración objetivo
   const targetDuration = selectedWeeklySession?.duration ?? 0;
@@ -350,7 +354,7 @@ export function WorkoutScreen() {
         <div className="text-center space-y-4">
           <p className="text-stone-500">No hay ejercicios para esta sesión.</p>
           <button
-            onClick={() => setScreen('dashboard')}
+            onClick={() => { finishedRef.current = true; clearActiveWorkout(); setScreen('dashboard'); }}
             className="text-emerald-600 font-medium"
           >
             Volver al inicio
@@ -409,6 +413,8 @@ export function WorkoutScreen() {
     if (currentExerciseIndex < exercises.length - 1) {
       setCurrentExerciseIndex(currentExerciseIndex + 1);
       setCurrentSetIndex(0);
+    } else {
+      setShowGuidedFinish(true);
     }
   };
 
@@ -440,6 +446,9 @@ export function WorkoutScreen() {
       setCurrentExerciseIndex(next.exerciseIndex);
       setCurrentSetIndex(next.setIndex);
       if (next.rest > 0) startRestTimer(next.rest);
+    } else {
+      // Final de la sesión con series sin hacer (molestias o saltadas con "Siguiente").
+      setShowGuidedFinish(true);
     }
 
     setWeight('');
@@ -468,16 +477,38 @@ export function WorkoutScreen() {
     clearActiveWorkout();
   };
 
-  const handleWorkoutComplete = (logs: ExerciseLog[] = exerciseLogs) => {
+  const handleWorkoutComplete = (logs: ExerciseLog[] = exerciseLogs, instance?: Exercise[]) => {
     finishActiveWorkout();
     savePendingActions();
     if (workoutMode === 'simple') {
       setShowRecordPrompt(true);
     } else {
       const logsToSave = logs.map(l => ({ ...l, timestamp: new Date() }));
-      completeWeeklySession(sessionId, logsToSave);
+      completeWeeklySession(sessionId, logsToSave, instance);
       setShowComplete(true);
     }
+  };
+
+  // Modo guiado: series que quedan sin hacer y cierre con lo hecho (los
+  // ejercicios sin ninguna serie se guardan como no hechos, igual que en el simple).
+  const setsLeft = (index: number) =>
+    Array.from({ length: exercises[index].sets }, (_, k) => k).filter(k => !completedSets.has(`${index}-${k}`));
+  const guidedPending = exercises
+    .map((e, i) => ({ exercise: e, index: i, left: setsLeft(i) }))
+    .filter(p => p.left.length > 0);
+  const finishGuided = () => {
+    setShowGuidedFinish(false);
+    setShowExitConfirm(false);
+    const instance = exercises.map((e, i) => (setsLeft(i).length < e.sets ? e : { ...e, skipped: true }));
+    handleWorkoutComplete(exerciseLogs, instance);
+  };
+  const continuePending = () => {
+    const first = guidedPending[0];
+    if (first) {
+      setCurrentExerciseIndex(first.index);
+      setCurrentSetIndex(first.left[0]);
+    }
+    setShowGuidedFinish(false);
   };
 
   // Modo simple: si quedan ejercicios sin marcar se avisa antes de terminar
@@ -508,7 +539,8 @@ export function WorkoutScreen() {
       completeWeeklySession(sessionId, logs, instance);
       setShowComplete(true);
     } else {
-      simpleInstanceRef.current = instance;
+      // Se guarda ya: si la app se cierra en la pregunta siguiente, no se pierde.
+      completeWeeklySession(sessionId, undefined, instance);
       setShowRecordPrompt(true);
     }
   };
@@ -536,7 +568,6 @@ export function WorkoutScreen() {
   };
   
   const handleRecordChoice = (_choice: 'now' | 'later' | 'skip') => {
-    completeWeeklySession(sessionId, undefined, simpleInstanceRef.current);
     setShowRecordPrompt(false);
     setShowComplete(true);
   };
@@ -556,6 +587,12 @@ export function WorkoutScreen() {
     const swapped = swapExercise(original, resolveAlternative(original, name, getExerciseByName));
     if (simpleDone.has(original.id)) {
       setSimpleDone(prev => { const next = new Set(prev); next.delete(original.id); next.add(swapped.id); return next; });
+    }
+    if (setLogs[original.id]) {
+      setSetLogs(prev => {
+        const { [original.id]: moved, ...rest } = prev;
+        return moved ? { ...rest, [swapped.id]: moved } : prev;
+      });
     }
     updateSessionExercises(selectedWeeklySession.id, exercises.map((e, i) => (i === detailIndex ? swapped : e)));
     setShowExerciseDetail(swapped);
@@ -702,12 +739,14 @@ export function WorkoutScreen() {
     const sessionName = selectedWeeklySession?.name ?? 'Entrenamiento';
     const sessionDuration = selectedWeeklySession?.duration ?? 45;
     // Modo simple: solo cuenta lo marcado (y las series registradas si las hay).
-    const doneExercises = workoutMode === 'simple' ? exercises.filter(e => simpleDone.has(e.id)) : exercises;
+    const doneExercises = workoutMode === 'simple'
+      ? exercises.filter(e => simpleDone.has(e.id))
+      : exercises.filter((e, i) => setsLeft(i).length < e.sets);
     const doneStats = {
       exercises: doneExercises.length < exercises.length ? `${doneExercises.length}/${exercises.length}` : `${exercises.length}`,
       sets: workoutMode === 'simple'
         ? doneExercises.reduce((acc, e) => acc + (setLogs[e.id]?.length ?? e.sets), 0)
-        : totalSets,
+        : completedSets.size,
     };
 
     if (completionStep === 1) {
@@ -1088,7 +1127,7 @@ export function WorkoutScreen() {
         <Button onClick={() => setShowGuidedWarmup(false)} className="w-full max-w-sm py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200">
           Continuar al entreno
         </Button>
-        <button onClick={() => setScreen('dashboard')} className="mt-4 text-stone-400 text-sm">Cancelar</button>
+        <button onClick={confirmExit} className="mt-4 text-stone-400 text-sm">Cancelar</button>
       </div>
     );
   }
@@ -1309,10 +1348,40 @@ export function WorkoutScreen() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-modal rounded-3xl p-6 max-w-sm w-full">
             <h3 className="text-xl font-bold text-stone-900 mb-2">¿Salir del entreno?</h3>
-            <p className="text-stone-500 mb-6">Tu progreso se guardará parcialmente</p>
+            <p className="text-stone-500 mb-6">
+              {completedSets.size > 0
+                ? `Llevas ${completedSets.size} de ${totalSets} series. Puedes terminar aquí y guardar lo que has hecho.`
+                : 'Aún no has completado ninguna serie, así que no se guardará nada.'}
+            </p>
+            <div className="space-y-3">
+              {completedSets.size > 0 && (
+                <Button onClick={finishGuided} className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600">Terminar y guardar</Button>
+              )}
+              <div className="flex gap-3">
+                <Button onClick={() => setShowExitConfirm(false)} variant="outline" className="flex-1 py-4 rounded-xl">Continuar</Button>
+                <Button onClick={confirmExit} className="flex-1 py-4 rounded-xl bg-stone-900 hover:bg-stone-800">{completedSets.size > 0 ? 'Salir sin guardar' : 'Salir'}</Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showGuidedFinish && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-modal rounded-3xl p-6 max-w-sm w-full">
+            <h3 className="text-xl font-bold text-stone-900 mb-2">Has hecho {completedSets.size} de {totalSets} series</h3>
+            <p className="text-stone-500 mb-2">Quedan sin hacer:</p>
+            <ul className="mb-4 space-y-1">
+              {guidedPending.map(p => (
+                <li key={p.exercise.id} className="text-stone-700 text-sm font-medium">
+                  • {p.exercise.name} ({p.left.length} {p.left.length === 1 ? 'serie' : 'series'})
+                </li>
+              ))}
+            </ul>
+            <p className="text-stone-500 text-sm mb-6">Si terminas ahora se guardará lo que has hecho.</p>
             <div className="flex gap-3">
-              <Button onClick={() => setShowExitConfirm(false)} variant="outline" className="flex-1 py-4 rounded-xl">Continuar</Button>
-              <Button onClick={confirmExit} className="flex-1 py-4 rounded-xl bg-stone-900 hover:bg-stone-800">Salir</Button>
+              <Button onClick={continuePending} variant="outline" className="flex-1 py-4 rounded-xl">Seguir</Button>
+              <Button onClick={finishGuided} className="flex-1 py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600">Terminar</Button>
             </div>
           </motion.div>
         </div>

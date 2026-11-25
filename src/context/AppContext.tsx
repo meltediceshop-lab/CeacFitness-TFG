@@ -668,6 +668,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setSelectedWeeklySession(active.session);
           setWorkoutMode(active.mode);
           setIncludeWarmup(active.includeWarmup);
+          setTodayEnergy(active.energy ?? null);
           setScreen('workout');
         } else {
           setScreen('dashboard');
