@@ -397,7 +397,9 @@ interface AppContextType {
   /** true cuando todas las sesiones de la semana están completadas y el usuario aún no ha planificado la siguiente */
   weekPlannerPending: boolean;
   /** Genera las sesiones para la próxima semana (para mostrárselas en el planificador antes de confirmar) */
-  generateNextWeekPreview: () => WeeklySession[];
+  generateNextWeekPreview: (days?: number) => WeeklySession[];
+  /** Rehace una sesión para otro tiempo sin guardarla (planificador de la semana). */
+  rebuildSession: (session: WeeklySession, minutes: number, days?: number) => WeeklySession;
   /** Archiva la semana actual y guarda el plan editado para la nueva semana */
   startNewWeekWithPlan: (sessions: WeeklySession[]) => void;
   getExerciseHistory: (exerciseId: string) => ExerciseLog[];
@@ -1181,10 +1183,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Genera una preview de las sesiones de la próxima semana (sin archivar nada)
-  const generateNextWeekPreview = (): WeeklySession[] => {
+  const rebuildSession = (session: WeeklySession, minutes: number, days?: number): WeeklySession => {
+    if (!user || minutes === session.duration) return session;
+    const ob = user.onboarding as Partial<BeginnerOnboarding & AdvancedOnboarding>;
+    const rebuilt = sessionForMinutes(session, {
+      daysPerWeek: days ?? (ob.daysPerWeek || 3),
+      workoutDuration: ob.workoutDuration || '45min',
+      startFrom: 1,
+      ...motorInputFromUser(user),
+    } as MotorInput, minutes);
+    return { ...rebuilt, id: session.id, baseSessionId: session.baseSessionId, dayOfWeek: session.dayOfWeek };
+  };
+
+  const generateNextWeekPreview = (days?: number): WeeklySession[] => {
     if (!user) return [];
     const onboarding = user.onboarding as BeginnerOnboarding;
-    const daysPerWeek = onboarding.daysPerWeek || 3;
+    // El número de días del onboarding es el de partida; cada semana se puede cambiar.
+    const daysPerWeek = days ?? (onboarding.daysPerWeek || 3);
     const workoutDuration = onboarding.workoutDuration || '45min';
     const lastSessionNum = user.weeklySessions.reduce((max, s) => Math.max(max, s.sessionNumber), 0);
     return generateWeeklySessions(daysPerWeek, workoutDuration, lastSessionNum + 1, undefined, motorInputFromUser(user));
@@ -1413,6 +1428,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         handleWeeklyCheckIn,
         weekPlannerPending,
         generateNextWeekPreview,
+        rebuildSession,
         startNewWeekWithPlan,
         getExerciseHistory,
         getExerciseByName,
