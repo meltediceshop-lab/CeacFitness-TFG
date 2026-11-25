@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { CoachWorkout, CoachNutritionPlan, Exercise, WeeklySession } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { formatRepLine } from '@/lib/exerciseFormat';
+import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
 import {
   Send,
   Sparkles,
@@ -26,6 +27,9 @@ import {
   Utensils,
   Mic,
   Paperclip,
+  Volume2,
+  Repeat,
+  CalendarDays,
   Square,
   X,
   type LucideIcon,
@@ -100,6 +104,47 @@ interface ChatMessage {
   voice?: boolean;
   /** Ejercicio que el Coach propone añadir a una sesión. */
   exerciseAdd?: { exercise: Exercise; target?: string };
+  /** Ejercicio de su plan que quiere cambiar. */
+  swap?: { exercise: string };
+  /** Mover una sesión a otro día o quitarla. */
+  move?: { session?: string; day: string };
+}
+
+const normText = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const DAY_NAMES = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+const DAY_LABELS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+/** Día de la semana (0 = lunes) que nombra el usuario: «sábado», «hoy», «mañana». */
+function parseDay(text?: string): number | null {
+  if (!text) return null;
+  const t = normText(text);
+  const today = (new Date().getDay() + 6) % 7;
+  if (t.includes('pasado manana')) return (today + 2) % 7;
+  if (t.includes('manana')) return (today + 1) % 7;
+  if (t.includes('hoy')) return today;
+  const i = DAY_NAMES.findIndex(d => t.includes(d));
+  return i >= 0 ? i : null;
+}
+/** Sesión pendiente que nombra el usuario (por nombre o por día). */
+function findSession(sessions: WeeklySession[], text?: string): WeeklySession | undefined {
+  const pending = sessions.filter(s => s.status !== 'completed');
+  if (!text) return pending[0];
+  const t = normText(text);
+  const day = parseDay(text);
+  return pending.find(s => normText(s.name).split(/[ ,]+/).some(w => w.length > 3 && t.includes(w)))
+    ?? (day !== null ? pending.find(s => s.dayOfWeek === day) : undefined)
+    ?? pending[0];
+}
+
+/** Lee la respuesta del Coach en voz alta (voz del sistema, en español). */
+function speak(text: string) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  const synth = window.speechSynthesis;
+  if (synth.speaking) { synth.cancel(); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'es-ES';
+  const voice = synth.getVoices().find(v => v.lang === 'es-ES') ?? synth.getVoices().find(v => v.lang.startsWith('es'));
+  if (voice) u.voice = voice;
+  synth.speak(u);
 }
 
 // Lo que sabe hacer el Coach (se enseña en la bienvenida)
@@ -218,6 +263,8 @@ export function ChatScreen() {
           workout: data.workout ?? undefined,
           nutritionPlan: data.nutritionPlan ?? undefined,
           exerciseAdd: data.exerciseAdd ?? undefined,
+          swap: data.swap ?? undefined,
+          move: data.move ?? undefined,
         };
         setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], aiMsg] }));
       }
@@ -429,6 +476,18 @@ export function ChatScreen() {
                   onAdd={() => handleAddWorkout(msg.id, msg.workout!)}
                 />
               )}
+
+              {/* Leer en voz alta */}
+              {msg.role === 'assistant' && msg.content && (
+                <button type="button" onClick={() => speak(msg.content)} aria-label="Leer en voz alta"
+                  className="mt-1 ml-1 inline-flex items-center gap-1 text-[11px] font-medium text-stone-400 hover:text-emerald-600">
+                  <Volume2 className="w-3.5 h-3.5" /> Escuchar
+                </button>
+              )}
+
+              {/* Tarjetas de acciones */}
+              {msg.swap && <SwapCard request={msg.swap} />}
+              {msg.move && <MoveCard request={msg.move} />}
 
               {/* Tarjeta para añadir un ejercicio a una sesión */}
               {msg.exerciseAdd && <ExerciseAddCard proposal={msg.exerciseAdd} />}
@@ -687,6 +746,88 @@ function ExerciseAddCard({ proposal }: { proposal: { exercise: Exercise; target?
           <button type="button" disabled={!session || already} onClick={() => session && add(session)}
             className="w-full h-10 rounded-xl bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
             <Plus className="w-4 h-4" /> {already ? 'Ya está en esa sesión' : `Añadir a ${session?.name ?? 'la sesión'}`}
+          </button>
+        </>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── Tarjeta: cambiar un ejercicio por una alternativa del Motor ──────
+function SwapCard({ request }: { request: { exercise: string } }) {
+  const { user, updateSessionExercises, getExerciseByName } = useApp();
+  const [done, setDone] = useState<string | null>(null);
+  const q = normText(request.exercise);
+  const words = q.split(' ').filter(w => w.length > 3);
+  const pending = (user?.weeklySessions ?? []).filter(s => s.status !== 'completed');
+  const hit = pending.flatMap(s => s.exercises.map((e, i) => ({ s, e, i })))
+    .find(({ e }) => { const n = normText(e.name); return n.includes(q) || (words.length > 0 && words.every(w => n.includes(w.replace(/s$/, '')))); });
+  if (done) {
+    return (
+      <div className="mt-2 glass-card rounded-2xl p-3">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check className="w-4 h-4" /> Cambiado por {done}</p>
+      </div>
+    );
+  }
+  if (!hit) return <p className="mt-2 text-xs text-stone-500 px-1">No encuentro «{request.exercise}» en tus sesiones pendientes. Ábrelo desde la sesión y pulsa «¿No encuentras este ejercicio?».</p>;
+  const options = alternativeOptions(hit.e).filter(a => a !== hit.e.name);
+  const choose = (alt: string) => {
+    const swapped = swapExercise(hit.e, resolveAlternative(hit.e, alt, getExerciseByName));
+    updateSessionExercises(hit.s.id, hit.s.exercises.map((e, i) => (i === hit.i ? swapped : e)));
+    setDone(alt);
+  };
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-2 glass-card rounded-2xl p-3 space-y-2.5">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-stone-500"><Repeat className="w-3.5 h-3.5" /> {hit.e.name} · {hit.s.name}</p>
+      {done ? (
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check className="w-4 h-4" /> Cambiado por {done}</p>
+      ) : options.length ? (
+        <div className="space-y-1.5">
+          {options.map(alt => (
+            <button key={alt} type="button" onClick={() => choose(alt)}
+              className="w-full flex items-center gap-3 p-2 rounded-xl bg-[rgba(118,118,128,0.08)] hover:bg-[rgba(118,118,128,0.14)] text-left">
+              <ExercisePreview name={alt} muscle={hit.e.targetMuscle} className="w-10 h-10 flex-shrink-0" rounded="rounded-lg" animate={false} />
+              <span className="flex-1 text-sm font-medium text-stone-800 dark:text-stone-100">{alt}</span>
+              <ArrowRight className="w-4 h-4 text-stone-400" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-stone-500">Este ejercicio no tiene alternativas en la Biblioteca.</p>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── Tarjeta: mover una sesión a otro día o quitarla ──────────────────
+function MoveCard({ request }: { request: { session?: string; day: string } }) {
+  const { user, setSessionDay, removeSession } = useApp();
+  const [result, setResult] = useState<string | null>(null);
+  const [day, setDay] = useState<number | null>(parseDay(request.day));
+  const session = findSession(user?.weeklySessions ?? [], request.session);
+  const wantsSkip = /(quit|salt|elimin|borr|no (la )?hago)/.test(normText(request.day));
+  if (!session) return <p className="mt-2 text-xs text-stone-500 px-1">No te quedan sesiones pendientes esta semana.</p>;
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-2 glass-card rounded-2xl p-3 space-y-2.5">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-stone-500"><CalendarDays className="w-3.5 h-3.5" /> {session.name}{session.dayOfWeek !== undefined ? ` · ${DAY_LABELS[session.dayOfWeek]}` : ''}</p>
+      {result ? (
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check className="w-4 h-4" /> {result}</p>
+      ) : wantsSkip ? (
+        <button type="button" onClick={() => { removeSession(session.id); setResult('Quitada de esta semana'); }}
+          className="w-full h-10 rounded-xl bg-red-500 text-white text-sm font-semibold">Quitar de esta semana</button>
+      ) : (
+        <>
+          <div className="grid grid-cols-7 gap-1">
+            {DAY_LABELS.map((d, i) => (
+              <button key={d} type="button" onClick={() => setDay(i)} aria-pressed={day === i}
+                className={`h-9 rounded-lg text-xs font-semibold ${day === i ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
+                {d.slice(0, 2).toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <button type="button" disabled={day === null} onClick={() => { if (day !== null) { setSessionDay(session.id, day); setResult(`Movida al ${DAY_LABELS[day]}`); } }}
+            className="w-full h-10 rounded-xl bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50">
+            {day !== null ? `Mover al ${DAY_LABELS[day]}` : 'Elige el día'}
           </button>
         </>
       )}

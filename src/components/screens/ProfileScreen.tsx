@@ -176,7 +176,7 @@ export function ProfileScreen() {
           <Row icon={Clock} tint="bg-teal-500" title="Duración habitual">
             <TimePicker value={minutes} options={[30, 40, 45, 60]} label="Duración habitual" onChange={m => updateTrainingPrefs({ workoutDuration: minutesToDuration(m) })} />
           </Row>
-          <Row icon={Apple} tint="bg-lime-500" title="Nutrición" subtitle="Hidratación y comidas" onClick={() => setScreen('nutrition')}>
+          <Row icon={Apple} tint="bg-lime-500" title="Nutrición" subtitle="Comidas y macros" onClick={() => setScreen('nutrition')}>
             <ChevronRight className="w-4 h-4 text-stone-300" />
           </Row>
         </Section>

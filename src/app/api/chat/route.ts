@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { MASTER_PROMPT } from '@/lib/coachPrompt';
-import { libraryPromptSummary } from '@/lib/fitkLibrary';
+import { libraryById, libraryPromptSummary, resolveLibraryId } from '@/lib/fitkLibrary';
 import { COACH_MODEL, COACH_REASONING_EFFORT } from '@/lib/llm';
 import { ALL_EQUIPMENT, EXTRA_FUNCTIONS, SESSION_FOCUS, type MotorInput } from '@/lib/fitkMotor';
 import { motorInputFromRows } from '@/lib/motorInputFromRows';
@@ -212,7 +212,11 @@ PERFIL DE ${name.toUpperCase()}:
 - Si el usuario pide un entreno, una rutina o una sesión, o AÑADIR/GUARDAR un entreno, llama a "request_motor_session". Elige el enfoque según lo que pida y lo que le falta esta semana; si no especifica, usa cuerpo completo.
 - Ajustes del día: la energía baja y el poco tiempo los aplica el Motor al empezar la sesión (pantalla de energía): mantiene los ejercicios y reduce la dosis. Si tiene poco tiempo y quiere una sesión distinta, pide al Motor una sesión con esos minutos.
 - Si quiere AÑADIR UN EJERCICIO CONCRETO a una de sus sesiones ("añádeme dominadas a la sesión del viernes"), usa "add_exercise_to_session" con el nombre del ejercicio y, si lo dice, la sesión o el día. El usuario elige la sesión y confirma en la tarjeta.
-- Si pregunta qué puedes hacer, explícalo en pocas frases: crear una sesión con el Motor (gimnasio, casa o calle), añadir un ejercicio a una sesión, adaptar el día a la energía o al tiempo (desde la pantalla de energía y "Cambiar tiempo"), preparar planes de comidas y macros, entender fotos (comida, máquinas, técnica, etiquetas) y notas de voz, y resolver dudas de técnica, descansos o progresión.
+- Si un ejercicio de su plan está OCUPADO, no tiene el material o NO LE GUSTA, usa "swap_exercise": el usuario elige la alternativa del Motor en la tarjeta. Si es por DOLOR o molestia, no lo sustituyas: que pare y use "Tengo molestias".
+- Si quiere MOVER una sesión a otro día o QUITARLA/SALTARLA esta semana, usa "move_session"; el usuario confirma en la tarjeta.
+- Si pregunta cómo va, su progreso o un resumen, usa "progress_summary" y respóndele con esos datos reales (breve, motivador, sin inventar).
+- Si pregunta si debe subir peso o cómo progresar en un ejercicio, usa "exercise_progress" y explica la recomendación con sus series reales.
+- Si pregunta qué puedes hacer, explícalo en pocas frases (también cambiar ejercicios, mover sesiones, resumir su progreso y decirle cuándo subir peso): crear una sesión con el Motor (gimnasio, casa o calle), añadir un ejercicio a una sesión, adaptar el día a la energía o al tiempo (desde la pantalla de energía y "Cambiar tiempo"), preparar planes de comidas y macros, entender fotos (comida, máquinas, técnica, etiquetas) y notas de voz, y resolver dudas de técnica, descansos o progresión.
 - La herramienta "create_nutrition_plan" crea un plan de comidas que se guarda en la pestaña Nutrición; adáptalo a su perfil.
 - Cuando uses una herramienta, en tu respuesta de texto explica brevemente qué le has preparado y por qué, y anímale a guardarlo con el botón de la tarjeta. No repitas todos los datos: ya los verá en la tarjeta.
 - Para nutrición puedes crear el plan directamente con la herramienta aunque no haya completado el cuestionario, usando los datos de su perfil
@@ -224,6 +228,74 @@ PERFIL DE ${name.toUpperCase()}:
   prompt += buildKnowledgeSection(knowledge ?? []);
 
   return prompt;
+}
+
+type Supa = Awaited<ReturnType<typeof createClient>>;
+const exName = (id: string) => libraryById.get(resolveLibraryId(id))?.name ?? id;
+const dayKey = (t: string) => t.slice(0, 10);
+
+/** Resumen de progreso con datos reales del usuario (para «¿cómo voy?»). */
+async function progressSummary(supabase: Supa, userId: string): Promise<string> {
+  const since = new Date(Date.now() - 28 * 86400000).toISOString();
+  const [{ data: weeks }, { data: workouts }, { data: metrics }, { data: logs }] = await Promise.all([
+    supabase.from('weekly_sessions').select('name, status, week_number, year').eq('user_id', userId).order('year', { ascending: false }).order('week_number', { ascending: false }).limit(20),
+    supabase.from('workout_sessions').select('date').eq('user_id', userId).gte('date', since),
+    supabase.from('body_measurements').select('recorded_at, weight, waist').eq('user_id', userId).order('recorded_at', { ascending: false }).limit(10),
+    supabase.from('exercise_logs').select('exercise_id, weight, timestamp').eq('user_id', userId).gte('timestamp', since).order('timestamp', { ascending: true }).limit(500),
+  ]);
+  const lines: string[] = [];
+  const w = weeks ?? [];
+  if (w.length) {
+    const cur = w.filter(r => r.week_number === w[0].week_number && r.year === w[0].year);
+    const done = cur.filter(r => r.status === 'completed').length;
+    lines.push(`Semana actual: ${done} de ${cur.length} sesiones hechas (pendientes: ${cur.filter(r => r.status !== 'completed').map(r => r.name).join(', ') || 'ninguna'}).`);
+  }
+  lines.push(`Entrenos registrados en las últimas 4 semanas: ${(workouts ?? []).length}.`);
+  const m = (metrics ?? []).filter(r => r.weight != null);
+  if (m.length) {
+    const last = m[0], first = m[m.length - 1];
+    lines.push(`Peso: ${last.weight} kg (${dayKey(String(last.recorded_at))})${m.length > 1 ? `, ${Number(last.weight) - Number(first.weight) >= 0 ? '+' : ''}${(Number(last.weight) - Number(first.weight)).toFixed(1)} kg desde ${dayKey(String(first.recorded_at))}` : ''}.`);
+  }
+  const waist = (metrics ?? []).filter(r => r.waist != null);
+  if (waist.length) lines.push(`Cintura: ${waist[0].waist} cm${waist.length > 1 ? ` (antes ${waist[waist.length - 1].waist} cm)` : ''}.`);
+  // Ejercicios en los que más ha subido el peso máximo
+  const byEx = new Map<string, { first: number; last: number }>();
+  for (const l of logs ?? []) {
+    if (l.weight == null) continue;
+    const e = byEx.get(l.exercise_id);
+    if (!e) byEx.set(l.exercise_id, { first: Number(l.weight), last: Number(l.weight) });
+    else e.last = Math.max(e.last, Number(l.weight));
+  }
+  const ups = [...byEx.entries()].map(([id, v]) => ({ id, d: v.last - v.first, v })).filter(x => x.d > 0).sort((a, b) => b.d - a.d).slice(0, 4);
+  if (ups.length) lines.push(`Mejoras de peso este mes: ${ups.map(u => `${exName(u.id)} ${u.v.first}→${u.v.last} kg`).join('; ')}.`);
+  if (!(logs ?? []).length) lines.push('No hay series registradas este mes (el usuario puede registrarlas al marcar cada ejercicio).');
+  return lines.join('\n');
+}
+
+/** Últimas series de un ejercicio y la recomendación de la doble progresión. */
+async function exerciseProgress(supabase: Supa, userId: string, query: string): Promise<string> {
+  const found = findLibraryExercise(query);
+  if (!found.exercise) return `No hay un ejercicio claro con ese nombre.${found.similar.length ? ` Parecidos: ${found.similar.join(', ')}.` : ''}`;
+  const ex = found.exercise;
+  const ids = [...new Set([ex.id, ex.libraryId].filter(Boolean))] as string[];
+  const { data } = await supabase.from('exercise_logs').select('weight, reps, set_number, timestamp').eq('user_id', userId).in('exercise_id', ids).order('timestamp', { ascending: false }).limit(60);
+  const logs = data ?? [];
+  if (!logs.length) return `${ex.name}: no hay series registradas. Rango del Motor: ${ex.repRange?.join('-') ?? ex.reps[0]} repeticiones, ${ex.sets} series. Sugiérele registrar peso y repeticiones al marcarlo.`;
+  const lastDay = dayKey(String(logs[0].timestamp));
+  const last = logs.filter(l => dayKey(String(l.timestamp)) === lastDay).sort((a, b) => a.set_number - b.set_number);
+  const prevDay = logs.find(l => dayKey(String(l.timestamp)) !== lastDay);
+  const prev = prevDay ? logs.filter(l => dayKey(String(l.timestamp)) === dayKey(String(prevDay.timestamp))) : [];
+  const [lo, hi] = ex.repRange ?? [ex.reps[0], ex.reps[0]];
+  const allTop = last.every(l => (l.reps ?? 0) >= hi);
+  const anyLow = last.some(l => (l.reps ?? 0) < lo);
+  const rec = allTop
+    ? `Llegó al tope del rango (${hi}) en todas las series: toca subir el peso un poco (unos 2,5 kg en ejercicios grandes, 1-2 kg o el siguiente disco en aislamiento) y volver a ${lo}-${lo + 1} repeticiones.`
+    : anyLow
+      ? `Alguna serie quedó por debajo de ${lo}: mantener el peso (o bajarlo un poco) hasta completar el rango.`
+      : `Está dentro del rango ${lo}-${hi}: mantener el peso e intentar sumar repeticiones hasta llegar a ${hi} en todas las series.`;
+  return `${ex.name} (doble progresión ${lo}-${hi} reps, ${ex.sets} series).
+Última sesión (${lastDay}): ${last.map(l => `${l.weight ?? '–'} kg × ${l.reps ?? '–'}`).join(', ')}.${prev.length ? `\nSesión anterior (${dayKey(String(prev[0].timestamp))}): ${prev.map(l => `${l.weight ?? '–'} kg × ${l.reps ?? '–'}`).join(', ')}.` : ''}
+Recomendación del Motor: ${rec}`;
 }
 
 const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
@@ -433,6 +505,17 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       },
     };
 
+    const fn = (name: string, description: string, properties: Record<string, unknown>, required: string[] = []): OpenAI.Chat.Completions.ChatCompletionTool =>
+      ({ type: 'function', function: { name, description, parameters: { type: 'object', properties, required } } });
+    const swapTool = fn('swap_exercise', 'Cambia un ejercicio de una de sus sesiones por una alternativa del Motor (ocupado, sin material o no le gusta; nunca por dolor).',
+      { exercise: { type: 'string', description: 'Ejercicio que quiere cambiar, como lo dice el usuario' } }, ['exercise']);
+    const moveTool = fn('move_session', 'Mueve una sesión de la semana a otro día o la quita de esta semana.',
+      { session: { type: 'string', description: 'Sesión o día actual ("hoy", "pierna", "viernes"). Omitir si no lo dice.' },
+        day: { type: 'string', description: 'Día al que moverla ("sábado", "mañana") o "quitar" si quiere saltarla.' } }, ['day']);
+    const progressTool = fn('progress_summary', 'Resumen del progreso real del usuario: sesiones de la semana, entrenos del mes, peso y medidas, mejoras de peso.', {});
+    const liftTool = fn('exercise_progress', 'Últimas series registradas de un ejercicio y si toca subir peso según la doble progresión del Motor.',
+      { exercise: { type: 'string', description: 'Ejercicio por el que pregunta' } }, ['exercise']);
+
     // Si el usuario pide explícitamente añadir/guardar un entreno, forzamos la
     // herramienta para que siempre salga la tarjeta con el botón de guardar.
     const normalized = message.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -449,7 +532,7 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       messages,
       max_tokens: 1200,
       temperature: 0.7,
-      tools: [workoutTool, nutritionTool, addExerciseTool],
+      tools: [workoutTool, nutritionTool, addExerciseTool, swapTool, moveTool, progressTool, liftTool],
       tool_choice: wantsWorkoutSaved
         ? { type: 'function', function: { name: 'request_motor_session' } }
         : 'auto',
@@ -460,17 +543,31 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
     let workoutData: CoachWorkout | null = null;
     let nutritionData: Record<string, unknown> | null = null;
     let exerciseAdd: { exercise: unknown; target?: string } | null = null;
+    let swap: { exercise: string } | null = null;
+    let move: { session?: string; day: string } | null = null;
 
     if (choice.message.tool_calls?.length) {
       const toolCall = choice.message.tool_calls[0] as { id: string; type: string; function: { name: string; arguments: string } };
       const fnName = toolCall.function?.name;
 
-      if (fnName === 'request_motor_session' || fnName === 'create_nutrition_plan' || fnName === 'add_exercise_to_session') {
+      if (['request_motor_session', 'create_nutrition_plan', 'add_exercise_to_session', 'swap_exercise', 'move_session', 'progress_summary', 'exercise_progress'].includes(fnName)) {
         let parsed: Record<string, unknown> = {};
         try { parsed = JSON.parse(toolCall.function.arguments || '{}'); } catch { /* ignore */ }
 
         let successMsg = 'Plan nutricional creado correctamente.';
-        if (fnName === 'add_exercise_to_session') {
+        if (fnName === 'swap_exercise') {
+          swap = { exercise: String(parsed.exercise ?? '') };
+          successMsg = 'El usuario ve una tarjeta con las alternativas del Motor para ese ejercicio y elige una. Responde en 1-2 frases: que elija la que le encaje en la tarjeta.';
+        } else if (fnName === 'move_session') {
+          move = { session: typeof parsed.session === 'string' ? parsed.session : undefined, day: String(parsed.day ?? '') };
+          successMsg = 'El usuario ve una tarjeta para confirmar el cambio de día o quitar la sesión. Responde en 1-2 frases, comprensivo, y que lo confirme en la tarjeta.';
+        } else if (fnName === 'progress_summary') {
+          successMsg = user ? await progressSummary(supabase, user.id) : 'No hay sesión iniciada: no hay datos de progreso.';
+          successMsg += '\nResponde en 2-4 frases de texto plano con estos datos reales; destaca lo bueno y una cosa a mejorar. No inventes cifras.';
+        } else if (fnName === 'exercise_progress') {
+          successMsg = user ? await exerciseProgress(supabase, user.id, String(parsed.exercise ?? '')) : 'No hay sesión iniciada: no hay series registradas.';
+          successMsg += '\nResponde en 2-3 frases de texto plano con estos datos y la recomendación. No inventes cifras.';
+        } else if (fnName === 'add_exercise_to_session') {
           const found = findLibraryExercise(String(parsed.exercise ?? ''));
           if (found.exercise) {
             exerciseAdd = { exercise: found.exercise, target: typeof parsed.session === 'string' ? parsed.session : undefined };
@@ -497,7 +594,7 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
           max_tokens: 400,
           temperature: 0.7,
         });
-        aiResponse = followUp.choices[0]?.message?.content || (workoutData || nutritionData || exerciseAdd ? '¡Listo! Lo tienes en la tarjeta de abajo.' : 'No he podido prepararlo con esas condiciones. ¿Qué material tienes disponible?');
+        aiResponse = followUp.choices[0]?.message?.content || (workoutData || nutritionData || exerciseAdd || swap || move ? '¡Listo! Lo tienes en la tarjeta de abajo.' : 'No he podido prepararlo con esas condiciones. ¿Qué material tienes disponible?');
       }
     } else {
       aiResponse = choice.message?.content || 'Lo siento, no pude generar una respuesta.';
@@ -512,7 +609,7 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       ]);
     }
 
-    return NextResponse.json({ response: aiResponse, workout: workoutData, nutritionPlan: nutritionData, exerciseAdd });
+    return NextResponse.json({ response: aiResponse, workout: workoutData, nutritionPlan: nutritionData, exerciseAdd, swap, move });
   } catch (err) {
     console.error('[chat POST]', err);
     return NextResponse.json({ error: 'Error al procesar el mensaje' }, { status: 500 });

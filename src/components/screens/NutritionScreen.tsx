@@ -1028,51 +1028,6 @@ export function NutritionScreen() {
           </Card>
         </motion.div>
 
-        {/* Water tracker */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card className="p-5 bg-white dark:bg-[#111111] border-0 rounded-2xl shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                  <Droplets className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-stone-900">Hidratación</h3>
-                  <p className="text-stone-500 text-sm">Objetivo: {waterGoal} vasos · según tu peso</p>
-                </div>
-              </div>
-              <span className="text-2xl font-bold text-blue-600">{water}/{waterGoal}</span>
-            </div>
-            <div className="h-3 bg-blue-100 dark:bg-blue-900/30 rounded-full overflow-hidden mb-4">
-              <motion.div className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full" animate={{ width: `${waterProgress}%` }} transition={{ duration: 0.3 }} />
-            </div>
-            <div className="grid gap-1 mb-4" style={{ gridTemplateColumns: `repeat(${Math.min(waterGoal, 8)}, minmax(0, 1fr))` }}>
-              {Array.from({ length: waterGoal }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => changeWater(i < water ? i : i + 1)}
-                  className={`aspect-square rounded-lg flex items-center justify-center transition-colors ${i < water ? 'bg-blue-500' : 'bg-blue-100 dark:bg-blue-900/20'}`}
-                >
-                  <Droplets className={`w-4 h-4 ${i < water ? 'text-white' : 'text-blue-300'}`} />
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center justify-center gap-4">
-              <Button onClick={() => changeWater(water - 1)} variant="outline" size="sm" className="w-12 h-12 rounded-xl p-0" disabled={water === 0}>
-                <Minus className="w-5 h-5" />
-              </Button>
-              <Button onClick={() => changeWater(water + 1)} className="w-12 h-12 rounded-xl p-0 bg-blue-500 hover:bg-blue-600">
-                <Plus className="w-5 h-5" />
-              </Button>
-            </div>
-            {water >= waterGoal && (
-              <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center text-green-600 text-sm mt-4 flex items-center justify-center gap-2">
-                <Check className="w-4 h-4" /> ¡Objetivo de hidratación cumplido!
-              </motion.p>
-            )}
-          </Card>
-        </motion.div>
-
         {/* Weekly adherence */}
         {week.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
