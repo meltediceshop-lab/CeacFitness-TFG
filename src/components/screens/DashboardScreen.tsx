@@ -16,6 +16,7 @@ import { SparkLine } from '@/components/metrics/LineChart';
 import type { BodyMeasurementRecord, WeeklySession } from '@/types/user';
 
 import {
+  Ruler,
   Sparkles,
   Plus,
   MessageCircle,
@@ -158,7 +159,14 @@ function saveSessionLogs(userId: string, map: SessionLogsMap) {
 export function DashboardScreen() {
   const { user, setUser, setScreen, setSelectedWeeklySession, weekPlannerPending, generateNextWeekPreview, rebuildSession, startNewWeekWithPlan, loadWeekSessions, saveNextWeekPlan, supabaseUserId } = useApp();
   const [showMetricsModal, setShowMetricsModal] = useState(false);
-  const [dismissedMetricAlert, setDismissedMetricAlert] = useState(false);
+  // Al cerrar el aviso de medidas no vuelve a salir en 7 días.
+  const [dismissedMetricAlert, setDismissedMetricAlertState] = useState(() => {
+    try { return Date.now() - Number(localStorage.getItem('fitk-metrics-alert-dismissed') ?? 0) < 7 * 86400000; } catch { return false; }
+  });
+  const setDismissedMetricAlert = (v: boolean) => {
+    setDismissedMetricAlertState(v);
+    if (v) { try { localStorage.setItem('fitk-metrics-alert-dismissed', String(Date.now())); } catch { /* sin almacenamiento */ } }
+  };
   const [metricsHistory, setMetricsHistory] = useState<BodyMeasurementRecord[]>([]);
   const [sessionActionsMap, setSessionActionsMap] = useState<SessionActionsMap>({});
   const [activeSessionPopup, setActiveSessionPopup] = useState<SessionAction | null>(null);
@@ -413,8 +421,11 @@ export function DashboardScreen() {
     user.weeklySessions?.filter(s => s.status === 'completed').length || 0;
 
   const lastMeasurement = user.profile.measurementHistory?.slice(-1)[0];
+  // Última medida real: la del historial guardado (antes solo miraba la copia local).
+  const lastMeasuredAt = metricsHistory[0]?.recordedAt ?? lastMeasurement?.recordedAt;
+  const daysSinceMeasured = lastMeasuredAt ? Math.floor((Date.now() - new Date(lastMeasuredAt).getTime()) / 86400000) : null;
   const showMetricAlert = !dismissedMetricAlert && shouldShowMetricAlert(
-    lastMeasurement?.recordedAt,
+    lastMeasuredAt,
     user.profile.reminderFrequency ?? 'weekly',
     totalCompletedSessions,
   );
@@ -492,23 +503,25 @@ export function DashboardScreen() {
             exit={{ opacity: 0, y: -10 }}
             className="mx-4 mb-2"
           >
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-              <Bell className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-amber-800 text-sm font-medium">Revisión de métricas</p>
-                <p className="text-amber-700 text-xs mt-0.5">
-                  {lastMeasurement
-                    ? 'Tus métricas no están actualizadas. ¿Hacemos una revisión?'
-                    : 'Lleva un tiempo entrenando. ¿Quieres registrar tus medidas?'}
-                </p>
-                <button
-                  onClick={() => { setDismissedMetricAlert(true); setShowMetricsModal(true); }}
-                  className="mt-2 text-amber-700 text-xs font-semibold underline underline-offset-2"
-                >
-                  Registrar ahora →
-                </button>
+            <div className="glass-card rounded-2xl p-3 pl-3.5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                <Ruler className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <button onClick={() => setDismissedMetricAlert(true)} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-stone-900">Toca registrar tus medidas</p>
+                <p className="text-xs text-stone-500">
+                  {daysSinceMeasured !== null
+                    ? `Tu última medida fue hace ${daysSinceMeasured} ${daysSinceMeasured === 1 ? 'día' : 'días'}.`
+                    : 'Así verás cómo cambias además de cuánto pesas.'}
+                </p>
+              </div>
+              <button
+                onClick={() => { setDismissedMetricAlert(true); setShowMetricsModal(true); }}
+                className="h-8 px-3.5 rounded-full bg-emerald-500 text-white text-xs font-semibold flex-shrink-0"
+              >
+                Registrar
+              </button>
+              <button onClick={() => setDismissedMetricAlert(true)} aria-label="Cerrar aviso" className="w-7 h-7 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-600 flex-shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
