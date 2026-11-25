@@ -1651,6 +1651,9 @@ export function estimateSessionMinutes(session: WeeklySession): number {
  * trabajo. Poco tiempo: sesión esencial (MOTOR-ESSENTIAL-042).
  * Nunca muta el Plan Base: devuelve una copia (Session Instance).
  */
+/** Sesión mínima con energía muy baja: 2 ejercicios, 7 series (4 + 3). */
+export const VERY_LOW_MIN = { exercises: 2, leadSets: 4, otherSets: 3 } as const;
+
 export function adaptSessionForToday(session: WeeklySession, adapt: DailyAdapterInput): WeeklySession {
   let exercises = session.exercises.map(e => ({ ...e }));
 
@@ -1661,9 +1664,16 @@ export function adaptSessionForToday(session: WeeklySession, adapt: DailyAdapter
       return relaxRir(withSets(e, Math.max(r === 'secundario' ? 2 : 1, e.sets - 1), 'ENERGY_LOW_DOSE'));
     });
   } else if (adapt.energy === 'very-low') {
-    const kept = exercises.filter(e => isEssential(e) || roleOf(e) === 'secundario');
-    exercises = (kept.length ? kept : exercises.slice(0, 1))
-      .map(e => relaxRir(withSets(e, Math.max(isEssential(e) ? 2 : 1, e.sets - 1), 'ENERGY_VERY_LOW_ESSENTIAL')));
+    // Mínimo útil para entrenar (decisión de producto, 25/11/2026): 2 ejercicios
+    // y 7 series, el más importante con 4. Se quedan primero lo esencial y el
+    // trabajo principal, en el orden del plan.
+    const rank = (e: Exercise) => (isEssential(e) ? 0 : roleOf(e) === 'principal' ? 1 : roleOf(e) === 'secundario' ? 2 : 3);
+    const picked = exercises.map((e, i) => ({ e, i }))
+      .sort((a, b) => rank(a.e) - rank(b.e) || a.i - b.i)
+      .slice(0, VERY_LOW_MIN.exercises);
+    const lead = picked[0]?.i;
+    exercises = picked.sort((a, b) => a.i - b.i).map(({ e, i }) =>
+      relaxRir(withSets(e, i === lead ? VERY_LOW_MIN.leadSets : VERY_LOW_MIN.otherSets, 'ENERGY_VERY_LOW_ESSENTIAL')));
   } else if (adapt.energy === 'high') {
     exercises = exercises.map(e => ({ ...e, reasonCodes: [...(e.reasonCodes ?? []), 'ENERGY_HIGH_PLANNED_PROGRESSION'] }));
   }
@@ -1677,14 +1687,14 @@ export function adaptSessionForToday(session: WeeklySession, adapt: DailyAdapter
     ];
     // Primero bajar dosis de lo no esencial, luego quitarlo; lo esencial se queda.
     for (const match of order) {
-      for (let i = exercises.length - 1; i >= 0 && over(); i--) {
+      for (let i = exercises.length - 1; i >= 0 && over() && adapt.energy !== 'very-low'; i--) {
         if (match(exercises[i]) && exercises[i].sets > 2) exercises[i] = withSets(exercises[i], exercises[i].sets - 1, 'TIME_ESSENTIAL_DOSE');
       }
-      for (let i = exercises.length - 1; i >= 0 && over(); i--) {
+      for (let i = exercises.length - 1; i >= 0 && over() && exercises.length > VERY_LOW_MIN.exercises; i--) {
         if (match(exercises[i])) exercises.splice(i, 1);
       }
     }
-    for (let i = exercises.length - 1; i >= 0 && over(); i--) {
+    for (let i = exercises.length - 1; i >= 0 && over() && adapt.energy !== 'very-low'; i--) {
       if (exercises[i].sets > 2) exercises[i] = withSets(exercises[i], exercises[i].sets - 1, 'TIME_ESSENTIAL_DOSE');
     }
   }
