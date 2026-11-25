@@ -1,4 +1,4 @@
-import type { WeeklySession, WorkoutMode } from '@/types/user';
+import type { EnergyLevel, WeeklySession, WorkoutMode } from '@/types/user';
 
 /**
  * Entreno en curso guardado en el dispositivo: si se cierra la app a mitad
@@ -13,6 +13,7 @@ export interface ActiveWorkout {
   done?: string[];                       // ejercicios marcados como hechos (modo simple)
   sets?: Record<string, LoggedSet[]>;    // series registradas por ejercicio
   guided?: GuidedProgress;               // por dónde va el modo guiado
+  energy?: EnergyLevel | null;           // energía elegida antes de empezar (va al registro del entreno)
 }
 
 /** Progreso del modo guiado, para volver al mismo punto si la app se cierra. */
@@ -23,6 +24,7 @@ export interface GuidedProgress {
   logs: { exerciseId: string; setNumber: number; weight: number; reps: number }[];
   restEndsAt?: number;                   // epoch ms: el descanso sigue contando fuera de la app
   restTotal?: number;                    // segundos del descanso en curso
+  warmupPending?: boolean;               // aún en la pantalla de calentamiento
 }
 
 /** Serie registrada en el modo simple (texto tal cual se escribe en los campos). */
