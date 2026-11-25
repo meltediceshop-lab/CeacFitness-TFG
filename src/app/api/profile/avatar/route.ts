@@ -28,7 +28,8 @@ export async function POST(request: Request) {
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
 
   // Obtener URL pública
-  const { data: { publicUrl } } = admin.storage.from('avatars').getPublicUrl(path);
+  const { data: { publicUrl: baseUrl } } = admin.storage.from('avatars').getPublicUrl(path);
+  const publicUrl = `${baseUrl}?v=${Date.now()}`;
 
   // Guardar en la base de datos
   const { error: dbError } = await admin
