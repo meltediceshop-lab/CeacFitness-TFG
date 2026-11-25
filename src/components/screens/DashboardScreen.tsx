@@ -156,7 +156,7 @@ function saveSessionLogs(userId: string, map: SessionLogsMap) {
 }
 
 export function DashboardScreen() {
-  const { user, setUser, setScreen, setSelectedWeeklySession, weekPlannerPending, generateNextWeekPreview, startNewWeekWithPlan, loadWeekSessions, saveNextWeekPlan, supabaseUserId } = useApp();
+  const { user, setUser, setScreen, setSelectedWeeklySession, weekPlannerPending, generateNextWeekPreview, rebuildSession, startNewWeekWithPlan, loadWeekSessions, saveNextWeekPlan, supabaseUserId } = useApp();
   const [showMetricsModal, setShowMetricsModal] = useState(false);
   const [dismissedMetricAlert, setDismissedMetricAlert] = useState(false);
   const [metricsHistory, setMetricsHistory] = useState<BodyMeasurementRecord[]>([]);
@@ -1227,6 +1227,8 @@ export function DashboardScreen() {
           <WeekPlannerModal
             sessions={nextWeekPreview}
             weekNumber={user.currentWeek}
+            onChangeDays={days => generateNextWeekPreview(days)}
+            onRebuild={(session, minutes, days) => rebuildSession(session, minutes, days)}
             onConfirm={async sessions => {
               if (planningAhead) {
                 const ok = await saveNextWeekPlan(sessions);

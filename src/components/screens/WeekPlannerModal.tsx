@@ -3,19 +3,16 @@
 import { defaultDay } from '@/lib/weekCalendar';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, Pencil, Check, Bell } from 'lucide-react';
+import { X, Check, Bell, Minus, Plus } from 'lucide-react';
 import { useScrollLock } from '@/hooks/useScrollLock';
+import { TimePicker } from '@/components/ui/TimePicker';
 import type { WeeklySession } from '@/types/user';
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const DAY_FULL  = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const DURATION_OPTIONS = [20, 30, 45, 60, 75, 90];
-
-const SESSION_NAMES = [
-  'Full Body', 'Tren Superior', 'Tren Inferior',
-  'Cardio + Core', 'Movilidad', 'Hipertrofia',
-  'Fuerza', 'HIIT',
-];
+const DURATION_OPTIONS = [20, 30, 40, 45, 60, 75, 90];
+const MIN_DAYS = 1;
+const MAX_DAYS = 6;
 
 // Calcula la fecha del lunes de la semana que viene
 function getNextMonday(): Date {
@@ -41,9 +38,13 @@ interface Props {
   weekNumber: number;
   onConfirm: (sessions: WeeklySession[]) => void;
   onClose: () => void;
+  /** El Motor rehace la semana con otro número de días. */
+  onChangeDays?: (days: number) => WeeklySession[];
+  /** El Motor rehace una sesión para otro tiempo. */
+  onRebuild?: (session: WeeklySession, minutes: number, days: number) => WeeklySession;
 }
 
-export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConfirm, onClose }: Props) {
+export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConfirm, onClose, onChangeDays, onRebuild }: Props) {
   useScrollLock();
 
   const nextMonday = getNextMonday();
@@ -56,8 +57,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
       dayOfWeek: s.dayOfWeek ?? defaultDay(i, initialSessions.length), // reparto por defecto
     }))
   );
-  const [editingId, setEditingId]       = useState<string | null>(null);
-  const [editName, setEditName]         = useState('');
+  const [days, setDays] = useState(initialSessions.length);
   const [movingId, setMovingId]         = useState<string | null>(null);
   const [notifRequested, setNotifRequested] = useState(false);
 
@@ -76,16 +76,6 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
     }
   }
 
-  function startEdit(session: WeeklySession) {
-    setEditingId(session.id);
-    setEditName(session.name);
-  }
-
-  function saveEdit(id: string) {
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, name: editName } : s));
-    setEditingId(null);
-  }
-
   function changeDay(sessionId: string, day: number) {
     // Si otro entreno ya está en ese día, intercambiar
     setSessions(prev => {
@@ -101,7 +91,17 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
   }
 
   function changeDuration(id: string, duration: number) {
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, duration } : s));
+    setSessions(prev => prev.map(s => (s.id !== id ? s : onRebuild ? onRebuild(s, duration, days) : { ...s, duration })));
+  }
+
+  // Añadir o quitar un entreno: el Motor rehace la semana con esos días.
+  function changeDays(next: number) {
+    if (!onChangeDays || next < MIN_DAYS || next > MAX_DAYS) return;
+    const generated = onChangeDays(next);
+    if (!generated.length) return;
+    setDays(next);
+    setMovingId(null);
+    setSessions(generated.map((s, i) => ({ ...s, dayOfWeek: s.dayOfWeek ?? defaultDay(i, generated.length) })));
   }
 
   const sortedSessions = [...sessions].sort((a, b) => (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0));
@@ -111,14 +111,14 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/70 z-[90] flex flex-col"
+      className="fixed inset-0 bg-black/40 z-[90] flex flex-col"
     >
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl flex flex-col"
+        className="absolute inset-x-0 bottom-0 glass-modal rounded-t-3xl flex flex-col"
         style={{ maxHeight: '92vh' }}
       >
         {/* ── Header ── */}
@@ -140,6 +140,27 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
             </button>
           </div>
         </div>
+
+        {/* ── Días de entreno esta semana ── */}
+        {onChangeDays && (
+          <div className="px-5 pt-4 flex items-center justify-between gap-3 flex-shrink-0">
+            <div>
+              <p className="text-sm font-semibold text-stone-900">Días de entreno</p>
+              <p className="text-xs text-stone-500">Añade o quita un entreno solo para esta semana.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" aria-label="Quitar un entreno" disabled={days <= MIN_DAYS} onClick={() => changeDays(days - 1)}
+                className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center disabled:opacity-30">
+                <Minus className="w-4 h-4 text-stone-700" />
+              </button>
+              <span className="w-8 text-center text-lg font-semibold text-stone-900 tabular-nums">{days}</span>
+              <button type="button" aria-label="Añadir un entreno" disabled={days >= MAX_DAYS} onClick={() => changeDays(days + 1)}
+                className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center disabled:opacity-30">
+                <Plus className="w-4 h-4 text-stone-700" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Calendario visual Mon–Dom ── */}
         <div className="px-5 pt-4 pb-2 flex-shrink-0">
@@ -212,49 +233,19 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
                   </span>
                 </button>
 
-                {/* Nombre editable */}
+                {/* Nombre: lo pone el Motor según el tipo de sesión */}
                 <div className="flex-1 min-w-0">
-                  {editingId === session.id ? (
-                    <div className="flex gap-2 items-center">
-                      <select
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        className="flex-1 border border-stone-200 rounded-xl px-2 py-1.5 text-sm text-stone-900 focus:outline-none focus:border-emerald-400"
-                      >
-                        {SESSION_NAMES.map(n => (
-                          <option key={n} value={n}>{n}</option>
-                        ))}
-                        <option value={editName}>{editName}</option>
-                      </select>
-                      <button
-                        onClick={() => saveEdit(session.id)}
-                        className="p-1.5 rounded-xl bg-emerald-500 text-white"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-stone-900 text-sm truncate">{session.name}</p>
-                      <button onClick={() => startEdit(session)} className="text-stone-400 hover:text-stone-600 flex-shrink-0">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
+                  <p className="font-semibold text-stone-900 text-sm truncate">{session.name}</p>
                   <p className="text-stone-400 text-xs mt-0.5">{session.targetMuscles}</p>
                 </div>
 
                 {/* Duración */}
                 <div className="flex-shrink-0">
-                  <select
+                  <TimePicker
                     value={session.duration}
-                    onChange={e => changeDuration(session.id, Number(e.target.value))}
-                    className="border border-stone-200 rounded-xl px-2 py-1.5 text-xs text-stone-700 focus:outline-none focus:border-emerald-400 bg-white"
-                  >
-                    {DURATION_OPTIONS.map(d => (
-                      <option key={d} value={d}>{d} min</option>
-                    ))}
-                  </select>
+                    options={DURATION_OPTIONS}
+                    onChange={m => changeDuration(session.id, m)}
+                  />
                 </div>
               </div>
 
