@@ -553,28 +553,6 @@ export function DashboardScreen() {
           <WelcomeGuideAccess />
         </div>
 
-        <Card className="p-5 glass-card border-0 rounded-2xl">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-stone-500 text-sm">Tu semana</p>
-              <p className="text-3xl font-bold text-stone-900">{progressData.percentage}%</p>
-            </div>
-            <div className="w-14 h-14 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <span className="text-xl font-bold text-emerald-600">
-                {progressData.completedSessions}/{progressData.totalSessions}
-              </span>
-            </div>
-          </div>
-          <div className="h-3 bg-stone-100 rounded-full overflow-hidden mb-3">
-            <motion.div
-              className="h-full bg-emerald-500 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progressData.percentage}%` }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-            />
-          </div>
-          <p className="text-stone-400 text-sm">{getProgressMessage()}</p>
-        </Card>
       </motion.div>
 
       {/* Session List */}
@@ -627,6 +605,24 @@ export function DashboardScreen() {
               );
             })}
           </div>
+          {weekOffset === 0 && progressData.totalSessions > 0 && (
+            <div className="mt-2 px-1.5 pb-1 space-y-1">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-1.5 bg-[rgba(118,118,128,0.14)] rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-emerald-500 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(progressData.completedSessions / progressData.totalSessions) * 100}%` }}
+                    transition={{ duration: 0.8, delay: 0.2 }}
+                  />
+                </div>
+                <span className="text-xs font-semibold text-stone-700 tabular-nums">
+                  {progressData.completedSessions} de {progressData.totalSessions} hechas
+                </span>
+              </div>
+              <p className="text-xs text-stone-500">{getProgressMessage()}</p>
+            </div>
+          )}
         </Card>
 
         {weekOffset > 0 && (
@@ -876,9 +872,20 @@ export function DashboardScreen() {
           <MetricsModal
             gender={user.profile.biologicalProfile === 'female' ? 'female' : 'male'}
             currentWeight={user.profile.weight}
+            height={user.profile.height}
             lastRecord={metricsHistory[0] ?? lastMeasurement ?? null}
             history={metricsHistory}
             onSave={({ weight, record }) => {
+              // Se guarda en la base de datos (antes solo quedaba en memoria y se perdía).
+              setMetricsHistory(prev => [record, ...prev]);
+              fetch('/api/metrics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...record, recordedAt: new Date().toISOString().slice(0, 10) }),
+              })
+                .then(r => (r.ok ? r.json() : null))
+                .then(json => { if (json?.data?.id) setMetricsHistory(prev => prev.map(m => (m === record ? { ...m, id: json.data.id } : m))); })
+                .catch(() => {});
               const history = [...(user.profile.measurementHistory ?? []), record];
               setUser({
                 ...user,
