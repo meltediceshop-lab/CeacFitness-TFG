@@ -29,7 +29,7 @@ export function ReviewBanner() {
       onClick={() => setScreen('review')}
       className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl glass-modal border border-emerald-200/60 dark:border-emerald-500/20 mb-4 text-left active:scale-[0.98] transition-transform"
     >
-      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
+      <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
         <ClipboardCheck className="w-5 h-5 text-white" />
       </div>
       <div className="flex-1 min-w-0">

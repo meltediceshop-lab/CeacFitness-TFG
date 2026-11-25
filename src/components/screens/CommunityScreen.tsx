@@ -385,7 +385,7 @@ function StoriesStrip({ posts, currentUserId, userName, onCreateNote, onScrollTo
           <div key={post.userId} className="flex flex-col items-center gap-1.5 flex-shrink-0">
             <button
               onClick={() => onScrollToPost(post.id)}
-              className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center p-0.5 ${isNew ? 'shadow-lg shadow-emerald-200 dark:shadow-emerald-900' : ''}`}
+              className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center p-0.5 ${isNew ? 'shadow-sm dark:shadow-emerald-900' : ''}`}
             >
               <div className="w-full h-full rounded-[14px] bg-white dark:bg-zinc-900 flex items-center justify-center overflow-hidden">
                 {post.avatarUrl
@@ -1509,7 +1509,7 @@ export function CommunityScreen() {
 
         {/* Theme of the day */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <div className="rounded-2xl p-4 bg-gradient-to-br from-emerald-500 to-teal-600 text-white relative overflow-hidden">
+          <div className="rounded-2xl p-4 bg-emerald-500 text-white relative overflow-hidden">
             <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10" />
             <div className="relative">
               <div className="flex items-center gap-2 mb-1">
@@ -1601,7 +1601,7 @@ export function CommunityScreen() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-16 px-6"
           >
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-8 h-8 text-white" />
             </div>
             <h3 className="font-bold text-stone-900 text-lg mb-2">Nada por aquí todavía</h3>

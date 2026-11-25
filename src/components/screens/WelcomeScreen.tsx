@@ -17,7 +17,7 @@ export function WelcomeScreen() {
       >
         {/* Logo / Brand */}
         <div className="space-y-2">
-          <div className="w-20 h-20 mx-auto rounded-3xl bg-white shadow-lg shadow-emerald-200 p-2.5">
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-white shadow-sm p-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon.svg" alt="Fit K" className="w-full h-full object-contain" />
           </div>
@@ -31,7 +31,7 @@ export function WelcomeScreen() {
           <h2 className="text-3xl md:text-4xl font-bold text-stone-900 leading-tight">
             Entrena tu cuerpo.
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">
+            <span className="text-transparent bg-clip-text bg-emerald-500">
               Cuida tu cabeza.
             </span>
           </h2>
@@ -55,7 +55,7 @@ export function WelcomeScreen() {
         >
           <Button
             onClick={() => setScreen('onboarding-level')}
-            className="w-full py-6 text-lg font-medium bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-2xl shadow-lg shadow-emerald-200 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-300"
+            className="w-full py-6 text-lg font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-emerald-300"
           >
             Empezamos
           </Button>

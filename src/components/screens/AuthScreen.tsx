@@ -43,7 +43,7 @@ export function AuthScreen() {
       >
         {/* Logo */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-white shadow-lg shadow-emerald-200 p-2">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-white shadow-sm p-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon.svg" alt="Fit K" className="w-full h-full object-contain" />
           </div>
@@ -109,7 +109,7 @@ export function AuthScreen() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full py-6 text-base font-medium bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-2xl shadow-lg shadow-emerald-200 transition-all duration-300 disabled:opacity-60"
+              className="w-full py-6 text-base font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl shadow-sm transition-all duration-300 disabled:opacity-60"
             >
               {loading
                 ? 'Un momento...'

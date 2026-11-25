@@ -137,7 +137,7 @@ export function ReviewScreen() {
       onClick={onClick}
       className={`w-full px-5 py-4 rounded-2xl text-left font-medium transition-all ${
         selected
-          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+          ? 'bg-emerald-500 text-white shadow-sm'
           : 'glass-card text-stone-800 dark:text-stone-100 hover:ring-1 hover:ring-emerald-400/40'
       }`}
     >
@@ -159,7 +159,7 @@ export function ReviewScreen() {
           {phase !== 'intro' && phase !== 'result' && phase !== 'submitting' && (
             <div className="h-1.5 bg-stone-200 dark:bg-stone-700 rounded-full mt-2 overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full"
+                className="h-full bg-emerald-500 rounded-full"
                 animate={{ width: `${(currentStep / totalSteps) * 100}%` }}
               />
             </div>
@@ -173,13 +173,13 @@ export function ReviewScreen() {
           {/* ── Intro ── */}
           {phase === 'intro' && (
             <motion.div key="intro" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} className="flex flex-col items-center text-center pt-10">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mb-6 shadow-lg shadow-emerald-200">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center mb-6 shadow-sm">
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
               <p className="text-stone-700 dark:text-stone-200 leading-relaxed max-w-sm mb-8">
                 Llevamos varias semanas entrenando juntos. Me gustaría hacer una pequeña revisión para comprobar cómo estás y asegurarme de que el plan sigue siendo el adecuado para ti. Solo tardaremos un par de minutos.
               </p>
-              <Button onClick={() => setPhase('goal')} className="w-full max-w-sm py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-base font-semibold shadow-lg shadow-emerald-200">
+              <Button onClick={() => setPhase('goal')} className="w-full max-w-sm py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-base font-semibold shadow-sm">
                 Empezar
               </Button>
               <button onClick={() => setScreen('dashboard')} className="mt-4 text-stone-400 text-sm">Ahora no</button>
@@ -343,7 +343,7 @@ export function ReviewScreen() {
           {phase === 'result' && result && (
             <motion.div key="result" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="pt-2">
               <div className="text-center mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-200">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center mx-auto mb-3 shadow-sm">
                   <TrendingUp className="w-7 h-7 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-stone-900">Tu evolución</h2>
@@ -381,7 +381,7 @@ export function ReviewScreen() {
               {/* Mensaje del Coach */}
               <div className="glass-modal rounded-2xl p-5 mb-6 border border-emerald-200/50 dark:border-emerald-500/20">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
                     <Sparkles className="w-4 h-4 text-white" />
                   </div>
                   <p className="text-stone-700 dark:text-stone-200 text-sm leading-relaxed">
@@ -391,7 +391,7 @@ export function ReviewScreen() {
               </div>
 
               <Button onClick={() => setScreen('dashboard')}
-                className="w-full py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-base font-semibold shadow-lg shadow-emerald-200">
+                className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-base font-semibold shadow-sm">
                 Volver al inicio
               </Button>
             </motion.div>

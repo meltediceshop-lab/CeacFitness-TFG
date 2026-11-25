@@ -144,7 +144,7 @@ export function ProfileScreen() {
 
         <Card className="glass-card p-5 border-0 rounded-2xl">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-2xl flex items-center justify-center">
+            <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center">
               <span className="text-2xl font-bold text-white">{user.profile.name?.charAt(0).toUpperCase()}</span>
             </div>
             <div>

@@ -64,7 +64,7 @@ export function CoachCardModal({ weekNumber }: { weekNumber: number }) {
             </button>
 
             <div className="flex items-start gap-3 pr-6">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0 shadow-sm">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
 
@@ -72,7 +72,7 @@ export function CoachCardModal({ weekNumber }: { weekNumber: number }) {
                 {pending === 'first_week' ? (
                   <>
                     <div className="mb-4"><FitKPhilosophyContent /></div>
-                    <Button onClick={dismiss} className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-sm font-semibold">
+                    <Button onClick={dismiss} className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-sm font-semibold">
                       Empezar mi primera semana
                     </Button>
                   </>
@@ -82,7 +82,7 @@ export function CoachCardModal({ weekNumber }: { weekNumber: number }) {
                     <p className="text-stone-500 dark:text-stone-400 text-sm leading-relaxed mb-4">
                       Seguimos construyendo sobre lo que ya has conseguido.
                     </p>
-                    <Button onClick={dismiss} className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-sm font-semibold">
+                    <Button onClick={dismiss} className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-sm font-semibold">
                       Tu Plan
                     </Button>
                   </>

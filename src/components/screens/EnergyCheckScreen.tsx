@@ -155,7 +155,7 @@ export function EnergyCheckScreen() {
                     onClick={() => handleEnergySelect(option.id)}
                     className={`p-4 cursor-pointer border-2 transition-all rounded-2xl ${
                       isSelected
-                        ? 'glass-card bg-emerald-50 border-emerald-400 shadow-lg shadow-emerald-200'
+                        ? 'glass-card bg-emerald-50 border-emerald-400 shadow-sm'
                         : 'glass-card border-transparent hover:border-stone-200'
                     }`}
                   >

@@ -784,7 +784,7 @@ export function WorkoutScreen() {
           <div className="flex items-center gap-3">
             <div className="flex-1 h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full"
+                className="h-full bg-emerald-500 rounded-full"
                 animate={{ width: `${exercises.length ? (exercises.filter(e => simpleDone.has(e.id)).length / exercises.length) * 100 : 0}%` }}
                 transition={{ duration: 0.3 }}
               />
@@ -895,7 +895,7 @@ export function WorkoutScreen() {
         </div>
 
         <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-stone-100 via-stone-100 to-transparent">
-          <Button onClick={() => handleSimpleModeComplete()} className="w-full py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200">
+          <Button onClick={() => handleSimpleModeComplete()} className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm">
             <Check className="w-5 h-5 mr-2" />
             Terminar entreno
           </Button>
@@ -1011,7 +1011,7 @@ export function WorkoutScreen() {
             </li>
           ))}
         </ul>
-        <Button onClick={() => setShowGuidedWarmup(false)} className="w-full max-w-sm py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200">
+        <Button onClick={() => setShowGuidedWarmup(false)} className="w-full max-w-sm py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm">
           Continuar al entreno
         </Button>
         <button onClick={confirmExit} className="mt-4 text-stone-400 text-sm">Cancelar</button>
@@ -1198,7 +1198,7 @@ export function WorkoutScreen() {
               </div>
 
               <div className="mt-auto pb-6">
-                <Button onClick={handleCompleteSet} className="w-full py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-200">
+                <Button onClick={handleCompleteSet} className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm">
                   <Check className="w-5 h-5 mr-2" />
                   Serie completada
                 </Button>

@@ -133,7 +133,7 @@ export function ProfileSetupScreen() {
         <div className="flex-1">
           <div className="h-1.5 bg-stone-200 rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full"
+              className="h-full bg-emerald-500 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
@@ -186,7 +186,7 @@ export function ProfileSetupScreen() {
                       onClick={() => setBiologicalProfile('male')}
                       className={`flex-1 py-4 rounded-xl font-medium transition-all ${
                         biologicalProfile === 'male'
-                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                          ? 'bg-emerald-500 text-white shadow-sm'
                           : 'bg-white text-stone-600 hover:bg-stone-100'
                       }`}
                     >
@@ -196,7 +196,7 @@ export function ProfileSetupScreen() {
                       onClick={() => setBiologicalProfile('female')}
                       className={`flex-1 py-4 rounded-xl font-medium transition-all ${
                         biologicalProfile === 'female'
-                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                          ? 'bg-emerald-500 text-white shadow-sm'
                           : 'bg-white text-stone-600 hover:bg-stone-100'
                       }`}
                     >
@@ -241,7 +241,7 @@ export function ProfileSetupScreen() {
                         onClick={() => setAgeRange(range.id)}
                         className={`px-4 py-3 rounded-xl font-medium transition-all ${
                           ageRange === range.id
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                            ? 'bg-emerald-500 text-white shadow-sm'
                             : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
                         }`}
                       >
@@ -308,7 +308,7 @@ export function ProfileSetupScreen() {
                         onClick={() => setSportsDays(n.toString())}
                         className={`w-12 h-12 rounded-xl font-medium transition-all ${
                           sportsDays === n.toString()
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                            ? 'bg-emerald-500 text-white shadow-sm'
                             : 'bg-white text-stone-600 hover:bg-stone-100'
                         }`}
                       >
@@ -419,7 +419,7 @@ export function ProfileSetupScreen() {
 
               <Button
                 onClick={handleComplete}
-                className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-200 mt-4"
+                className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm mt-4"
               >
                 Completar perfil
               </Button>
