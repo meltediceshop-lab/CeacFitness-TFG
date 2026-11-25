@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, X } from 'lucide-react';
+import { Minus, Plus, Sparkles, X } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
@@ -10,6 +10,14 @@ import { ExercisePickerModal } from '@/components/workout/ExercisePickerModal';
 import { formatRepLine } from '@/lib/exerciseFormat';
 import { estimateSessionMinutes } from '@/lib/fitkMotor';
 import type { Exercise } from '@/types/user';
+
+const TUTORIAL_KEY = 'fitk-free-workout-tutorial-seen';
+
+const TUTORIAL_STEPS = [
+  { title: 'Eliges tú los ejercicios', text: 'Búscalos por nombre o filtra por grupo muscular.' },
+  { title: 'Ajusta las series', text: 'Sube o baja las series de cada ejercicio con − y +.' },
+  { title: 'Crea la sesión de hoy', text: 'Aparece en tu calendario y la entrenas como cualquier otra: con descansos y registro de pesos.' },
+];
 
 const MIN_SETS = 1;
 const MAX_SETS = 8;
@@ -28,6 +36,16 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
   const { getExerciseCatalog, addFreeSession, setSelectedWeeklySession, setScreen } = useApp();
   const [chosen, setChosen] = useState<Exercise[]>([]);
   const [picking, setPicking] = useState(false);
+  // La primera vez que se abre, el Coach explica para qué sirve este modo.
+  const [tutorial, setTutorial] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    try { setTutorial(localStorage.getItem(TUTORIAL_KEY) !== '1'); } catch { setTutorial(false); }
+  }, [open]);
+  const finishTutorial = () => {
+    try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* sin almacenamiento */ }
+    setTutorial(false);
+  };
 
   const catalog = useMemo(
     () => (open ? getExerciseCatalog().filter(e => e.libraryId && !chosen.some(c => c.id === e.id)) : []),
@@ -81,6 +99,39 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                 </div>
               </div>
 
+              {tutorial ? (
+                <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="rounded-2xl rounded-tl-md bg-emerald-50 px-4 py-3">
+                      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-0.5">Coach</p>
+                      <p className="text-sm text-stone-800 leading-relaxed">
+                        Este modo es para los días en que quieres entrenar a tu manera, fuera de tu plan. Tu semana no cambia: solo se añade esta sesión.
+                      </p>
+                    </div>
+                  </div>
+                  <ol className="space-y-2.5">
+                    {TUTORIAL_STEPS.map((step, i) => (
+                      <motion.li
+                        key={step.title}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15 + i * 0.12 }}
+                        className="flex items-start gap-3"
+                      >
+                        <span className="w-6 h-6 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-700 text-xs font-semibold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                        <div>
+                          <p className="text-sm font-semibold text-stone-900">{step.title}</p>
+                          <p className="text-sm text-stone-500">{step.text}</p>
+                        </div>
+                      </motion.li>
+                    ))}
+                  </ol>
+                  <Button onClick={finishTutorial} className="w-full h-12 rounded-2xl text-base">Entendido, vamos</Button>
+                </div>
+              ) : (<>
               <div className="flex-1 overflow-y-auto no-scrollbar px-5 space-y-2">
                 {chosen.map((e, i) => (
                   <div key={e.id} className="flex items-center gap-3 rounded-2xl bg-white/70 dark:bg-white/5 border border-stone-200/70 dark:border-white/10 p-2.5">
@@ -140,6 +191,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                   Crear sesión de hoy
                 </Button>
               </div>
+              </>)}
             </motion.div>
           </motion.div>
         )}
