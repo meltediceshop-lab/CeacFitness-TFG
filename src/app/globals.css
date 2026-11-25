@@ -33,16 +33,22 @@
 
   :root {
     --app-bg: #f5f6f4;
+    /* El borde superior es del mismo color que la barra de estado (theme-color):
+       así no se ve corte; el brillo verde empieza un poco más abajo. */
+    --app-top: #eaf3ef;
     --app-glow:
-      radial-gradient(120% 60% at 0% 0%, rgba(16, 185, 129, 0.10) 0%, transparent 55%),
-      radial-gradient(90% 50% at 100% 0%, rgba(20, 184, 166, 0.06) 0%, transparent 50%);
+      linear-gradient(to bottom, var(--app-top) 0px, rgba(234, 243, 239, 0) 280px),
+      radial-gradient(120% 60% at 0% 12%, rgba(16, 185, 129, 0.08) 0%, transparent 55%),
+      radial-gradient(90% 50% at 100% 8%, rgba(20, 184, 166, 0.05) 0%, transparent 50%);
   }
 
   .dark {
     --app-bg: #000000;
+    --app-top: #000000;
     --app-glow:
-      radial-gradient(120% 60% at 0% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 55%),
-      radial-gradient(90% 50% at 100% 0%, rgba(20, 184, 166, 0.06) 0%, transparent 50%);
+      linear-gradient(to bottom, var(--app-top) 0px, rgba(0, 0, 0, 0) 240px),
+      radial-gradient(120% 60% at 0% 12%, rgba(16, 185, 129, 0.11) 0%, transparent 55%),
+      radial-gradient(90% 50% at 100% 8%, rgba(20, 184, 166, 0.05) 0%, transparent 50%);
     --background: 20 14.3% 4.1%;
     --foreground: 0 0% 95%;
     --card: 24 9.8% 10%;
