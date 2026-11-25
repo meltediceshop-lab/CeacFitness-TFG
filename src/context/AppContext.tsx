@@ -8,6 +8,7 @@ import { buildMotorWorkout, buildOutdoorSession } from '@/lib/coachMotor';
 import { reassignDays } from '@/lib/weekCalendar';
 import { canonicalExerciseId, estimateSessionMinutes, sessionForMinutes, generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import type {
+  WorkoutDuration,
   User,
   AppScreen,
   UserLevel,
@@ -412,7 +413,9 @@ interface AppContextType {
   getExerciseByName: (name: string) => Exercise | undefined;
   getExerciseCatalog: () => Exercise[];
   updateSessionExercises: (sessionId: string, exercises: Exercise[]) => void;
-  updateAvatar: (file: File) => Promise<void>;
+  updateAvatar: (file: File) => Promise<boolean>;
+  /** Ajustes del entrenamiento desde el perfil (se aplican desde la próxima semana). */
+  updateTrainingPrefs: (prefs: { daysPerWeek?: number; workoutDuration?: WorkoutDuration }) => void;
   resetApp: () => void;
   seedDemoWeeks: () => void;
 }
@@ -1386,14 +1389,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setScreen('auth');
   };
 
-  async function updateAvatar(file: File) {
-    if (!user) return;
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.url) {
+  async function updateAvatar(file: File): Promise<boolean> {
+    if (!user) return false;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!data.url) return false;
       setUser({ ...user, profile: { ...user.profile, avatarUrl: data.url } });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function updateTrainingPrefs(prefs: { daysPerWeek?: number; workoutDuration?: WorkoutDuration }) {
+    if (!user) return;
+    setUser({ ...user, onboarding: { ...user.onboarding, ...prefs } as User['onboarding'] });
+    if (supabaseUserId) {
+      fetch('/api/onboarding', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days_per_week: prefs.daysPerWeek, workout_duration: prefs.workoutDuration }),
+      }).catch(() => {});
     }
   }
 
@@ -1454,6 +1473,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getExerciseCatalog,
         updateSessionExercises,
         updateAvatar,
+        updateTrainingPrefs,
         resetApp,
         seedDemoWeeks,
       }}

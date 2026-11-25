@@ -55,6 +55,23 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true });
 }
 
+// PATCH → ajustes del entrenamiento desde el perfil: días por semana y duración habitual.
+export async function PATCH(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  const body = await request.json();
+  const update: Record<string, unknown> = {};
+  if (Number.isInteger(body.days_per_week) && body.days_per_week >= 1 && body.days_per_week <= 6) update.days_per_week = body.days_per_week;
+  if (['30min', '40min', '45min', '1hour'].includes(body.workout_duration)) update.workout_duration = body.workout_duration;
+  if (!Object.keys(update).length) return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
+
+  const { error } = await supabase.from('user_onboarding').update(update).eq('user_id', user.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
