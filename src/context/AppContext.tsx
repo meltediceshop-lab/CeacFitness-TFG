@@ -3,7 +3,7 @@
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { loadActiveWorkout, clearActiveWorkout } from '@/lib/activeWorkout';
+import { planSessionId, resumableWorkout } from '@/lib/activeWorkout';
 import { canonicalExerciseId, generatePlan, generatePlanOptions, planOptionCount, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import type {
   User,
@@ -659,15 +659,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setUser(restoredUser);
 
         // Si se cerró la app a mitad de entreno, se vuelve a él (el reloj sigue contando).
-        const active = loadActiveWorkout();
-        const activeBase = active && weeklySessions.find(s => s.id === active.session.id);
-        if (active && activeBase && activeBase.status !== 'completed') {
+        const active = resumableWorkout(weeklySessions);
+        if (active) {
           setSelectedWeeklySession(active.session);
           setWorkoutMode(active.mode);
           setIncludeWarmup(active.includeWarmup);
+          setTodayEnergy(active.energy ?? null);
           setScreen('workout');
         } else {
-          if (active) clearActiveWorkout();
           setScreen('dashboard');
         }
       } else {
@@ -897,7 +896,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             mode: workoutMode,
             // Ejercicios realmente presentados hoy (Session Instance ya
             // adaptada por energía en EnergyCheckScreen, si aplicó).
-            sessionInstance: sessionInstance ?? (selectedWeeklySession?.id === sessionId ? selectedWeeklySession.exercises : undefined),
+            sessionInstance: sessionInstance ?? (selectedWeeklySession && planSessionId(selectedWeeklySession) === sessionId ? selectedWeeklySession.exercises : undefined),
           }),
         })
           .then(res => res.json())
