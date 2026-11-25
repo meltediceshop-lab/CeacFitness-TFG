@@ -37,7 +37,7 @@ export default function RootLayout({
     <html lang="es" className={`${inter.variable} ${geistMono.variable}`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#f5f6f4" />
+        <meta name="theme-color" content="#eaf3ef" />
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body suppressHydrationWarning className="antialiased">

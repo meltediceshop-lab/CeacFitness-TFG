@@ -301,6 +301,11 @@ function generateWeeklySessions(
   });
 }
 
+// Color de la barra de estado del navegador según el tema (en claro, el tono del fondo).
+function setStatusBarColor(dark: boolean) {
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#000000' : '#eaf3ef');
+}
+
 // Extrae los datos personales del usuario actual para el Motor
 function motorInputFromUser(u: User): Partial<MotorInput> {
   const ob = u.onboarding as Partial<BeginnerOnboarding & AdvancedOnboarding>;
@@ -445,12 +450,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const dark = saved === 'true';
     setIsDark(dark);
     document.documentElement.classList.toggle('dark', dark);
+    setStatusBarColor(dark);
   }, []);
 
   function toggleDarkMode() {
     setIsDark(prev => {
       const next = !prev;
       document.documentElement.classList.toggle('dark', next);
+      setStatusBarColor(next);
       localStorage.setItem('fitmente-dark-mode', String(next));
       return next;
     });
