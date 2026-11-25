@@ -10,9 +10,19 @@ export async function POST(request: Request) {
   const { level, profile, ...onboardingData } = body;
 
   // Guardar preferencias de onboarding
-  const { error: onboardingError } = await supabase
+  let { error: onboardingError } = await supabase
     .from('user_onboarding')
     .upsert({ user_id: user.id, level, ...onboardingData });
+
+  // 40 minutos necesita scripts/setup-duracion-40.sql. Sin esa migración la
+  // base de datos rechaza el valor: se guarda con 45 para no perder el
+  // onboarding y se avisa en el registro del servidor.
+  if (onboardingError && onboardingData.workout_duration === '40min' && onboardingError.message.includes('workout_duration')) {
+    console.warn('[onboarding] 40min no admitido (¿falta la migración setup-duracion-40.sql?): se guarda 45min');
+    ({ error: onboardingError } = await supabase
+      .from('user_onboarding')
+      .upsert({ user_id: user.id, level, ...onboardingData, workout_duration: '45min' }));
+  }
 
   if (onboardingError) {
     return NextResponse.json({ error: onboardingError.message }, { status: 500 });

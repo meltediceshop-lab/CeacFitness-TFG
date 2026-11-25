@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
-import { formatRepTarget, formatRepLine } from '@/lib/exerciseFormat';
+import { formatRepLine, formatRest } from '@/lib/exerciseFormat';
+import { ExerciseDetailSheet } from '@/components/workout/ExerciseDetailSheet';
+import { MuscleTags } from '@/components/workout/ExerciseBits';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,6 +26,7 @@ import {
   ClipboardList,
   Plus,
   Minus,
+  Repeat,
 } from 'lucide-react';
 import type { Exercise, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
@@ -33,7 +36,8 @@ import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { handleDiscomfort } from '@/lib/fitkSafety';
-import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
+import { resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
+import { nextGuidedStep, supersetPartner } from '@/lib/workoutFlow';
 import { clearActiveWorkout, elapsedSince, loadActiveWorkout, planSessionId, saveActiveWorkout, secondsUntil, type LoggedSet } from '@/lib/activeWorkout';
 
 interface ExerciseLog {
@@ -438,13 +442,12 @@ export function WorkoutScreen() {
       return;
     }
 
-    if (currentSetIndex < currentExercise.sets - 1) {
-      setCurrentSetIndex(currentSetIndex + 1);
-      startRestTimer(currentExercise.restSeconds);
-    } else if (currentExerciseIndex < exercises.length - 1) {
-      setCurrentExerciseIndex(currentExerciseIndex + 1);
-      setCurrentSetIndex(0);
-      startRestTimer(90);
+    // Siguiente serie; en una biserie se alterna sin descanso entre los dos ejercicios.
+    const next = nextGuidedStep(exercises, currentExerciseIndex, currentSetIndex);
+    if (next) {
+      setCurrentExerciseIndex(next.exerciseIndex);
+      setCurrentSetIndex(next.setIndex);
+      if (next.rest > 0) startRestTimer(next.rest);
     } else {
       // Final de la sesión con series sin hacer (molestias o saltadas con "Siguiente").
       setShowGuidedFinish(true);
@@ -599,129 +602,13 @@ export function WorkoutScreen() {
 
   // COMPONENTE: Modal de Detalles del Ejercicio (Reutilizable en ambos modos)
   const ExerciseDetailModal = (
-    <AnimatePresence>
-      {showExerciseDetail && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]"
-          onClick={() => setShowExerciseDetail(null)}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="glass-modal rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Preview animado del ejercicio */}
-            <div className="relative h-52">
-              <ExercisePreview
-                name={showExerciseDetail.name}
-                muscle={showExerciseDetail.targetMuscle}
-                className="w-full h-52"
-                rounded="rounded-t-3xl"
-              />
-              <button
-                onClick={() => setShowExerciseDetail(null)}
-                className="absolute top-4 right-4 p-2 rounded-xl bg-white/90 hover:bg-white transition-colors shadow-sm"
-              >
-                <X className="w-5 h-5 text-stone-600" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-stone-900 dark:text-white mb-4">{showExerciseDetail.name}</h2>
-
-              {/* Exercise Info */}
-              <div className="bg-emerald-50 rounded-2xl p-4 mb-6">
-                <div className="flex justify-around text-center">
-                  <div>
-                    <p className="text-2xl font-bold text-emerald-600">{showExerciseDetail.sets}</p>
-                    <p className="text-stone-500 text-sm">Series</p>
-                  </div>
-                  <div className="w-px bg-emerald-200" />
-                  <div>
-                    <p className="text-2xl font-bold text-emerald-600">{formatRepTarget(showExerciseDetail)}</p>
-                    <p className="text-stone-500 text-sm">Reps</p>
-                  </div>
-                  <div className="w-px bg-emerald-200" />
-                  <div>
-                    <p className="text-2xl font-bold text-emerald-600">{showExerciseDetail.restSeconds}s</p>
-                    <p className="text-stone-500 text-sm">Descanso</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Last Weight */}
-              {getLastWeight(showExerciseDetail.id) && (
-                <div className="glass-bg rounded-2xl p-4 mb-6">
-                  <div className="flex items-center gap-3">
-                    <TrendingUp className="w-5 h-5 text-emerald-600" />
-                    <div>
-                      <p className="text-stone-900 font-medium">Último peso: {getLastWeight(showExerciseDetail.id)} kg</p>
-                      <p className="text-stone-500 text-sm">Basado en tu historial</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Instructions */}
-              {showExerciseDetail.instructions && (
-                <div className="mb-6">
-                  <h3 className="font-semibold text-stone-900 mb-2">Instrucciones</h3>
-                  <p className="text-stone-600">{showExerciseDetail.instructions}</p>
-                </div>
-              )}
-
-              {/* Alternatives */}
-              {alternativeOptions(showExerciseDetail).length > 0 && (
-                <div className="mb-6">
-                  <h3 className="font-semibold text-stone-900 mb-3">¿No encuentras este ejercicio?</h3>
-                  <p className="text-stone-500 text-sm mb-3">Prueba con estas alternativas:</p>
-                  <div className="space-y-2">
-                    {alternativeOptions(showExerciseDetail).map(alt => {
-                      const catalogMatch = getExerciseByName(alt);
-                      const selected = alt === showExerciseDetail.name;
-                      return (
-                        <button
-                          key={alt}
-                          type="button"
-                          onClick={() => chooseAlternative(alt)}
-                          aria-pressed={selected}
-                          className={`w-full flex items-center gap-3 py-3 px-4 text-left rounded-xl transition-colors ${selected ? 'bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500' : 'text-stone-700 bg-stone-100 hover:bg-stone-200'}`}
-                        >
-                          {catalogMatch?.imageUrl && (
-                            <img
-                              src={catalogMatch.imageUrl}
-                              alt={alt}
-                              className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                            />
-                          )}
-                          <span className="font-medium flex-1">
-                            {alt}
-                            {alt === showExerciseDetail.swappedFrom && <span className="block text-xs font-normal text-stone-400">Ejercicio original</span>}
-                          </span>
-                          {selected && <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <Button
-                onClick={() => setShowExerciseDetail(null)}
-                className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white"
-              >
-                Entendido
-              </Button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <ExerciseDetailSheet
+      exercise={showExerciseDetail}
+      lastWeight={showExerciseDetail ? getLastWeight(showExerciseDetail.id) : null}
+      onClose={() => setShowExerciseDetail(null)}
+      onChooseAlternative={chooseAlternative}
+      zIndex="z-[60]"
+    />
   );
 
   // -------------------------
@@ -967,17 +854,22 @@ export function WorkoutScreen() {
                     </div>
                     <div className="flex-1">
                       <p className={`font-semibold ${done ? 'text-stone-400 line-through' : 'text-stone-900'}`}>{exercise.name}</p>
-                      <p className={`font-medium ${done ? 'text-stone-300' : 'text-emerald-600'}`}>
-                        {exercise.sets} series x {formatRepLine(exercise)}
+                      <p className={`font-medium tabular-nums ${done ? 'text-stone-300' : 'text-emerald-600'}`}>
+                        {exercise.sets} × {formatRepLine(exercise)}
+                        <span className={`font-normal ${done ? 'text-stone-300' : 'text-stone-400'}`}> · {formatRest(exercise.restSeconds)}</span>
                       </p>
+                      {supersetPartner(exercises, index) !== -1 && (
+                        <p className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300 text-[11px] font-semibold">
+                          <Repeat className="w-3 h-3 flex-shrink-0" />
+                          Biserie con {exercises[supersetPartner(exercises, index)].name}
+                        </p>
+                      )}
                       {done && logged && (
                         <p className="text-emerald-700 dark:text-emerald-400 text-sm font-medium mt-1">
                           {logged.map(set => `${set.weight || '–'} kg × ${set.reps || '–'}`).join(' · ')}
                         </p>
                       )}
-                      {exercise.instructions && (
-                        <p className="text-stone-400 text-sm mt-1">{exercise.instructions}</p>
-                      )}
+                      {!done && <div className="mt-2"><MuscleTags exercise={exercise} size="xs" /></div>}
                     </div>
                     <button
                       onClick={(e) => {
@@ -1185,7 +1077,17 @@ export function WorkoutScreen() {
       <div className="flex-1 px-6 flex flex-col">
         <AnimatePresence mode="wait">
           {isResting ? (
-            <motion.div key="rest" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex-1 flex flex-col items-center justify-center text-center">
+            <motion.div key="rest" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex-1 flex flex-col items-center text-center pt-4 pb-32">
+              <div className="mb-8 w-full max-w-sm glass-card rounded-2xl p-3 flex items-center gap-3 text-left">
+                <ExercisePreview name={currentExercise.name} muscle={currentExercise.targetMuscle} className="w-16 h-16 flex-shrink-0" rounded="rounded-xl" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                    A continuación
+                  </p>
+                  <p className="font-semibold text-stone-900 leading-snug">{currentExercise.name}</p>
+                  <p className="text-sm text-stone-500 tabular-nums">Serie {currentSetIndex + 1} de {currentExercise.sets} · {formatRepLine(currentExercise)}</p>
+                </div>
+              </div>
               <p className="text-stone-500 mb-5 flex items-center gap-2"><Clock className="w-4 h-4" /> Descansa</p>
               <div className="relative w-52 h-52 mb-8">
                 <svg className="w-52 h-52 -rotate-90" viewBox="0 0 100 100">
@@ -1201,15 +1103,16 @@ export function WorkoutScreen() {
                   <span className="text-5xl font-bold text-stone-900">
                     {Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}
                   </span>
-                  <span className="text-stone-400 text-sm mt-1">siguiente serie</span>
+                  <span className="text-stone-400 text-sm mt-1">de {formatRest(restTotal)}</span>
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button onClick={() => extendRest(15)} variant="outline" className="rounded-xl px-5">
-                  +15s
+                <Button onClick={() => extendRest(15)} variant="outline" className="rounded-xl px-5 h-11">
+                  +15 s
                 </Button>
-                <Button onClick={skipRest} className="rounded-xl px-6 bg-emerald-500 hover:bg-emerald-600">Saltar descanso</Button>
+                <Button onClick={skipRest} className="rounded-xl px-6 h-11">Saltar descanso</Button>
               </div>
+
             </motion.div>
           ) : (
             <motion.div key="exercise" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">
@@ -1222,10 +1125,8 @@ export function WorkoutScreen() {
                 />
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-stone-900">{currentExercise.name}</h2>
-                    {currentExercise.instructions && (
-                      <p className="text-stone-500 text-sm mt-1">{currentExercise.instructions}</p>
-                    )}
+                    <h2 className="text-xl font-bold text-stone-900 leading-tight mb-2">{currentExercise.name}</h2>
+                    <MuscleTags exercise={currentExercise} />
                   </div>
                   <button
                     onClick={() => openExerciseDetail(currentExerciseIndex)}
@@ -1234,6 +1135,15 @@ export function WorkoutScreen() {
                     <Info className="w-5 h-5 text-stone-500" />
                   </button>
                 </div>
+
+                {supersetPartner(exercises, currentExerciseIndex) !== -1 && (
+                  <div className="mb-4 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-500/15 text-teal-800 dark:text-teal-200 text-sm flex items-center gap-2">
+                    <Repeat className="w-4 h-4 flex-shrink-0" />
+                    <span>
+                      Biserie con <strong>{exercises[supersetPartner(exercises, currentExerciseIndex)].name}</strong>: haz una serie de cada seguida y descansa después.
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex gap-2 mb-4">
                   {Array.from({ length: currentExercise.sets }).map((_, i) => {
@@ -1246,11 +1156,12 @@ export function WorkoutScreen() {
                   })}
                 </div>
 
-                <div className="glass-bg rounded-2xl p-4">
-                  <p className="text-stone-500 text-sm mb-1">Serie {currentSetIndex + 1}</p>
-                  <p className="text-2xl font-bold text-stone-900">
-                    {currentExercise.reps[currentSetIndex] || currentExercise.reps[0]} repeticiones
-                  </p>
+                <div className="rounded-2xl bg-emerald-50 p-4 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Serie {currentSetIndex + 1} de {currentExercise.sets}</p>
+                    <p className="text-3xl font-bold text-stone-900 tabular-nums mt-1">{formatRepLine(currentExercise)}</p>
+                  </div>
+                  <p className="text-xs text-stone-500 text-right">Descanso<br /><span className="font-semibold text-stone-700 tabular-nums">{formatRest(currentExercise.restSeconds)}</span></p>
                 </div>
               </Card>
 

@@ -9,6 +9,8 @@ import {
 import { evaluateProgression, returnAdjustment, type ProgressionEntry } from '../src/lib/fitkProgression';
 import { handleDiscomfort } from '../src/lib/fitkSafety';
 import { planSessionId, secondsUntil } from '../src/lib/activeWorkout';
+import { nextGuidedStep, supersetPartner } from '../src/lib/workoutFlow';
+import { SPECIAL_STATIONS, VOLUME_REFERENCE, matrixOf } from '../src/lib/fitkSpecV1';
 import { LIBRARY, LIBRARY_META, LEGACY_ID_ALIASES, MUSCLES, libraryById, libraryPromptSummary } from '../src/lib/fitkLibrary';
 import type { WeeklySession } from '../src/types/user';
 
@@ -50,7 +52,8 @@ check('el resumen del Coach usa la misma Biblioteca', libraryPromptSummary().inc
 head('2 días principiante');
 const p2 = generatePlanWithTrace(base({ daysPerWeek: 2 }));
 check('estructura Full Body A/B', p2.split === 'Full Body A/B');
-check('sin exceso de ejercicios (≤6 por sesión)', p2.sessions.every(s => s.exercises.length <= 6));
+// Word del 20/11: no hay tope de ejercicios; manda el techo de tiempo.
+check('ninguna sesión supera el techo de tiempo', p2.sessions.every(s => (s.motorTrace?.estimatedMinutes ?? 99) <= 45));
 check('cada sesión cubre pierna + empuje + tirón', p2.sessions.every(s =>
   fns(s).some(f => ['dominante_rodilla', 'bisagra', 'unilateral_rodilla'].includes(f ?? ''))
   && fns(s).some(f => f?.startsWith('empuje')) && fns(s).some(f => f?.startsWith('tiron'))));
@@ -60,9 +63,10 @@ head('3 días principiante');
 const p3 = generatePlanWithTrace(base({ daysPerWeek: 3 }));
 check('split dividido, no Full Body (MOTOR-SPLIT-037)', p3.sessions.every(s => !s.templateKey?.startsWith('full')));
 check('sesiones con identidad propia', new Set(p3.sessions.map(s => s.templateKey)).size === 3);
-check('duración realista (60-105 % del tiempo)', p3.sessions.every(s => {
+// Word del 20/11: el tiempo es un techo, no una duración que rellenar.
+check('ninguna sesión supera el techo (y no se rellena)', p3.sessions.every(s => {
   const m = s.motorTrace?.estimatedMinutes ?? 0;
-  return m >= 45 * 0.6 && m <= 45 * 1.05;
+  return m >= 15 && m <= 45;
 }), p3.sessions.map(s => s.motorTrace?.estimatedMinutes).join('/'));
 
 // ── 3. 4 días constante ──────────────────────────────────────────────
@@ -341,6 +345,113 @@ check('sin deporte ni preferencia, no se añaden flexores de cadera (MOTOR-HIPFL
 check('con presses en la sesión, no se añade deltoide anterior directo (MOTOR-SHOULDER-INDIRECT-059)', [3, 4, 5, 6].every(d =>
   generatePlan(base({ daysPerWeek: d, level: 'advanced', workoutDuration: '1hour' })).every(s =>
     !s.exercises.some(e => e.slotFunction === 'deltoide_anterior') || !s.exercises.some(e => ['empuje_vertical', 'empuje_horizontal', 'empuje_inclinado'].includes(e.slotFunction ?? '')))));
+
+// ── Motor V1: semana de 2 y 3 días (Word del 20/11/2026) ─────────────
+head('Motor V1 · estructura y patrones (Word §3 y §4)');
+const v1 = (o: Partial<MotorInput>) => generatePlanWithTrace(base({ workoutDuration: '40min', userId: 'v1', ...o }));
+const fnsOfWeek = (r: { sessions: WeeklySession[] }) => new Set(r.sessions.flatMap(x => x.exercises.map(e => e.slotFunction)));
+const hasAll = (r: { sessions: WeeklySession[] }, ...f: string[]) => f.every(x => fnsOfWeek(r).has(x));
+const FUNDAMENTAL = ['empuje_horizontal', 'tiron_horizontal', 'dominante_rodilla', 'bisagra'];
+const direct = (r: ReturnType<typeof v1>, g: string) => r.coverage?.find(c => c.group === g)?.direct ?? -1;
+const setsOf = (r: { sessions: WeeklySession[] }) => r.sessions.reduce((a, x) => a + x.exercises.reduce((b, e) => b + e.sets, 0), 0);
+const minutesOf = (r: { sessions: WeeklySession[] }) => r.sessions.map(x => x.motorTrace?.estimatedMinutes ?? 99);
+const noob2 = v1({ daysPerWeek: 2, experienceLevel: 'never' });
+const shoulderA = v1({ daysPerWeek: 3, level: 'advanced', goal: 'physique', priorityMuscle: 'shoulders', planOption: 0 });
+const shoulderB = v1({ daysPerWeek: 3, level: 'advanced', goal: 'physique', priorityMuscle: 'shoulders', planOption: 1 });
+check('40 minutos se entiende como techo de 40', noob2.sessions.every(x => x.motorTrace?.budgetMinutes === 40));
+check('2 días: Full Body A/B', noob2.split === 'Full Body A/B' && noob2.sessions.map(x => x.name).join() === 'Full Body A,Full Body B');
+check('3 días: las dos estructuras del Word', shoulderA.sessions.map(x => x.name).join(' / ') === 'Pecho, tríceps y hombro / Espalda, bíceps y trapecio / Pierna'
+  && shoulderB.sessions.map(x => x.name).join(' / ') === 'Empuje y cuádriceps / Tirón y cadena posterior / Mixto y complementario');
+check('los patrones fundamentales están en las tres semanas', [noob2, shoulderA, shoulderB].every(r => hasAll(r, ...FUNDAMENTAL)));
+check('también tirón vertical y flexión de rodilla (el RDL no la sustituye)', [noob2, shoulderA, shoulderB].every(r => hasAll(r, 'tiron_vertical', 'flexion_rodilla')));
+check('empuje vertical es contextual: sin prioridad de hombro no entra', !fnsOfWeek(noob2).has('empuje_vertical') && hasAll(shoulderA, 'empuje_vertical') && hasAll(shoulderB, 'empuje_vertical'));
+check('sin avisos de validación', [noob2, shoulderA, shoulderB].every(r => r.warnings.length === 0), [noob2, shoulderA, shoulderB].flatMap(r => r.warnings).join(' | '));
+
+head('Motor V1 · volumen por situación (Word §5)');
+check('situación: desde cero / irregular / constante', noob2.situation === 'cero' && v1({ daysPerWeek: 2, experienceLevel: 'inconsistent' }).situation === 'irregular' && shoulderA.situation === 'constante');
+const roomy = (o: Partial<MotorInput>) => v1({ workoutDuration: '1hour', ...o });
+const zero60 = roomy({ daysPerWeek: 2, experienceLevel: 'never' });
+check('con tiempo de sobra se llega al mínimo de referencia y no se pasa de ahí', (['pecho', 'espalda', 'cuadriceps', 'biceps', 'triceps', 'gemelos', 'core', 'deltLateral', 'deltPosterior'] as const)
+  .every(g => direct(zero60, g) === VOLUME_REFERENCE.cero[g][0]), zero60.coverage?.map(c => `${c.group} ${c.direct}`).join(' '));
+check('el tiempo no se rellena: desde cero con 60 min termina mucho antes', minutesOf(zero60).every(m => m <= 50), minutesOf(zero60).join('/'));
+check('más situación, más volumen (cero < irregular < constante)', setsOf(zero60) < setsOf(roomy({ daysPerWeek: 2, experienceLevel: 'inconsistent' }))
+  && setsOf(roomy({ daysPerWeek: 2, experienceLevel: 'inconsistent' })) < setsOf(roomy({ daysPerWeek: 2, level: 'advanced' })));
+check('más tiempo nunca da menos trabajo', [2, 3].every(d => setsOf(v1({ daysPerWeek: d, level: 'advanced', workoutDuration: '30min' })) <= setsOf(v1({ daysPerWeek: d, level: 'advanced' }))
+  && setsOf(v1({ daysPerWeek: d, level: 'advanced' })) <= setsOf(roomy({ daysPerWeek: d, level: 'advanced' }))));
+
+head('Motor V1 · cuando no cabe todo (Word §5 jerarquía)');
+check('40 min: ninguna sesión supera el techo', [noob2, shoulderA, shoulderB].every(r => minutesOf(r).every(m => m <= 40)), [noob2, shoulderA, shoulderB].map(r => minutesOf(r).join('/')).join(' · '));
+check('prioridad de hombro: lateral y posterior conservan su mínimo de referencia', [shoulderA, shoulderB].every(r => direct(r, 'deltLateral') >= 6 && direct(r, 'deltPosterior') >= 4));
+check('la prioridad cuesta al resto, no a sí misma (pecho por debajo de su referencia)', [shoulderA, shoulderB].every(r => direct(r, 'pecho') < 10));
+check('mejor colocación: el press de hombro abre su sesión', [shoulderA, shoulderB].every(r => r.sessions[0].exercises[0].slotFunction === 'empuje_vertical'));
+check('la prioridad tiene dos exposiciones de deltoide lateral', [shoulderA, shoulderB].every(r => r.sessions.filter(x => x.exercises.some(e => e.slotFunction === 'deltoide_lateral')).length === 2));
+const pairs = (x: WeeklySession) => x.exercises.map((e, i) => ({ e, partner: supersetPartner(x.exercises, i) })).filter(p => p.e.superset);
+check('se usan biseries antes de eliminar trabajo directo', [shoulderA, shoulderB].every(r => r.sessions.some(x => pairs(x).length > 0)));
+check('biseries: solo accesorios, siempre contiguos y nunca más de dos por sesión', [noob2, shoulderA, shoulderB].every(r => r.sessions.every(x =>
+  pairs(x).every(p => p.partner !== -1 && p.e.slotRole === 'complementario') && new Set(pairs(x).map(p => p.e.superset)).size <= 2)));
+check('biseries: ninguno es protagonista de lo que trabaja el otro', [shoulderA, shoulderB].every(r => r.sessions.every(x => pairs(x).every(p => {
+  const a = matrixOf(libraryById.get(p.e.libraryId as string)!).row;
+  const b = matrixOf(libraryById.get(x.exercises[p.partner].libraryId as string)!).row;
+  return Object.entries(a).every(([k, v]) => k === 'espalda' || (v ?? 0) < 1 || ((b as Record<string, number>)[k] ?? 0) < 0.5);
+}))));
+const tiny = v1({ daysPerWeek: 2, experienceLevel: 'never', workoutDuration: '20min' });
+check('20 min: caen los accesorios, no los patrones fundamentales', hasAll(tiny, ...FUNDAMENTAL) && minutesOf(tiny).every(m => m <= 22), minutesOf(tiny).join('/'));
+check('el registro explica cada ajuste con el paso de la jerarquía', shoulderA.sessions.every(x => (x.motorTrace?.notes ?? []).some(n => n.startsWith('Paso 5') || n.startsWith('Paso 6'))));
+
+head('Motor V1 · descansos, alternativas y seguridad (Word §7, §8 y §9)');
+const allV1 = [noob2, shoulderA, shoulderB, zero60, tiny];
+const libOf = (e: { libraryId?: string }) => libraryById.get(e.libraryId as string)!;
+check('descansos: compuestos 2:00–2:30 y accesorios hasta 1:30, dentro del rango de la ficha', allV1.every(r => r.sessions.every(x => x.exercises.every(e => {
+  const lib = libOf(e);
+  const compound = e.slotRole !== 'complementario' && lib.compatibleRoles.includes('Principal');
+  const inSpec = e.restSeconds >= (lib.restSpec.min ?? 0) && e.restSeconds <= (lib.restSpec.max ?? 999);
+  return inSpec && (compound ? e.restSeconds >= 60 && e.restSeconds <= 150 : e.restSeconds <= 90);
+}))));
+check('los patrones principales tienen dos alternativas', allV1.every(r => r.sessions.every(x => x.exercises.filter(e => e.slotRole === 'principal').every(e => (e.alternatives ?? []).length === 2))));
+check('nunca más de dos alternativas, y ninguna repite un ejercicio de la sesión', allV1.every(r => r.sessions.every(x => x.exercises.every(e =>
+  (e.alternatives ?? []).length <= 2 && (e.alternatives ?? []).every(a => a !== e.name && !x.exercises.some(o => o.name === a))))));
+check('las alternativas resuelven el mismo slot (misma función o una equivalente del mismo grupo)', allV1.every(r => r.sessions.every(x => x.exercises.every(e =>
+  (e.alternatives ?? []).every(a => {
+    const alt = LIBRARY.find(l => l.name === a);
+    if (!alt) return false;
+    const own = Object.entries(matrixOf(libOf(e)).row).filter(([, v]) => (v ?? 0) >= 1).map(([k]) => k);
+    return own.length === 0 || own.some(k => ((matrixOf(alt).row as Record<string, number>)[k] ?? 0) >= 1);
+  })))));
+const caution = (name: string) => ['Baja', 'Baja-Media', 'Media-Baja', 'Media'].includes(LIBRARY.find(l => l.name === name)?.nearFailureSuitability ?? 'Alta');
+check('principiante: los ejercicios elegidos no llevan etiqueta de precaución', noob2.sessions.every(x => x.exercises.every(e => !caution(e.name))));
+check('principiante: la primera alternativa nunca lleva etiqueta de precaución', noob2.sessions.every(x => x.exercises.every(e => !e.alternatives?.[0] || !caution(e.alternatives[0]))));
+const knee = v1({ daysPerWeek: 2, experienceLevel: 'never', injuries: ['dolor de rodilla'] });
+check('las alternativas respetan las lesiones', knee.sessions.every(x => x.exercises.every(e => (e.alternatives ?? []).every(a => {
+  const alt = LIBRARY.find(l => l.name === a)!;
+  return !(alt.block === 'Pierna' && !['Alta', 'Muy alta'].includes(alt.stability));
+}))));
+check('equipo poco habitual: no se elige por defecto ni se ofrece como alternativa', allV1.every(r => r.sessions.every(x => x.exercises.every(e =>
+  !SPECIAL_STATIONS.includes(e.libraryId as string) && (e.alternatives ?? []).every(a => !SPECIAL_STATIONS.includes(LIBRARY.find(l => l.name === a)?.id ?? ''))))));
+check('…pero entra si el usuario lo prefiere', v1({ daysPerWeek: 2, preferences: { liked: ['legs_belt_squat'] } }).sessions.some(x => x.exercises.some(e => e.libraryId === 'legs_belt_squat')));
+
+head('Motor V1 · continuidad y determinismo');
+const again = v1({ daysPerWeek: 3, level: 'advanced', goal: 'physique', priorityMuscle: 'shoulders', planOption: 0 });
+check('misma entrada, misma tabla', JSON.stringify(again.sessions.map(x => x.exercises.map(e => [e.libraryId, e.sets, e.restSeconds, e.superset]))) === JSON.stringify(shoulderA.sessions.map(x => x.exercises.map(e => [e.libraryId, e.sets, e.restSeconds, e.superset]))));
+const stripKeys = (r: { sessions: WeeklySession[] }) => r.sessions.map(x => ({ ...x, templateKey: undefined }));
+check('la opción elegida se mantiene la semana siguiente aunque no se conserve la plantilla', generatePlanWithTrace(base({ workoutDuration: '40min', level: 'advanced', previousPlan: stripKeys(shoulderB) })).split === shoulderB.split
+  && generatePlanWithTrace(base({ workoutDuration: '40min', level: 'advanced', previousPlan: stripKeys(shoulderA) })).split === shoulderA.split);
+const oldPPL = ['Empuje', 'Tirón', 'Pierna'].map((name, i) => ({ ...shoulderB.sessions[i], name, templateKey: undefined }));
+check('quien tenía "Empuje / Tirón / Pierna" pasa a la opción B', generatePlanWithTrace(base({ workoutDuration: '40min', previousPlan: oldPPL })).split === shoulderB.split);
+const next = generatePlanWithTrace(base({ workoutDuration: '40min', daysPerWeek: 2, experienceLevel: 'never', userId: 'v1', previousPlan: noob2.sessions }));
+check('la semana siguiente mantiene los ejercicios', ids(next.sessions).join() === ids(noob2.sessions).join());
+
+head('Biserie en el modo guiado');
+const flow = (list: { sets: number; restSeconds: number; superset?: string }[]) => {
+  const out: string[] = [];
+  let step: { exerciseIndex: number; setIndex: number; rest: number } | null = { exerciseIndex: 0, setIndex: 0, rest: 0 };
+  while (step && out.length < 40) { out.push(`${step.exerciseIndex}.${step.setIndex}${step.rest ? `r${step.rest}` : ''}`); step = nextGuidedStep(list, step.exerciseIndex, step.setIndex); }
+  return out.join(' ');
+};
+check('sin biserie: series seguidas con su descanso y 90 s entre ejercicios', flow([{ sets: 2, restSeconds: 120 }, { sets: 1, restSeconds: 90 }]) === '0.0 0.1r120 1.0r90');
+check('biserie: una serie de cada seguida y descanso al acabar la ronda', flow([{ sets: 2, restSeconds: 90, superset: 'S' }, { sets: 2, restSeconds: 75, superset: 'S' }, { sets: 1, restSeconds: 90 }]) === '0.0 1.0 0.1r90 1.1 2.0r90');
+check('biserie con series desiguales: las que sobran se hacen con descanso', flow([{ sets: 3, restSeconds: 90, superset: 'S' }, { sets: 2, restSeconds: 90, superset: 'S' }]) === '0.0 1.0 0.1r90 1.1 0.2r90'
+  && flow([{ sets: 1, restSeconds: 90, superset: 'S' }, { sets: 3, restSeconds: 90, superset: 'S' }]) === '0.0 1.0 1.1r90 1.2r90');
+check('si el compañero ya no está, el ejercicio se hace normal', supersetPartner([{ superset: 'S' }, {}], 0) === -1 && flow([{ sets: 2, restSeconds: 60, superset: 'S' }]) === '0.0 0.1r60');
 
 console.log(`\n${failures === 0 ? 'TODOS LOS CHECKS PASARON' : `${failures} CHECK(S) FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);

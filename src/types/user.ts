@@ -56,7 +56,7 @@ export type EnergyLevel = 'very-low' | 'low' | 'normal' | 'high';
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 // Workout duration preferences
-export type WorkoutDuration = '30min' | '45min' | '1hour' | 'depends';
+export type WorkoutDuration = '30min' | '40min' | '45min' | '1hour' | 'depends';
 
 // Weekly check-in preference (for future implementation)
 export type WeeklyCheckInPreference = 'same-as-last-week' | 'change-days' | 'decide-later';
@@ -95,6 +95,8 @@ export interface AdvancedOnboarding {
   goal: AdvancedGoal;
   trainingStyle: TrainingStyle;
   daysPerWeek: number;
+  /** Minutos por sesión (Word §1). Los perfiles anteriores no lo tienen: se usa 45 min. */
+  workoutDuration?: WorkoutDuration;
   availability: Availability;
   priorityMuscle: MuscleGroup;
   appTone: AppTone;
@@ -167,6 +169,8 @@ export interface Exercise {
   variations?: ExerciseVariation[];
   alternatives?: string[]; // Alternative exercise names
   swappedFrom?: string; // nombre del ejercicio original si el usuario eligió una alternativa
+  /** Biserie: clave compartida con el ejercicio contiguo (una serie de cada seguida y un solo descanso). */
+  superset?: string;
   skipped?: boolean; // en el registro del entreno: no se llegó a hacer (sesión terminada antes)
   instructions?: string;
   imageUrl?: string; // GIF demonstration URL

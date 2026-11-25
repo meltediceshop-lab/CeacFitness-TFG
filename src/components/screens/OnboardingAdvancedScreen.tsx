@@ -5,14 +5,22 @@ import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check } from 'lucide-react';
-import type { AdvancedGoal, TrainingStyle, Availability, MuscleGroup, AppTone } from '@/types/user';
+import { ArrowLeft, Check, Clock } from 'lucide-react';
+import type { AdvancedGoal, TrainingStyle, Availability, MuscleGroup, AppTone, WorkoutDuration } from '@/types/user';
+
+// Minutos por sesión: son el techo con el que el Motor construye la semana.
+const DURATION_OPTIONS: { id: WorkoutDuration; label: string; description: string }[] = [
+  { id: '30min', label: '30 minutos', description: 'Lo esencial, sin rodeos' },
+  { id: '40min', label: '40 minutos', description: 'Lo justo para una sesión completa' },
+  { id: '45min', label: '45 minutos', description: 'Un buen equilibrio' },
+  { id: '1hour', label: '1 hora', description: 'Sesiones más completas' },
+];
 
 export function OnboardingAdvancedScreen() {
   const { setScreen, advancedOnboarding, setAdvancedOnboarding } = useApp();
   const [step, setStep] = useState(1);
 
-  const totalSteps = 6;
+  const totalSteps = 7;
   const progress = (step / totalSteps) * 100;
 
   const handleBack = () => {
@@ -38,14 +46,19 @@ export function OnboardingAdvancedScreen() {
     setStep(4);
   };
 
+  const handleDuration = (value: WorkoutDuration) => {
+    setAdvancedOnboarding({ ...advancedOnboarding, workoutDuration: value });
+    setStep(5);
+  };
+
   const handleAvailability = (value: Availability) => {
     setAdvancedOnboarding({ ...advancedOnboarding, availability: value });
-    setStep(5);
+    setStep(6);
   };
 
   const handleMuscle = (value: MuscleGroup) => {
     setAdvancedOnboarding({ ...advancedOnboarding, priorityMuscle: value });
-    setStep(6);
+    setStep(7);
   };
 
   const handleTone = (value: AppTone) => {
@@ -188,8 +201,46 @@ export function OnboardingAdvancedScreen() {
             </motion.div>
           )}
 
-          {/* Step 4: Availability */}
+          {/* Step 4: Minutos por sesión */}
           {step === 4 && (
+            <motion.div
+              key="step-duration"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-stone-900">
+                  ¿Cuánto tiempo tienes para cada sesión?
+                </h2>
+                <p className="text-stone-500">Es un tope: la sesión nunca se alarga para rellenarlo.</p>
+              </div>
+
+              <div className="space-y-3">
+                {DURATION_OPTIONS.map(option => (
+                  <Card
+                    key={option.id}
+                    onClick={() => handleDuration(option.id)}
+                    className={`glass-card p-5 cursor-pointer border-2 transition-all rounded-2xl group ${advancedOnboarding.workoutDuration === option.id ? 'border-teal-400' : 'border-transparent hover:border-teal-300'}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-stone-100 group-hover:bg-teal-50 flex items-center justify-center transition-colors">
+                        <Clock className="w-6 h-6 text-stone-600 group-hover:text-teal-600 transition-colors" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-stone-800">{option.label}</p>
+                        <p className="text-stone-500 text-sm">{option.description}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 5: Availability */}
+          {step === 5 && (
             <motion.div
               key="step4"
               initial={{ opacity: 0, x: 20 }}
@@ -221,8 +272,8 @@ export function OnboardingAdvancedScreen() {
             </motion.div>
           )}
 
-          {/* Step 5: Priority Muscle */}
-          {step === 5 && (
+          {/* Step 6: Priority Muscle */}
+          {step === 6 && (
             <motion.div
               key="step5"
               initial={{ opacity: 0, x: 20 }}
@@ -264,8 +315,8 @@ export function OnboardingAdvancedScreen() {
             </motion.div>
           )}
 
-          {/* Step 6: App Tone */}
-          {step === 6 && (
+          {/* Step 7: App Tone */}
+          {step === 7 && (
             <motion.div
               key="step6"
               initial={{ opacity: 0, x: 20 }}
