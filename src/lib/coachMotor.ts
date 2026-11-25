@@ -73,3 +73,21 @@ export function toPlainText(text: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/**
+ * Sesión de calle con barras (dominadas y paralelas): la Biblioteca tiene
+ * pocos ejercicios de peso corporal, así que se juntan los que el Motor
+ * elige para cada enfoque en una sola sesión de cuerpo completo.
+ */
+export function buildOutdoorSession(base: MotorInput, minutes: number): import('@/types/user').Exercise[] {
+  const seen = new Set<string>();
+  const exercises: import('@/types/user').Exercise[] = [];
+  for (const focus of ['torsoA', 'legs', 'push', 'pull', 'fullA']) {
+    const session = buildMotorWorkout(base, { focus, minutes }, 'outdoor').workout?.session;
+    for (const e of session?.exercises ?? []) {
+      const key = e.libraryId ?? e.name;
+      if (!seen.has(key)) { seen.add(key); exercises.push(e); }
+    }
+  }
+  return exercises;
+}
