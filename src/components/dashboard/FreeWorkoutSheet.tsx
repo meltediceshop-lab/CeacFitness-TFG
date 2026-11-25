@@ -10,6 +10,7 @@ import { ExercisePickerModal } from '@/components/workout/ExercisePickerModal';
 import { formatRepLine } from '@/lib/exerciseFormat';
 import { estimateSessionMinutes } from '@/lib/fitkMotor';
 import type { Exercise } from '@/types/user';
+import { planWeekStart, weekdayIndex } from '@/lib/weekCalendar';
 
 const TUTORIAL_KEY = 'fitk-free-workout-tutorial-seen';
 
@@ -50,6 +51,12 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
   const [focus, setFocus] = useState('fullA');
   const [autoMinutes, setAutoMinutes] = useState(45);
   const [autoError, setAutoError] = useState(false);
+  // Día de la sesión (0 = lunes): hoy por defecto; se puede dejar para otro día de la semana.
+  const todayIdx = weekdayIndex(new Date());
+  const [day, setDay] = useState(todayIdx);
+  const monday = planWeekStart();
+  const weekDays = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+  const firstAllowed = weekDays.findIndex(d => d >= new Date(new Date().setHours(0, 0, 0, 0)));
   // La primera vez que se abre, el Coach explica para qué sirve este modo.
   const [tutorial, setTutorial] = useState(false);
   useEffect(() => {
@@ -80,12 +87,12 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
     setScreen('workout-preview');
   };
   const createAuto = () => {
-    const session = addMotorSession({ place, focus, minutes: autoMinutes });
+    const session = addMotorSession({ place, focus, minutes: autoMinutes, day });
     setAutoError(!session);
     openSession(session);
   };
   const create = () => {
-    const session = addFreeSession(chosen);
+    const session = addFreeSession(chosen, undefined, undefined, day);
     if (!session) return;
     setChosen([]);
     onClose();
@@ -117,7 +124,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-bold text-stone-900">Entrenamiento libre</h2>
-                    <p className="text-sm text-stone-500">Elige los ejercicios que quieras hacer hoy.</p>
+                    <p className="text-sm text-stone-500">Elige los ejercicios y el día.</p>
                   </div>
                   <button onClick={close} aria-label="Cerrar" className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0">
                     <X className="w-5 h-5 text-stone-600" />
@@ -125,6 +132,25 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                 </div>
               </div>
 
+              {!tutorial && (
+                <div className="px-5 pb-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">Para el día</p>
+                  <div className="grid grid-cols-7 gap-1">
+                    {weekDays.map((d, i) => {
+                      const disabled = i < Math.max(0, firstAllowed);
+                      return (
+                        <button key={i} type="button" disabled={disabled} onClick={() => setDay(i)} aria-pressed={day === i}
+                          className={`flex flex-col items-center py-1.5 rounded-xl text-xs font-semibold transition-colors disabled:opacity-30 ${
+                            day === i ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'
+                          }`}>
+                          <span className="text-[10px] uppercase opacity-80">{['L', 'M', 'X', 'J', 'V', 'S', 'D'][i]}</span>
+                          <span className="tabular-nums">{d.getDate()}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {tutorial ? (
                 <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4">
                   <div className="flex items-start gap-3">
@@ -257,7 +283,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                   </p>
                 )}
                 <Button onClick={create} disabled={!chosen.length} className="w-full h-12 rounded-2xl text-base">
-                  Crear sesión de hoy
+                  {day === todayIdx ? 'Crear sesión de hoy' : `Crear para el ${weekDays[day].toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}`}
                 </Button>
               </div>
               </>)}
