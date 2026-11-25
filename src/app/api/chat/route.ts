@@ -5,7 +5,7 @@ import { libraryPromptSummary } from '@/lib/fitkLibrary';
 import { COACH_MODEL, COACH_REASONING_EFFORT } from '@/lib/llm';
 import { ALL_EQUIPMENT, EXTRA_FUNCTIONS, SESSION_FOCUS, type MotorInput } from '@/lib/fitkMotor';
 import { motorInputFromRows } from '@/lib/motorInputFromRows';
-import { buildMotorWorkout, toPlainText } from '@/lib/coachMotor';
+import { buildMotorWorkout, findLibraryExercise, toPlainText } from '@/lib/coachMotor';
 import type { CoachWorkout } from '@/types/user';
 import OpenAI from 'openai';
 
@@ -211,6 +211,8 @@ PERFIL DE ${name.toUpperCase()}:
 - TÚ NO DISEÑAS RUTINAS: las sesiones de entrenamiento las construye el Motor Fit-K (elige ejercicios, series, reps, RIR, descansos y peso según el perfil, lesiones y tiempo). Tu papel es entender qué necesita el usuario y pedírselo al Motor con la herramienta "request_motor_session" (enfoque, minutos, material disponible, ejercicios a evitar y, solo si lo pide, trabajo extra como cuello, tibial o flexores de cadera). Nunca escribas una rutina con ejercicios inventada por ti en el texto.
 - Si el usuario pide un entreno, una rutina o una sesión, o AÑADIR/GUARDAR un entreno, llama a "request_motor_session". Elige el enfoque según lo que pida y lo que le falta esta semana; si no especifica, usa cuerpo completo.
 - Ajustes del día: la energía baja y el poco tiempo los aplica el Motor al empezar la sesión (pantalla de energía): mantiene los ejercicios y reduce la dosis. Si tiene poco tiempo y quiere una sesión distinta, pide al Motor una sesión con esos minutos.
+- Si quiere AÑADIR UN EJERCICIO CONCRETO a una de sus sesiones ("añádeme dominadas a la sesión del viernes"), usa "add_exercise_to_session" con el nombre del ejercicio y, si lo dice, la sesión o el día. El usuario elige la sesión y confirma en la tarjeta.
+- Si pregunta qué puedes hacer, explícalo en pocas frases: crear una sesión con el Motor (gimnasio, casa o calle), añadir un ejercicio a una sesión, adaptar el día a la energía o al tiempo (desde la pantalla de energía y "Cambiar tiempo"), preparar planes de comidas y macros, entender fotos (comida, máquinas, técnica, etiquetas) y notas de voz, y resolver dudas de técnica, descansos o progresión.
 - La herramienta "create_nutrition_plan" crea un plan de comidas que se guarda en la pestaña Nutrición; adáptalo a su perfil.
 - Cuando uses una herramienta, en tu respuesta de texto explica brevemente qué le has preparado y por qué, y anímale a guardarlo con el botón de la tarjeta. No repitas todos los datos: ya los verá en la tarjeta.
 - Para nutrición puedes crear el plan directamente con la herramienta aunque no haya completado el cuestionario, usando los datos de su perfil
@@ -415,10 +417,29 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       },
     };
 
+    const addExerciseTool: OpenAI.Chat.Completions.ChatCompletionTool = {
+      type: 'function',
+      function: {
+        name: 'add_exercise_to_session',
+        description: 'Añade un ejercicio concreto de la Biblioteca a una de las sesiones de la semana del usuario. Úsala cuando pida meter/añadir/poner un ejercicio concreto en una sesión.',
+        parameters: {
+          type: 'object',
+          properties: {
+            exercise: { type: 'string', description: 'Ejercicio tal como lo dice el usuario (p. ej. "dominadas", "press banca", "curl de bíceps")' },
+            session: { type: 'string', description: 'Sesión o día si lo indica (p. ej. "viernes", "pierna", "hoy"). Omitir si no lo dice.' },
+          },
+          required: ['exercise'],
+        },
+      },
+    };
+
     // Si el usuario pide explícitamente añadir/guardar un entreno, forzamos la
     // herramienta para que siempre salga la tarjeta con el botón de guardar.
     const normalized = message.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const wantsWorkoutSaved =
+    // «Añádeme X a la sesión…» es añadir un ejercicio, no pedir una sesión nueva.
+    const wantsExerciseAdded = /(anad|agreg|\bmete|\bpon)/.test(normalized)
+      && /(ejercicio|\ba (la|mi|el) (sesion|entreno|rutina)|\bal entreno)/.test(normalized);
+    const wantsWorkoutSaved = !wantsExerciseAdded &&
       /(anad|agreg|guard|apunt|\bmete)/.test(normalized) &&
       /(entren|rutina|sesion)/.test(normalized);
 
@@ -428,7 +449,7 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       messages,
       max_tokens: 1200,
       temperature: 0.7,
-      tools: [workoutTool, nutritionTool],
+      tools: [workoutTool, nutritionTool, addExerciseTool],
       tool_choice: wantsWorkoutSaved
         ? { type: 'function', function: { name: 'request_motor_session' } }
         : 'auto',
@@ -438,17 +459,26 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
     let aiResponse = '';
     let workoutData: CoachWorkout | null = null;
     let nutritionData: Record<string, unknown> | null = null;
+    let exerciseAdd: { exercise: unknown; target?: string } | null = null;
 
     if (choice.message.tool_calls?.length) {
       const toolCall = choice.message.tool_calls[0] as { id: string; type: string; function: { name: string; arguments: string } };
       const fnName = toolCall.function?.name;
 
-      if (fnName === 'request_motor_session' || fnName === 'create_nutrition_plan') {
+      if (fnName === 'request_motor_session' || fnName === 'create_nutrition_plan' || fnName === 'add_exercise_to_session') {
         let parsed: Record<string, unknown> = {};
         try { parsed = JSON.parse(toolCall.function.arguments || '{}'); } catch { /* ignore */ }
 
         let successMsg = 'Plan nutricional creado correctamente.';
-        if (fnName === 'request_motor_session') {
+        if (fnName === 'add_exercise_to_session') {
+          const found = findLibraryExercise(String(parsed.exercise ?? ''));
+          if (found.exercise) {
+            exerciseAdd = { exercise: found.exercise, target: typeof parsed.session === 'string' ? parsed.session : undefined };
+            successMsg = `Ejercicio encontrado en la Biblioteca: ${found.exercise.name} (${found.exercise.sets} series). El usuario ve una tarjeta para elegir la sesión y añadirlo. Responde en 1-2 frases de texto plano: confirma qué ejercicio es y que lo añada desde la tarjeta eligiendo la sesión. No cambies la dosis.`;
+          } else {
+            successMsg = `No hay un ejercicio claro con ese nombre en la Biblioteca.${found.similar.length ? ` Los más parecidos: ${found.similar.join(', ')}.` : ''} Pregúntale cuál quiere (nombra esas opciones) o que lo describa de otra forma.`;
+          }
+        } else if (fnName === 'request_motor_session') {
           const motor = buildMotorWorkout(motorBase, parsed as Parameters<typeof buildMotorWorkout>[1], mode);
           workoutData = motor.workout;
           successMsg = motor.toolResult;
@@ -467,7 +497,7 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
           max_tokens: 400,
           temperature: 0.7,
         });
-        aiResponse = followUp.choices[0]?.message?.content || (workoutData || nutritionData ? '¡Listo! Lo tienes en la tarjeta de abajo.' : 'No he podido prepararlo con esas condiciones. ¿Qué material tienes disponible?');
+        aiResponse = followUp.choices[0]?.message?.content || (workoutData || nutritionData || exerciseAdd ? '¡Listo! Lo tienes en la tarjeta de abajo.' : 'No he podido prepararlo con esas condiciones. ¿Qué material tienes disponible?');
       }
     } else {
       aiResponse = choice.message?.content || 'Lo siento, no pude generar una respuesta.';
@@ -482,7 +512,7 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       ]);
     }
 
-    return NextResponse.json({ response: aiResponse, workout: workoutData, nutritionPlan: nutritionData });
+    return NextResponse.json({ response: aiResponse, workout: workoutData, nutritionPlan: nutritionData, exerciseAdd });
   } catch (err) {
     console.error('[chat POST]', err);
     return NextResponse.json({ error: 'Error al procesar el mensaje' }, { status: 500 });

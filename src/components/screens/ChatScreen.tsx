@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { CoachWorkout, CoachNutritionPlan } from '@/types/user';
+import type { CoachWorkout, CoachNutritionPlan, Exercise, WeeklySession } from '@/types/user';
+import { ExercisePreview } from '@/components/workout/ExercisePreview';
+import { formatRepLine } from '@/lib/exerciseFormat';
 import {
   Send,
   Sparkles,
@@ -51,10 +53,10 @@ const QUICK_ACTIONS_BY_MODE: Record<CoachMode, { id: string; label: string; icon
   ],
   gym: [
     { id: 'workout',        label: 'Créame un entreno para hoy',       icon: Dumbbell  },
+    { id: 'add-exercise',   label: 'Añade un ejercicio a una sesión',  icon: Plus      },
     { id: 'low-energy',     label: 'Hoy tengo poca energía',           icon: Battery   },
     { id: 'short-time',     label: 'Tengo poco tiempo',                icon: Clock     },
     { id: 'cant-exercise',  label: 'No puedo hacer un ejercicio',      icon: XCircle   },
-    { id: 'intensity',      label: 'Ajustar la intensidad',            icon: Sliders   },
   ],
   outdoor: [
     { id: 'workout',        label: 'Entreno al aire libre para hoy',   icon: TreePine  },
@@ -96,7 +98,18 @@ interface ChatMessage {
   image?: string;
   /** El mensaje se dictó con una nota de voz. */
   voice?: boolean;
+  /** Ejercicio que el Coach propone añadir a una sesión. */
+  exerciseAdd?: { exercise: Exercise; target?: string };
 }
+
+// Lo que sabe hacer el Coach (se enseña en la bienvenida)
+const CAPABILITIES = [
+  'Crear una sesión con el Motor: gimnasio, casa o calle',
+  'Añadir un ejercicio concreto a una de tus sesiones',
+  'Planes de comidas y macros adaptados a tu objetivo',
+  'Entender fotos y notas de voz',
+  'Dudas de técnica, descansos y progresión',
+];
 
 /** Reduce la foto en el móvil (lado mayor 1024 px, JPEG) antes de enviarla. */
 async function photoToDataUrl(file: File): Promise<string | null> {
@@ -132,6 +145,7 @@ export function ChatScreen() {
   const bottomRef = useRef<HTMLDivElement>(null);
   // Adjuntos y notas de voz
   const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [attachment, setAttachment] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -203,6 +217,7 @@ export function ChatScreen() {
           content: data.response,
           workout: data.workout ?? undefined,
           nutritionPlan: data.nutritionPlan ?? undefined,
+          exerciseAdd: data.exerciseAdd ?? undefined,
         };
         setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], aiMsg] }));
       }
@@ -347,7 +362,10 @@ export function ChatScreen() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.05 + i * 0.04 }}
-                    onClick={() => sendMessage(QUICK_MESSAGES_BY_MODE[coachMode][id] ?? label)}
+                    onClick={() => {
+                      if (id === 'add-exercise') { setInput('Añade a mi próxima sesión: '); textareaRef.current?.focus(); return; }
+                      sendMessage(QUICK_MESSAGES_BY_MODE[coachMode][id] ?? label);
+                    }}
                     className={`glass-card rounded-2xl p-3.5 text-left flex flex-col gap-2.5 active:scale-[0.98] transition-transform ${
                       i === 0 && QUICK_ACTIONS_BY_MODE[coachMode].length % 2 === 1 ? 'col-span-2' : ''
                     }`}
@@ -358,6 +376,17 @@ export function ChatScreen() {
                     <span className="text-sm font-medium text-stone-800 dark:text-stone-100 leading-snug">{label}</span>
                   </motion.button>
                 ))}
+              </div>
+              <div className="glass-card rounded-2xl p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">Qué puedo hacer por ti</p>
+                <ul className="space-y-1.5">
+                  {CAPABILITIES.map(c => (
+                    <li key={c} className="flex items-start gap-2 text-sm text-stone-700 dark:text-stone-200">
+                      <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" /> {c}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-stone-500 mt-2">Escríbeme, mándame una nota de voz o una foto.</p>
               </div>
             </motion.div>
           )}
@@ -400,6 +429,9 @@ export function ChatScreen() {
                   onAdd={() => handleAddWorkout(msg.id, msg.workout!)}
                 />
               )}
+
+              {/* Tarjeta para añadir un ejercicio a una sesión */}
+              {msg.exerciseAdd && <ExerciseAddCard proposal={msg.exerciseAdd} />}
 
               {/* Tarjeta de plan nutricional */}
               {msg.nutritionPlan && (
@@ -463,6 +495,7 @@ export function ChatScreen() {
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
             <textarea
+              ref={textareaRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -605,6 +638,58 @@ function NutritionCard({ plan, saved, saving, onSave, onView }: {
           </button>
         )}
       </div>
+    </motion.div>
+  );
+}
+
+// ─── Tarjeta: añadir un ejercicio a una sesión de la semana ───────────
+function ExerciseAddCard({ proposal }: { proposal: { exercise: Exercise; target?: string } }) {
+  const { user, updateSessionExercises } = useApp();
+  const pending = (user?.weeklySessions ?? []).filter(s => s.status !== 'completed');
+  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const days = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+  const target = proposal.target ? norm(proposal.target) : '';
+  const guess = pending.find(s => target && (norm(s.name).includes(target) || (s.dayOfWeek !== undefined && target.includes(days[s.dayOfWeek])))) ?? pending[0];
+  const [sessionId, setSessionId] = useState<string | undefined>(guess?.id);
+  const [added, setAdded] = useState<string | null>(null);
+  const ex = proposal.exercise;
+  const session = pending.find(s => s.id === sessionId);
+  const already = !!session?.exercises.some(e => e.id === ex.id || e.name === ex.name);
+
+  const add = (s: WeeklySession) => {
+    updateSessionExercises(s.id, [...s.exercises, { ...ex }]);
+    setAdded(s.name);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-2 glass-card rounded-2xl p-3 space-y-3">
+      <div className="flex items-center gap-3">
+        <ExercisePreview name={ex.name} muscle={ex.targetMuscle} className="w-14 h-14 flex-shrink-0" rounded="rounded-xl" animate={false} />
+        <div className="min-w-0">
+          <p className="font-semibold text-stone-900 leading-snug">{ex.name}</p>
+          <p className="text-xs text-stone-500 tabular-nums">{ex.sets} × {formatRepLine(ex)}</p>
+        </div>
+      </div>
+      {added ? (
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check className="w-4 h-4" /> Añadido a {added}</p>
+      ) : pending.length === 0 ? (
+        <p className="text-xs text-stone-500">No te quedan sesiones pendientes esta semana.</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-1.5">
+            {pending.map(s => (
+              <button key={s.id} type="button" onClick={() => setSessionId(s.id)} aria-pressed={s.id === sessionId}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${s.id === sessionId ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
+                {s.name}
+              </button>
+            ))}
+          </div>
+          <button type="button" disabled={!session || already} onClick={() => session && add(session)}
+            className="w-full h-10 rounded-xl bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
+            <Plus className="w-4 h-4" /> {already ? 'Ya está en esa sesión' : `Añadir a ${session?.name ?? 'la sesión'}`}
+          </button>
+        </>
+      )}
     </motion.div>
   );
 }

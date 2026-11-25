@@ -1,4 +1,4 @@
-import { ALL_EQUIPMENT, SESSION_FOCUS, durationFromMinutes, generateFocusSession, type MotorInput } from '@/lib/fitkMotor';
+import { ALL_EQUIPMENT, SESSION_FOCUS, durationFromMinutes, generateFocusSession, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import { formatRepLine } from '@/lib/exerciseFormat';
 import { libraryById } from '@/lib/fitkLibrary';
 import type { CoachWorkout } from '@/types/user';
@@ -90,4 +90,27 @@ export function buildOutdoorSession(base: MotorInput, minutes: number): import('
     }
   }
   return exercises;
+}
+
+const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * Ejercicio de la Biblioteca que mejor encaja con lo que escribe el usuario
+ * («dominadas», «press de banca», «curl de bíceps»…), con la dosis del Motor.
+ * Si no hay ninguno claro, devuelve los más parecidos para sugerirlos.
+ */
+export function findLibraryExercise(query: string): { exercise: import('@/types/user').Exercise | null; similar: string[] } {
+  const q = norm(query);
+  const STOP = new Set(['con', 'del', 'los', 'las', 'una', 'unas', 'unos', 'para', 'por', 'sin', 'que']);
+  const words = q.split(' ').filter(w => w.length > 2 && !STOP.has(w)).map(w => w.replace(/(es|s)$/, ''));
+  const catalog = motorCatalog();
+  const scored = catalog.map(e => {
+    const n = norm(e.name);
+    let score = n === q ? 100 : n.startsWith(q) ? 60 : n.includes(q) ? 40 : 0;
+    score += words.filter(w => n.includes(w)).length * 10;
+    return { e, score: score - n.length / 100 };
+  }).filter(x => x.score > 5).sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  const confident = best && (best.score >= 40 || (words.length > 0 && best.score >= words.length * 10 - 1));
+  return { exercise: confident ? best.e : null, similar: scored.slice(0, 4).map(x => x.e.name) };
 }
