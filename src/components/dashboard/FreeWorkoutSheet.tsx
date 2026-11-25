@@ -19,6 +19,15 @@ const TUTORIAL_STEPS = [
   { title: 'Crea la sesión de hoy', text: 'Aparece en tu calendario y la entrenas como cualquier otra: con descansos y registro de pesos.' },
 ];
 
+const FOCUS_OPTIONS = [
+  { id: 'fullA', label: 'Cuerpo completo' },
+  { id: 'torsoA', label: 'Torso' },
+  { id: 'legs', label: 'Pierna' },
+  { id: 'push', label: 'Empuje' },
+  { id: 'pull', label: 'Tirón' },
+];
+const MINUTE_OPTIONS = [30, 45, 60];
+
 const MIN_SETS = 1;
 const MAX_SETS = 8;
 
@@ -33,9 +42,14 @@ function withSets(e: Exercise, sets: number): Exercise {
  * se añade a hoy y se abre su vista previa para empezar.
  */
 export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { getExerciseCatalog, addFreeSession, setSelectedWeeklySession, setScreen } = useApp();
+  const { getExerciseCatalog, addFreeSession, addMotorSession, setSelectedWeeklySession, setScreen, user } = useApp();
   const [chosen, setChosen] = useState<Exercise[]>([]);
   const [picking, setPicking] = useState(false);
+  // Sesión preparada por el Coach (la construye el Motor).
+  const [place, setPlace] = useState<'gym' | 'outdoor'>('gym');
+  const [focus, setFocus] = useState('fullA');
+  const [autoMinutes, setAutoMinutes] = useState(45);
+  const [autoError, setAutoError] = useState(false);
   // La primera vez que se abre, el Coach explica para qué sirve este modo.
   const [tutorial, setTutorial] = useState(false);
   useEffect(() => {
@@ -58,6 +72,18 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
     : 0;
 
   const close = () => { setChosen([]); onClose(); };
+  const openSession = (session: ReturnType<typeof addFreeSession>) => {
+    if (!session) return;
+    setChosen([]);
+    onClose();
+    setSelectedWeeklySession(session);
+    setScreen('workout-preview');
+  };
+  const createAuto = () => {
+    const session = addMotorSession({ place, focus, minutes: autoMinutes });
+    setAutoError(!session);
+    openSession(session);
+  };
   const create = () => {
     const session = addFreeSession(chosen);
     if (!session) return;
@@ -108,7 +134,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                     <div className="rounded-2xl rounded-tl-md bg-emerald-50 px-4 py-3">
                       <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-0.5">Coach</p>
                       <p className="text-sm text-stone-800 leading-relaxed">
-                        Este modo es para los días en que quieres entrenar a tu manera, fuera de tu plan. Tu semana no cambia: solo se añade esta sesión.
+                        Este modo es para los días en que quieres entrenar a tu manera, fuera de tu plan. Tu semana no cambia: solo se añade esta sesión. Y si no te apetece elegir, te la preparo yo: de gimnasio o en la calle con barras.
                       </p>
                     </div>
                   </div>
@@ -133,6 +159,49 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                 </div>
               ) : (<>
               <div className="flex-1 overflow-y-auto no-scrollbar px-5 space-y-2">
+                {chosen.length === 0 && user && (
+                  <div className="rounded-2xl bg-emerald-50 p-3.5 space-y-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                        <Sparkles className="w-3.5 h-3.5 text-white" />
+                      </div>
+                      <p className="text-sm font-semibold text-stone-900">¿Te la preparo yo?</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]">
+                      {([['gym', 'Gimnasio'], ['outdoor', 'Calle y barras']] as const).map(([id, label]) => (
+                        <button key={id} type="button" onClick={() => setPlace(id)} aria-pressed={place === id}
+                          className={`h-8 rounded-lg text-sm font-semibold transition-colors ${place === id ? 'bg-white dark:bg-white/15 text-stone-900 shadow-sm' : 'text-stone-500'}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {place === 'gym' ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {FOCUS_OPTIONS.map(f => (
+                          <button key={f.id} type="button" onClick={() => setFocus(f.id)} aria-pressed={focus === f.id}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${focus === f.id ? 'bg-emerald-500 text-white' : 'bg-white/70 dark:bg-white/10 text-stone-600'}`}>
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-stone-600">Cuerpo completo con tu peso: flexiones, dominadas, fondos, zancadas y abdominales colgado.</p>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      {MINUTE_OPTIONS.map(m => (
+                        <button key={m} type="button" onClick={() => setAutoMinutes(m)} aria-pressed={autoMinutes === m}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors ${autoMinutes === m ? 'bg-emerald-500 text-white' : 'bg-white/70 dark:bg-white/10 text-stone-600'}`}>
+                          {m} min
+                        </button>
+                      ))}
+                      <Button onClick={createAuto} className="ml-auto h-9 px-4 rounded-full text-sm">Prepárala</Button>
+                    </div>
+                    {autoError && <p className="text-xs text-red-600">No he encontrado ejercicios con esas condiciones. Prueba con otro enfoque.</p>}
+                  </div>
+                )}
+                {chosen.length === 0 && user && (
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-400 pt-1">O elige tú los ejercicios</p>
+                )}
                 {chosen.map((e, i) => (
                   <div key={e.id} className="flex items-center gap-3 rounded-2xl bg-white/70 dark:bg-white/5 border border-stone-200/70 dark:border-white/10 p-2.5">
                     <ExercisePreview name={e.name} muscle={e.targetMuscle} className="w-12 h-12 flex-shrink-0" rounded="rounded-xl" animate={false} />
