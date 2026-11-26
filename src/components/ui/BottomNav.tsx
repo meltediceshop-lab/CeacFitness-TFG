@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { motion } from 'framer-motion';
 import { Home, MessageCircle, Apple, Users } from 'lucide-react';
@@ -15,6 +15,10 @@ const TABS = [
 
 const COMM_NOTIF_KEY = 'fitk-comm-notif';
 
+// Cada pantalla monta su propia barra: se recuerda la pestaña anterior para
+// que la burbuja se deslice desde ella (solo en horizontal, sin medir el layout).
+let lastIndex = -1;
+
 export function BottomNav({ active }: { active: AppScreen }) {
   const { setScreen } = useApp();
   const [commDot, setCommDot] = useState(false);
@@ -24,12 +28,38 @@ export function BottomNav({ active }: { active: AppScreen }) {
     setCommDot(localStorage.getItem(COMM_NOTIF_KEY) === 'true');
   }, [active]);
 
+  const index = TABS.findIndex(t => t.id === active);
+  const from = lastIndex >= 0 ? lastIndex : index;
+  const pillRef = useRef<HTMLDivElement>(null);
+  // Deslizamiento con una transición CSS: se fija la posición de partida y,
+  // en el mismo fotograma, se manda a la pestaña nueva. Solo se mueve en horizontal.
+  useLayoutEffect(() => {
+    const el = pillRef.current;
+    if (!el || index < 0) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.style.transition = 'none';
+    el.style.transform = `translateX(${(reduce ? index : from) * 100}%)`;
+    void el.offsetWidth;
+    el.style.transition = reduce ? 'none' : 'transform 380ms cubic-bezier(0.3, 1.2, 0.5, 1)';
+    el.style.transform = `translateX(${index * 100}%)`;
+    lastIndex = index;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
+
   return (
     <div
       className="fixed inset-x-4 z-40"
       style={{ bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.5rem))' }}
     >
-      <nav className="max-w-md mx-auto rounded-full nav-glass p-1.5 grid grid-cols-4 gap-1" aria-label="Navegación principal">
+      <nav className="relative max-w-md mx-auto rounded-full nav-glass p-1.5 grid grid-cols-4" aria-label="Navegación principal">
+        {index >= 0 && (
+          <div
+            ref={pillRef}
+            aria-hidden
+            className="absolute top-1.5 bottom-1.5 left-1.5 rounded-full nav-pill will-change-transform"
+            style={{ width: 'calc((100% - 0.75rem) / 4)', transform: `translateX(${from * 100}%)` }}
+          />
+        )}
         {TABS.map(({ id, label, icon: Icon }) => {
           const isActive = active === id;
           const showDot = id === 'community' && commDot && !isActive;
@@ -40,13 +70,6 @@ export function BottomNav({ active }: { active: AppScreen }) {
               aria-current={isActive ? 'page' : undefined}
               className="relative flex flex-col items-center justify-center gap-0.5 h-[52px] rounded-full min-w-0 active:scale-[0.96] transition-transform"
             >
-              {isActive && (
-                <motion.div
-                  layoutId="navActivePill"
-                  className="absolute inset-0 rounded-full nav-pill"
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                />
-              )}
               <div className="relative z-10">
                 <Icon
                   strokeWidth={isActive ? 2.4 : 2}
