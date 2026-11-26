@@ -7,6 +7,7 @@ import { ALL_EQUIPMENT, EXTRA_FUNCTIONS, SESSION_FOCUS, type MotorInput } from '
 import { motorInputFromRows } from '@/lib/motorInputFromRows';
 import { buildMotorWorkout, findLibraryExercise, toPlainText } from '@/lib/coachMotor';
 import type { CoachWorkout } from '@/types/user';
+import { chatKeyMode, isChatKey } from '@/lib/coachChats';
 import OpenAI from 'openai';
 
 const deepseek = new OpenAI({
@@ -332,8 +333,14 @@ export async function POST(req: NextRequest) {
       context?: ExerciseContext;
       /** Foto adjunta (data URL, ya reducida en el móvil). */
       image?: string;
+      /** Conversación a la que pertenece el mensaje («gym», «gym:abc123»…). */
+      conversation?: string;
     };
-    const { history, mode, context: exerciseContext } = body;
+    const { history, context: exerciseContext } = body;
+    const conversation = isChatKey(body.conversation) ? body.conversation : undefined;
+    const mode = conversation ? chatKeyMode(conversation) : body.mode;
+    // Dónde se guarda: la conversación elegida o, si no viene, el chat de siempre del modo.
+    const storeKey = conversation ?? mode ?? null;
     let message = body.message ?? '';
 
     // Foto adjunta: un modelo con visión la describe y el Coach responde con esa descripción.
@@ -604,8 +611,8 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
 
     if (user) {
       await supabase.from('chat_messages').insert([
-        { user_id: user.id, role: 'user', content: message, mode: mode ?? null },
-        { user_id: user.id, role: 'assistant', content: aiResponse, mode: mode ?? null },
+        { user_id: user.id, role: 'user', content: message, mode: storeKey },
+        { user_id: user.id, role: 'assistant', content: aiResponse, mode: storeKey },
       ]);
     }
 
@@ -623,13 +630,13 @@ export async function GET(req: NextRequest) {
 
     if (!user) return NextResponse.json({ data: [] });
 
-    const mode = req.nextUrl.searchParams.get('mode');
+    const mode = req.nextUrl.searchParams.get('conversation') ?? req.nextUrl.searchParams.get('mode');
 
     let query = supabase
       .from('chat_messages')
       .select('id, role, content, created_at')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(100);
 
     if (mode) query = query.eq('mode', mode);
@@ -638,7 +645,8 @@ export async function GET(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ data: data || [] });
+    // Se piden los más recientes y se devuelven en orden de lectura.
+    return NextResponse.json({ data: (data || []).reverse() });
   } catch (err) {
     console.error('[chat GET]', err);
     return NextResponse.json({ error: 'Error al cargar mensajes' }, { status: 500 });

@@ -559,7 +559,7 @@ function AchievementsCard({ badges }: { badges: ReturnType<typeof computeBadges>
         {badges.map(b => (
           <div key={b.id} title={b.hint} className="flex flex-col items-center gap-1.5">
             <span className={`w-11 h-11 rounded-full flex items-center justify-center text-xl ${
-              b.unlocked ? 'bg-emerald-500/12 ring-1 ring-emerald-500/40' : 'bg-[rgba(118,118,128,0.12)] grayscale opacity-50'
+              b.unlocked ? 'bg-emerald-500/10 ring-1 ring-emerald-500/40' : 'bg-[rgba(118,118,128,0.12)] grayscale opacity-50'
             }`}>{b.emoji}</span>
             <span className={`text-[10px] text-center leading-tight font-medium ${b.unlocked ? 'text-stone-800 dark:text-stone-200' : 'text-stone-400'}`}>{b.label}</span>
           </div>
@@ -584,7 +584,7 @@ export function CommunityScreen() {
   const [showOnlyMine, setShowOnlyMine] = useState(false);
 
   // Estudio de tarjetas para compartir fuera de Fit K
-  const [studio, setStudio] = useState<{ template?: ShareTemplate; prompt?: string } | null>(null);
+  const [studio, setStudio] = useState<{ template?: ShareTemplate; prompt?: string; kicker?: string } | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
   const theme = useMemo(() => getDailyTheme(), []);
   const challenge = useMemo(() => getWeeklyChallenge(), []);
@@ -745,8 +745,8 @@ export function CommunityScreen() {
     showToast('Gracias. Lo revisaremos.');
   }
 
-  function openStudio(template?: ShareTemplate, prompt?: string) {
-    setStudio({ template, prompt });
+  function openStudio(template?: ShareTemplate, prompt?: string, kicker?: string) {
+    setStudio({ template, prompt, kicker });
   }
 
   const SEGMENTS: { id: CommunityFilter | 'mine'; label: string }[] = [
@@ -849,13 +849,13 @@ export function CommunityScreen() {
         <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card rounded-3xl overflow-hidden">
           <div className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-7 h-7 rounded-full bg-emerald-500/12 flex items-center justify-center text-sm">{theme.emoji}</span>
+              <span className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center text-sm">{theme.emoji}</span>
               <p className="text-[11px] uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300 font-bold">Tema de hoy</p>
             </div>
             <p className="font-bold text-[17px] text-stone-900 dark:text-stone-100 leading-snug">{theme.title}</p>
             <p className="text-stone-500 text-sm mt-0.5 mb-3">{theme.prompt}</p>
             <button
-              onClick={() => openStudio('note', theme.prompt)}
+              onClick={() => openStudio('note', theme.prompt, theme.title)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-500 text-white text-sm font-semibold active:scale-95 transition-transform"
             >
               <PenLine className="w-4 h-4" /> Escribir sobre esto
@@ -950,6 +950,7 @@ export function CommunityScreen() {
           <ShareStudio
             initialTemplate={studio.template ?? ((user.weeklySessions ?? []).length > 0 ? 'session' : 'note')}
             prompt={studio.prompt}
+            initialKicker={studio.kicker}
             onClose={() => setStudio(null)}
             onPublished={() => setFeedVersion(v => v + 1)}
           />
