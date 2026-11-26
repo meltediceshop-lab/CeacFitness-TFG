@@ -11,6 +11,7 @@ import { WelcomeGuideAccess } from '@/components/dashboard/WelcomeGuideAccess';
 import { ReviewBanner } from '@/components/dashboard/ReviewBanner';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { FreeWorkoutSheet } from '@/components/dashboard/FreeWorkoutSheet';
+import { HomeWidgets } from '@/components/dashboard/HomeWidgets';
 import { ShareStudio } from '@/components/community/ShareStudio';
 import { planWeekStart, relativeDay, sameDay, sessionDate } from '@/lib/weekCalendar';
 import { SparkLine } from '@/components/metrics/LineChart';
@@ -878,6 +879,20 @@ export function DashboardScreen() {
             <p className="text-[10px] text-teal-500 mt-2">Ver detalles →</p>
           </Card>
         </motion.div>
+
+        {/* Secciones propias (reloj, métricas, objetivos…) */}
+        <HomeWidgets
+          userId={supabaseUserId || user.id}
+          stats={{
+            weekStreak,
+            totalCompleted: totalCompletedSessions,
+            totalVolume,
+            weights: [...metricsHistory].reverse().filter(r => r.weight != null).map(r => ({ date: String(r.recordedAt), value: r.weight! })),
+            currentWeight: metricsHistory.find(r => r.weight != null)?.weight ?? user.profile.weight,
+            nextSession,
+            onStartSession: handleSessionClick,
+          }}
+        />
       </div>
 
       {/* Modal de métricas */}

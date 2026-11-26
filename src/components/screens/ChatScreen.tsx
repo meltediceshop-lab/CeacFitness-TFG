@@ -8,6 +8,7 @@ import type { CoachWorkout, CoachNutritionPlan, Exercise, WeeklySession } from '
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { formatRepLine } from '@/lib/exerciseFormat';
 import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
+import { chatTitle, newChatKey, isChatKey, type CoachChatSummary } from '@/lib/coachChats';
 import {
   Send,
   Sparkles,
@@ -32,12 +33,30 @@ import {
   CalendarDays,
   Square,
   X,
+  MessagesSquare,
+  SquarePen,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 
 type CoachMode = 'nutrition' | 'gym' | 'outdoor';
 
 const CHAT_MODES: CoachMode[] = ['nutrition', 'gym', 'outdoor'];
+const ACTIVE_CHATS_KEY = 'fitk-coach-active-chats';
+const NO_MESSAGES: ChatMessage[] = [];
+
+/** «Hoy», «Ayer», «Esta semana» o «Anteriores». */
+function chatGroup(iso: string): string {
+  const d = new Date(iso); const now = new Date();
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86_400_000);
+  return diff <= 0 ? 'Hoy' : diff === 1 ? 'Ayer' : diff < 7 ? 'Esta semana' : 'Anteriores';
+}
+function chatTime(iso: string): string {
+  const d = new Date(iso);
+  return chatGroup(iso) === 'Hoy' ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+}
 
 const MODE_CONFIG: Record<CoachMode, { label: string; icon: LucideIcon; intro: string }> = {
   gym:       { label: 'Gimnasio',   icon: Dumbbell, intro: 'Te preparo entrenos con tu Motor, adapto la sesión si hoy vas con poca energía o poco tiempo y resuelvo tus dudas.' },
@@ -174,13 +193,23 @@ async function photoToDataUrl(file: File): Promise<string | null> {
 
 export function ChatScreen() {
   const { user, setScreen, addSessionFromCoach } = useApp();
-  const [messagesByMode, setMessagesByMode] = useState<Record<CoachMode, ChatMessage[]>>({
-    nutrition: [],
-    gym: [],
-    outdoor: [],
+  // Mensajes de cada conversación (clave «gym», «gym:abc123»…) y conversación abierta en cada modo.
+  const [messagesByKey, setMessagesByKey] = useState<Record<string, ChatMessage[]>>({});
+  const [activeChat, setActiveChat] = useState<Record<CoachMode, string>>(() => {
+    const base: Record<CoachMode, string> = { nutrition: 'nutrition', gym: 'gym', outdoor: 'outdoor' };
+    try {
+      const saved = JSON.parse(localStorage.getItem(ACTIVE_CHATS_KEY) || '{}') as Partial<Record<CoachMode, string>>;
+      for (const m of CHAT_MODES) if (isChatKey(saved[m]) && saved[m]!.split(':')[0] === m) base[m] = saved[m]!;
+    } catch { /* sin datos guardados */ }
+    return base;
   });
+  const [chats, setChats] = useState<CoachChatSummary[]>([]);
+  const [showChats, setShowChats] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const loadedRef = useRef<Set<string>>(new Set());
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  // Conversación que está esperando respuesta (una a la vez).
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [savedWorkouts, setSavedWorkouts] = useState<Set<string>>(new Set());
   const [savedPlans, setSavedPlans] = useState<Set<string>>(new Set());
@@ -198,34 +227,115 @@ export function ChatScreen() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  const messages = messagesByMode[coachMode];
+  const activeKey = activeChat[coachMode];
+  const messages = messagesByKey[activeKey] ?? NO_MESSAGES;
+  const isLoading = loadingKey === activeKey;
+  /** Chats cuyo historial aún se está cargando (no se puede escribir hasta que llegue). */
+  const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
+  const deletedRef = useRef<Set<string>>(new Set());
+  const listReqRef = useRef(0);
+
+  /** Carga los mensajes de una conversación (una sola vez). */
+  async function loadChat(key: string) {
+    if (loadedRef.current.has(key)) return;
+    loadedRef.current.add(key);
+    setPendingKeys(p => new Set(p).add(key));
+    try {
+      const res = await fetch(`/api/chat?conversation=${encodeURIComponent(key)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const msgs: ChatMessage[] = (data.data || []).map((mm: { id: string; role: string; content: string }) => ({
+        id: mm.id, role: mm.role as 'user' | 'assistant', content: mm.content,
+      }));
+      // Se juntan con lo que haya en pantalla, sin perder nada.
+      setMessagesByKey(prev => {
+        const local = prev[key] ?? [];
+        return { ...prev, [key]: [...msgs, ...local.filter(m => !msgs.some(x => x.id === m.id))] };
+      });
+    } catch {
+      loadedRef.current.delete(key);
+    } finally {
+      setPendingKeys(p => { const n = new Set(p); n.delete(key); return n; });
+    }
+  }
+  async function loadChatList() {
+    const req = ++listReqRef.current;
+    try {
+      const res = await fetch('/api/chat/conversations');
+      const data = await res.json();
+      // Si mientras tanto se ha borrado o creado un chat, esta respuesta ya es vieja.
+      if (req === listReqRef.current && Array.isArray(data.data)) setChats(data.data);
+    } catch { /* sin conexión: la lista se queda como está */ }
+  }
 
   useEffect(() => {
-    async function loadHistory() {
-      try {
-        const results = await Promise.all(CHAT_MODES.map(async (m) => {
-          const res = await fetch(`/api/chat?mode=${m}`);
-          const data = await res.json();
-          const msgs: ChatMessage[] = (data.data || []).map((mm: { id: string; role: string; content: string }) => ({
-            id: mm.id,
-            role: mm.role as 'user' | 'assistant',
-            content: mm.content,
-          }));
-          return [m, msgs] as const;
-        }));
-        setMessagesByMode(prev => {
-          const next = { ...prev };
-          for (const [m, msgs] of results) {
-            if (msgs.length && next[m].length === 0) next[m] = msgs;
-          }
-          return next;
-        });
-      } catch { /* ignore */ } finally {
-        setIsLoadingHistory(false);
+    Promise.all([loadChatList(), ...CHAT_MODES.map(m => loadChat(activeChat[m]))]).finally(() => setIsLoadingHistory(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Se recuerda qué chat estaba abierto en cada modo.
+  useEffect(() => {
+    try { localStorage.setItem(ACTIVE_CHATS_KEY, JSON.stringify(activeChat)); } catch { /* almacenamiento no disponible */ }
+  }, [activeChat]);
+
+  function openChat(key: string) {
+    const mode = key.split(':')[0] as CoachMode;
+    setCoachMode(mode);
+    setActiveChat(prev => ({ ...prev, [mode]: key }));
+    loadChat(key);
+    setShowChats(false);
+  }
+  function startNewChat(mode: CoachMode = coachMode) {
+    const key = newChatKey(mode);
+    loadedRef.current.add(key);
+    setMessagesByKey(prev => ({ ...prev, [key]: [] }));
+    setCoachMode(mode);
+    setActiveChat(prev => ({ ...prev, [mode]: key }));
+    setInput(''); setAttachment(null);
+    setShowChats(false);
+  }
+  async function deleteChat(key: string) {
+    setConfirmDelete(null);
+    listReqRef.current++;
+    deletedRef.current.add(key);
+    const removed = chats.find(c => c.key === key);
+    const removedMsgs = messagesByKey[key];
+    setChats(prev => prev.filter(c => c.key !== key));
+    setMessagesByKey(prev => { const next = { ...prev }; delete next[key]; return next; });
+    loadedRef.current.delete(key);
+    const mode = key.split(':')[0] as CoachMode;
+    if (activeChat[mode] === key) {
+      // Se abre el siguiente chat de ese modo o uno vacío, sin cambiar de pestaña ni cerrar el panel.
+      const nextChat = chats.find(c => c.mode === mode && c.key !== key);
+      if (nextChat) { setActiveChat(prev => ({ ...prev, [mode]: nextChat.key })); loadChat(nextChat.key); }
+      else {
+        const fresh = newChatKey(mode);
+        loadedRef.current.add(fresh);
+        setMessagesByKey(prev => ({ ...prev, [fresh]: [] }));
+        setActiveChat(prev => ({ ...prev, [mode]: fresh }));
       }
     }
-    loadHistory();
-  }, []);
+    try {
+      const res = await fetch(`/api/chat/conversations?key=${encodeURIComponent(key)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      // No se ha borrado: vuelve a la lista para que no parezca que ya no existe.
+      deletedRef.current.delete(key);
+      if (removed) setChats(prev => (prev.some(c => c.key === key) ? prev : [removed, ...prev].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))));
+      if (removedMsgs) { loadedRef.current.add(key); setMessagesByKey(prev => ({ ...prev, [key]: removedMsgs })); }
+    }
+  }
+  /** Mantiene la lista al día sin pedirla otra vez al servidor. */
+  function touchChat(key: string, mode: CoachMode, firstMessage: string, added: number) {
+    listReqRef.current++;
+    setChats(prev => {
+      const cur = prev.find(c => c.key === key);
+      const updated: CoachChatSummary = cur
+        ? { ...cur, updatedAt: new Date().toISOString(), count: cur.count + added }
+        : { key, mode, title: chatTitle(firstMessage), updatedAt: new Date().toISOString(), count: added };
+      return [updated, ...prev.filter(c => c.key !== key)];
+    });
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -238,23 +348,30 @@ export function ChatScreen() {
   async function sendMessage(text: string, opts: { image?: string | null; voice?: boolean } = {}) {
     const trimmed = text.trim();
     const image = opts.image ?? null;
-    if ((!trimmed && !image) || isLoading) return;
+    if ((!trimmed && !image) || loadingKey || pendingKeys.has(activeKey)) return;
 
     const mode = coachMode;
+    const key = activeKey;
+    deletedRef.current.delete(key); // una clave reutilizada (p. ej. «gym») vuelve a valer
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed, image: image ?? undefined, voice: opts.voice };
-    setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], userMsg] }));
+    setMessagesByKey(prev => ({ ...prev, [key]: [...(prev[key] ?? []), userMsg] }));
     setInput('');
     setAttachment(null);
-    setIsLoading(true);
+    setLoadingKey(key);
 
     try {
-      const history = messagesByMode[mode].slice(-20).map(m => ({ role: m.role, content: m.content }));
+      const history = (messagesByKey[key] ?? []).slice(-20).map(m => ({ role: m.role, content: m.content }));
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed || '¿Qué te parece esta foto?', history, mode, image: image ?? undefined }),
+        body: JSON.stringify({ message: trimmed || '¿Qué te parece esta foto?', history, mode, conversation: key, image: image ?? undefined }),
       });
       const data = await res.json();
+      if (deletedRef.current.has(key)) {
+        // Se borró mientras respondía: el servidor ya ha guardado los mensajes, se vuelven a quitar.
+        fetch(`/api/chat/conversations?key=${encodeURIComponent(key)}`, { method: 'DELETE' }).catch(() => {});
+        return;
+      }
       if (data.response) {
         const aiMsg: ChatMessage = {
           id: `a-${Date.now()}`,
@@ -266,16 +383,17 @@ export function ChatScreen() {
           swap: data.swap ?? undefined,
           move: data.move ?? undefined,
         };
-        setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], aiMsg] }));
+        setMessagesByKey(prev => ({ ...prev, [key]: [...(prev[key] ?? []), aiMsg] }));
+        touchChat(key, mode, trimmed || '¿Qué te parece esta foto?', 2);
       }
     } catch {
-      setMessagesByMode(prev => ({ ...prev, [mode]: [...prev[mode], {
+      setMessagesByKey(prev => ({ ...prev, [key]: [...(prev[key] ?? []), {
         id: `err-${Date.now()}`,
         role: 'assistant',
         content: 'No pude conectarme. Revisa tu conexión e inténtalo de nuevo.',
       }] }));
     } finally {
-      setIsLoading(false);
+      setLoadingKey(prev => (prev === key ? null : prev));
     }
   }
 
@@ -360,10 +478,21 @@ export function ChatScreen() {
           <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(16,185,129,0.6)]">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold text-stone-900 leading-tight">Coach K</h1>
-            <p className="text-stone-500 text-xs">Tu entrenador y nutricionista</p>
+            <p className="text-stone-500 text-xs truncate">
+              {messages.length ? (chats.find(c => c.key === activeKey)?.title ?? chatTitle(messages.find(m => m.role === 'user')?.content)) : 'Tu entrenador y nutricionista'}
+            </p>
           </div>
+          <button type="button" onClick={() => { setShowChats(true); loadChatList(); }} aria-label="Ver tus chats"
+            className="relative w-10 h-10 rounded-full glass-card flex items-center justify-center text-stone-700 dark:text-stone-200">
+            <MessagesSquare className="w-[18px] h-[18px]" />
+            {chats.length > 1 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">{chats.length}</span>}
+          </button>
+          <button type="button" onClick={() => startNewChat()} aria-label="Chat nuevo"
+            className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(16,185,129,0.7)] active:scale-95 transition-transform">
+            <SquarePen className="w-[18px] h-[18px]" />
+          </button>
         </div>
         <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]">
           {MODE_ORDER.map(m => {
@@ -567,7 +696,7 @@ export function ChatScreen() {
             {input.trim() || attachment ? (
               <button
                 onClick={() => sendMessage(input, { image: attachment })}
-                disabled={isLoading}
+                disabled={!!loadingKey || pendingKeys.has(activeKey)}
                 aria-label="Enviar"
                 className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center transition-colors flex-shrink-0"
               >
@@ -589,6 +718,79 @@ export function ChatScreen() {
           </p>
         </div>
       </div>
+
+      {/* Panel de chats */}
+      <AnimatePresence>
+        {showChats && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] bg-black/40" onClick={() => { setShowChats(false); setConfirmDelete(null); }}>
+            <motion.aside initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+              onClick={e => e.stopPropagation()} aria-label="Tus chats con el Coach"
+              className="glass-modal absolute left-0 top-0 bottom-0 w-[86%] max-w-sm rounded-r-3xl flex flex-col pt-[max(1.25rem,env(safe-area-inset-top))]">
+              <div className="px-4 pb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-stone-900 dark:text-white">Chats</h2>
+                  <p className="text-xs text-stone-500">{chats.length ? `${chats.length} ${chats.length === 1 ? 'conversación' : 'conversaciones'}` : 'Aún no tienes conversaciones'}</p>
+                </div>
+                <button type="button" onClick={() => setShowChats(false)} aria-label="Cerrar" className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center">
+                  <X className="w-5 h-5 text-stone-600 dark:text-white/70" />
+                </button>
+              </div>
+              <div className="px-4 pb-3 grid grid-cols-3 gap-1.5">
+                {MODE_ORDER.map(m => {
+                  const Icon = MODE_CONFIG[m].icon;
+                  return (
+                    <button key={m} type="button" onClick={() => startNewChat(m)}
+                      className="rounded-2xl p-2.5 bg-[rgba(118,118,128,0.08)] active:bg-[rgba(118,118,128,0.16)] flex flex-col items-start gap-1.5 text-left">
+                      <span className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center"><Icon className="w-4 h-4" /></span>
+                      <span className="text-[11px] leading-tight font-semibold text-stone-800 dark:text-stone-100">Nuevo · {MODE_CONFIG[m].label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex-1 overflow-y-auto px-2 pb-6">
+                {chats.length === 0 && (
+                  <p className="px-3 py-8 text-center text-sm text-stone-500">Cuando hables con el Coach, tus conversaciones aparecerán aquí para que vuelvas a ellas cuando quieras.</p>
+                )}
+                {['Hoy', 'Ayer', 'Esta semana', 'Anteriores'].map(group => {
+                  const items = chats.filter(c => chatGroup(c.updatedAt) === group);
+                  if (!items.length) return null;
+                  return (
+                    <div key={group} className="pt-2">
+                      <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500">{group}</p>
+                      {items.map(c => {
+                        const Icon = MODE_CONFIG[c.mode].icon;
+                        const isActive = activeChat[c.mode] === c.key && coachMode === c.mode;
+                        return (
+                          <div key={c.key} className={`group flex items-center gap-1 rounded-2xl ${isActive ? 'bg-emerald-500/10' : ''}`}>
+                            <button type="button" onClick={() => openChat(c.key)} className="flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 text-left">
+                              <span className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isActive ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-stone-300'}`}>
+                                <Icon className="w-4 h-4" />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-semibold text-stone-900 dark:text-stone-100 truncate">{c.title}</span>
+                                <span className="block text-xs text-stone-500 truncate">{MODE_CONFIG[c.mode].label} · {chatTime(c.updatedAt)} · {Math.ceil(c.count / 2)} {Math.ceil(c.count / 2) === 1 ? 'pregunta' : 'preguntas'}</span>
+                              </span>
+                            </button>
+                            {confirmDelete === c.key ? (
+                              <button type="button" onClick={() => deleteChat(c.key)} className="mr-2 h-8 px-3 rounded-full bg-red-500 text-white text-xs font-semibold flex-shrink-0">Borrar</button>
+                            ) : (
+                              <button type="button" onClick={() => setConfirmDelete(c.key)} aria-label={`Borrar el chat ${c.title}`}
+                                className="mr-1 w-9 h-9 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 flex-shrink-0">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <BottomNav active="chat" />
     </div>
