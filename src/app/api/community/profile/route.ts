@@ -5,6 +5,8 @@ import { libraryById } from '@/lib/fitkLibrary';
 import { weekStreakFrom, type CommunityProfileView, type FriendshipState, type ProfileLift, type ProfilePost, type ProfileStats } from '@/lib/communityProfiles';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Fecha en la hora de España (el servidor va en UTC). */
+const madrid = (d: Date) => new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
 
 /** Perfil de una persona. Las estadísticas solo salen si es tuyo, público o sois amigos. */
 export async function GET(req: NextRequest) {
@@ -34,7 +36,8 @@ export async function GET(req: NextRequest) {
     }
     let friendship: FriendshipState = 'none';
     if (rel) friendship = rel.status === 'accepted' ? 'friends' : rel.requester === user.id ? 'outgoing' : 'incoming';
-    const isPublic = cp?.is_public ?? true;
+    // Privado si la persona no ha elegido lo contrario (o aún no tiene perfil).
+    const isPublic = cp?.is_public ?? false;
     const canView = isMe || isPublic || friendship === 'friends';
 
     const view: CommunityProfileView = {
@@ -43,9 +46,11 @@ export async function GET(req: NextRequest) {
     };
     if (!canView) return NextResponse.json({ data: view });
 
-    const [{ data: sessions }, { data: logs }, { data: posts }] = await Promise.all([
-      admin.from('weekly_sessions').select('duration, completed_at').eq('user_id', target).eq('status', 'completed').limit(2000),
-      admin.from('exercise_logs').select('exercise_id, weight, reps').eq('user_id', target).limit(10000),
+    // Totales calculados en la base de datos; aquí solo las fechas recientes (racha y mes).
+    const [{ data: agg }, { data: sessions }, { data: posts }] = await Promise.all([
+      admin.rpc('community_profile_stats', { p_user: target }),
+      admin.from('weekly_sessions').select('completed_at').eq('user_id', target).eq('status', 'completed').not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false }).limit(500),
       admin.from('community_posts').select('id, type, content, workout_name, photo_url, created_at').eq('user_id', target).order('created_at', { ascending: false }).limit(30),
     ]);
     const postIds = (posts ?? []).map(p => p.id as string);
@@ -53,28 +58,20 @@ export async function GET(req: NextRequest) {
       ? await admin.from('community_reactions').select('post_id', { count: 'exact', head: true }).in('post_id', postIds)
       : { count: 0 };
 
-    const done = (sessions ?? []).filter(s => s.completed_at);
-    const dates = done.map(s => new Date(s.completed_at as string));
-    const now = new Date();
-    let volume = 0;
-    const best = new Map<string, number>();
-    for (const l of logs ?? []) {
-      const w = Number(l.weight) || 0, r = Number(l.reps) || 0;
-      volume += w * r;
-      if (w > 0) best.set(l.exercise_id as string, Math.max(best.get(l.exercise_id as string) ?? 0, w));
-    }
+    const a = (agg ?? {}) as { total_sessions?: number; total_minutes?: number; volume?: number; lifts?: { exercise_id: string; kg: number }[] };
+    const dates = (sessions ?? []).map(s => madrid(new Date(s.completed_at as string)));
+    const now = madrid(new Date());
     const stats: ProfileStats = {
-      totalSessions: done.length,
-      totalMinutes: done.reduce((m, s) => m + (Number(s.duration) || 0), 0),
+      totalSessions: Number(a.total_sessions) || 0,
+      totalMinutes: Number(a.total_minutes) || 0,
       monthSessions: dates.filter(d => d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()).length,
       weekStreak: weekStreakFrom(dates, now),
-      totalVolumeKg: Math.round(volume),
+      totalVolumeKg: Math.round(Number(a.volume) || 0),
       posts: postIds.length,
       reactionsReceived: reactions ?? 0,
       memberSince: (base?.created_at as string | undefined) ?? undefined,
     };
-    const lifts: ProfileLift[] = [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
-      .map(([id, kg]) => ({ name: libraryById.get(id)?.name ?? id.replace(/[-_]/g, ' '), kg }));
+    const lifts: ProfileLift[] = (a.lifts ?? []).map(l => ({ name: libraryById.get(l.exercise_id)?.name ?? l.exercise_id.replace(/[-_]/g, ' '), kg: Number(l.kg) || 0 }));
     const recent: ProfilePost[] = (posts ?? []).slice(0, 12).map(p => ({
       id: p.id as string, type: p.type as 'note' | 'workout', content: (p.content as string) ?? undefined,
       workoutName: (p.workout_name as string) ?? undefined, photoUrl: (p.photo_url as string) ?? undefined, createdAt: p.created_at as string,

@@ -75,7 +75,7 @@ export function ProfileSheet({ userId, demo, onClose, onOpenFriends, onChanged }
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [bio, setBio] = useState('');
-  const [isPublic, setIsPublic] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -90,6 +90,7 @@ export function ProfileSheet({ userId, demo, onClose, onOpenFriends, onChanged }
 
   async function friendAction(action: 'request' | 'accept' | 'decline' | 'cancel' | 'remove') {
     if (!view || view.isDemo) return;
+    setError(null);
     setBusy(true);
     try {
       const r = await fetch('/api/community/friends', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: view.userId, action }) });
@@ -97,10 +98,15 @@ export function ProfileSheet({ userId, demo, onClose, onOpenFriends, onChanged }
       if (r.ok && j.state) {
         // Al haceros amigos se recarga para ver sus estadísticas si era privado.
         if (j.state === 'friends' && !view.canView) {
-          const p = await fetch(`/api/community/profile?userId=${encodeURIComponent(view.userId)}`).then(x => x.json());
-          if (p.data) setView(p.data);
-        } else {
-          setView(v => v && ({ ...v, friendship: j.state, friendsCount: v.friendsCount + (j.state === 'friends' ? 1 : action === 'remove' ? -1 : 0), canView: v.isPublic || j.state === 'friends' }));
+          setView(v => v && ({ ...v, friendship: 'friends', friendsCount: v.friendsCount + 1 }));
+          try {
+            const p = await fetch(`/api/community/profile?userId=${encodeURIComponent(view.userId)}`).then(x => x.json());
+            if (p.data) setView(p.data); else setError('Ya sois amigos. Vuelve a abrir el perfil para ver sus estadísticas.');
+          } catch { setError('Ya sois amigos. Vuelve a abrir el perfil para ver sus estadísticas.'); }
+        } else if (j.state !== view.friendship) {
+          // El contador solo cambia si de verdad se gana o se pierde una amistad.
+          const delta = (j.state === 'friends' ? 1 : 0) - (view.friendship === 'friends' ? 1 : 0);
+          setView(v => v && ({ ...v, friendship: j.state, friendsCount: Math.max(0, v.friendsCount + delta), canView: v.isMe || v.isPublic || j.state === 'friends' }));
         }
         onChanged?.();
       } else setError(j.error ?? 'No se ha podido completar.');
@@ -109,6 +115,7 @@ export function ProfileSheet({ userId, demo, onClose, onOpenFriends, onChanged }
   }
 
   async function saveProfile() {
+    setError(null);
     setSaving(true);
     try {
       const r = await fetch('/api/community/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bio, isPublic }) });
@@ -294,7 +301,7 @@ export function FriendsSheet({ onClose, onOpenProfile, onChanged }: { onClose: (
   const load = () => fetch('/api/community/friends').then(async r => {
     const j = await r.json();
     if (!r.ok || !j.data) { setError(j.error ?? 'No se han podido cargar tus amigos.'); return; }
-    setList(j.data); onChanged?.(j.data.incoming.length);
+    setError(null); setList(j.data); onChanged?.(j.data.incoming.length);
     setTab(t => (t === 'incoming' && j.data.incoming.length === 0 ? 'friends' : t));
   }).catch(() => setError('Sin conexión. Inténtalo de nuevo.'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -302,8 +309,14 @@ export function FriendsSheet({ onClose, onOpenProfile, onChanged }: { onClose: (
 
   async function act(userId: string, action: 'accept' | 'decline' | 'cancel') {
     setBusy(userId);
-    await fetch('/api/community/friends', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, action }) }).catch(() => {});
-    await load(); setBusy(null);
+    let msg: string | null = null;
+    try {
+      const r = await fetch('/api/community/friends', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, action }) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); msg = j.error ?? 'No se ha podido completar.'; }
+    } catch { msg = 'Sin conexión. Inténtalo de nuevo.'; }
+    await load();
+    if (msg) setError(msg);
+    setBusy(null);
   }
 
   const items = list ? list[tab] : [];
@@ -331,7 +344,7 @@ export function FriendsSheet({ onClose, onOpenProfile, onChanged }: { onClose: (
         </div>
         <div className="flex-1 overflow-y-auto px-3 pb-8">
           {!list && !error && <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-emerald-500 animate-spin" /></div>}
-          {error && <p className="px-3 py-10 text-center text-sm text-stone-500">{error}</p>}
+          {error && <p className={`px-3 text-center text-sm ${list ? 'py-2 text-red-500' : 'py-10 text-stone-500'}`}>{error}</p>}
           {list && items.length === 0 && <p className="px-3 py-10 text-center text-sm text-stone-500">{empty}</p>}
           {items.map(f => (
             <div key={f.userId} className="flex items-center gap-3 px-2 py-2 rounded-2xl">

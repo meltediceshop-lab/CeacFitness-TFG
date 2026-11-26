@@ -51,25 +51,41 @@ export async function POST(req: NextRequest) {
       if (existing?.status === 'accepted') return NextResponse.json({ state: 'friends' });
       // Si la otra persona ya te la había enviado, enviarla equivale a aceptar.
       if (existing && existing.addressee === user.id) {
-        const { error } = await supabase.from('community_friendships').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', existing.id);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        const { error } = await supabase.from('community_friendships').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', existing.id).eq('status', 'pending');
+        if (error) { console.error('[friends accept]', error); return NextResponse.json({ error: 'No se ha podido aceptar.' }, { status: 500 }); }
         return NextResponse.json({ state: 'friends' });
       }
       if (existing) return NextResponse.json({ state: 'outgoing' });
       const { error } = await supabase.from('community_friendships').insert({ requester: user.id, addressee: userId, status: 'pending' });
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error?.code === '23505') {
+        // Carrera: la otra persona (o una petición repetida) creó la relación a la vez.
+        const { data: row } = await supabase.from('community_friendships').select('id, addressee, status').or(pair).maybeSingle();
+        if (row?.status === 'accepted') return NextResponse.json({ state: 'friends' });
+        if (row && row.addressee === user.id) {
+          const { error: e2 } = await supabase.from('community_friendships').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', row.id).eq('status', 'pending');
+          if (!e2) return NextResponse.json({ state: 'friends' });
+        }
+        return NextResponse.json({ state: 'outgoing' });
+      }
+      if (error) { console.error('[friends request]', error); return NextResponse.json({ error: 'No se ha podido enviar la solicitud.' }, { status: 500 }); }
       return NextResponse.json({ state: 'outgoing' });
     }
     if (action === 'accept') {
       if (!existing || existing.addressee !== user.id) return NextResponse.json({ error: 'No hay solicitud que aceptar' }, { status: 404 });
-      const { error } = await supabase.from('community_friendships').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', existing.id);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (existing.status === 'accepted') return NextResponse.json({ state: 'friends' });
+      const { error } = await supabase.from('community_friendships').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', existing.id).eq('status', 'pending');
+      if (error) { console.error('[friends accept]', error); return NextResponse.json({ error: 'No se ha podido aceptar.' }, { status: 500 }); }
       return NextResponse.json({ state: 'friends' });
     }
     if (action === 'decline' || action === 'cancel' || action === 'remove') {
       if (existing) {
-        const { error } = await supabase.from('community_friendships').delete().eq('id', existing.id);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        const matches = action === 'remove'
+          ? existing.status === 'accepted'
+          : existing.status === 'pending' && (action === 'cancel' ? existing.requester === user.id : existing.addressee === user.id);
+        // Si la vista estaba desfasada, se devuelve el estado real sin borrar nada.
+        if (!matches) return NextResponse.json({ state: existing.status === 'accepted' ? 'friends' : existing.requester === user.id ? 'outgoing' : 'incoming' });
+        const { error } = await supabase.from('community_friendships').delete().eq('id', existing.id).eq('status', existing.status);
+        if (error) { console.error('[friends delete]', error); return NextResponse.json({ error: 'No se ha podido completar.' }, { status: 500 }); }
       }
       return NextResponse.json({ state: 'none' });
     }

@@ -43,9 +43,11 @@ export function weekStreakFrom(dates: Date[], now = new Date()): number {
     return x.getTime();
   };
   const weeks = new Set(dates.map(key));
+  // Retroceder por calendario: 3 días atrás cae en la semana anterior y key() lo lleva a su lunes.
+  const prevWeek = (t: number) => key(new Date(t - 3 * 86_400_000));
   let cursor = key(now);
-  if (!weeks.has(cursor)) cursor -= 7 * 86_400_000;
+  if (!weeks.has(cursor)) cursor = prevWeek(cursor);
   let streak = 0;
-  while (weeks.has(cursor)) { streak++; cursor -= 7 * 86_400_000; }
+  while (weeks.has(cursor)) { streak++; cursor = prevWeek(cursor); }
   return streak;
 }

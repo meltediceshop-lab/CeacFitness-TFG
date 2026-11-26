@@ -596,9 +596,10 @@ export function CommunityScreen() {
   const [profileOf, setProfileOf] = useState<string | null>(null);
   const [showFriends, setShowFriends] = useState(false);
   const [incoming, setIncoming] = useState(0);
-  useEffect(() => {
+  const refreshIncoming = () => {
     fetch('/api/community/friends').then(r => (r.ok ? r.json() : null)).then(j => { if (j?.data) setIncoming(j.data.incoming.length); }).catch(() => {});
-  }, []);
+  };
+  useEffect(() => { refreshIncoming(); }, []);
   const theme = useMemo(() => getDailyTheme(), []);
   const challenge = useMemo(() => getWeeklyChallenge(), []);
 
@@ -986,6 +987,7 @@ export function CommunityScreen() {
             userId={profileOf}
             demo={profileOf.startsWith('demo-user-') ? getDemoProfile(profileOf, posts) : undefined}
             onClose={() => setProfileOf(null)}
+            onChanged={refreshIncoming}
             onOpenFriends={profileOf === 'me' ? () => { setProfileOf(null); setShowFriends(true); } : undefined}
           />
         )}
