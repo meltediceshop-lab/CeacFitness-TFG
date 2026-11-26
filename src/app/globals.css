@@ -396,3 +396,12 @@ html.dark {
 /* ── Utility: hide scrollbar ─────────────────────────────────────── */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Pop-ups y desplegables: su scroll no se contagia a la pantalla de detrás.
+   (Fuera de @layer para que Tailwind no lo purgue en producción.) */
+.fixed.inset-0 .overflow-y-auto,
+.fixed.inset-0 .overflow-auto,
+.fixed.inset-0.overflow-y-auto,
+[data-scroll-lock] {
+  overscroll-behavior: contain;
+}
