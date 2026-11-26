@@ -52,6 +52,8 @@ function renderWithMentions(text: string): React.ReactNode {
 import type { CommunityPost, CommunityComment, CommunityReactionType, CommunityFilter } from '@/types/user';
 import { getDailyTheme, getWeeklyChallenge, getDemoPosts, computeBadges } from '@/lib/communityDemo';
 import { ShareStudio } from '@/components/community/ShareStudio';
+import type { ShareTemplate } from '@/lib/shareCards';
+import { PostMedia, DemoCardCanvas } from '@/components/community/FeedMedia';
 
 // ─── Reaction config ──────────────────────────────────────────────
 const REACTIONS: { id: CommunityReactionType; emoji: string; label: string }[] = [
@@ -113,246 +115,24 @@ function ImageViewer({ url, onClose }: { url: string; onClose: () => void }) {
   );
 }
 
-// ─── Mini-preview de tarjeta 9:16 para el compositor ─────────────
-function NoteCardMini({ content, userPhotoUrl, userName }: { content: string; userPhotoUrl?: string; userName: string }) {
-  const dateStr = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
-  const bgPhoto = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=711&fit=crop&auto=format&q=80';
-  return (
-    <div style={{ width: '100%', aspectRatio: '400/711', position: 'relative', overflow: 'hidden', borderRadius: 16, flexShrink: 0 }}>
-      <img src={userPhotoUrl || bgPhoto} alt="bg" crossOrigin="anonymous"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '72%', objectFit: 'cover' }} />
-      <div style={{ position: 'absolute', inset: 0, height: '72%', background: 'linear-gradient(to bottom,rgba(0,0,0,.25),rgba(0,0,0,.7))' }} />
-      <div style={{ position: 'absolute', top: 16, left: 16, color: '#22d3ee', fontSize: 24, fontWeight: 900, letterSpacing: -1 }}>K</div>
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '31%', background: '#f5f0e8', padding: '14px 18px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-            <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: 2, color: '#78716c', textTransform: 'uppercase' }}>Reflexión del día</span>
-            <span style={{ fontSize: 12, color: '#22d3ee' }}>❝</span>
-          </div>
-          <p style={{ fontStyle: 'italic', fontSize: 12, lineHeight: 1.6, color: '#1c1917', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {content || 'Tu reflexión aparecerá aquí…'}
-          </p>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-          <span style={{ fontSize: 8, color: '#a8a29e', letterSpacing: 1 }}>{dateStr}</span>
-          <span style={{ fontSize: 14, fontWeight: 900, color: '#22d3ee' }}>K</span>
-        </div>
-      </div>
-    </div>
+// ─── Historias: quién ha publicado hace poco ─────────────────────
+function Avatar({ name, url, size = 36, ring = false }: { name: string; url?: string; size?: number; ring?: boolean }) {
+  const inner = (
+    <span className="rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-emerald-400 to-teal-600 text-white font-bold flex-shrink-0"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}>
+      {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : name.charAt(0).toUpperCase()}
+    </span>
   );
+  if (!ring) return inner;
+  return <span className="rounded-full p-[2.5px] bg-gradient-to-tr from-emerald-500 via-teal-400 to-lime-300 flex-shrink-0"><span className="block rounded-full p-[2px] bg-[var(--app-bg)]">{inner}</span></span>;
 }
 
-function WorkoutCardMini({ content, userPhotoUrl, stats, note }: { content: string; userPhotoUrl?: string; stats?: { minutes: number; exercises: number }; note?: string }) {
-  return (
-    <div style={{ width: '100%', aspectRatio: '400/711', position: 'relative', overflow: 'hidden', borderRadius: 16, background: '#0a0a0a', flexShrink: 0 }}>
-      {userPhotoUrl ? (
-        <img src={userPhotoUrl} alt="workout" crossOrigin="anonymous"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '65%', objectFit: 'cover' }} />
-      ) : (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '65%', background: 'linear-gradient(135deg,#0a0a0a 0%,#0e7490 60%,#22d3ee 100%)' }} />
-      )}
-      {userPhotoUrl && (
-        <div style={{ position: 'absolute', inset: 0, height: '65%', background: 'linear-gradient(to bottom,rgba(0,0,0,.15),rgba(10,10,10,.95))' }} />
-      )}
-      <div style={{ position: 'absolute', top: 16, left: 16, color: '#22d3ee', fontSize: 24, fontWeight: 900 }}>K</div>
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '38%', background: '#111', padding: '14px 18px 18px' }}>
-        <p style={{ fontSize: 8, letterSpacing: 2, color: '#6b7280', textTransform: 'uppercase', marginBottom: 4 }}>Resumen del entreno</p>
-        <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8, lineHeight: 1.1 }}>{content || 'Entrenamiento'}</p>
-        <div style={{ height: 2, borderRadius: 2, background: 'linear-gradient(to right,#22d3ee,#3b82f6)', marginBottom: 10 }} />
-        {stats && (
-          <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{stats.minutes}</span>
-              <span style={{ fontSize: 8, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>min</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{stats.exercises}</span>
-              <span style={{ fontSize: 8, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>ejerc.</span>
-            </div>
-          </div>
-        )}
-        {note && (
-          <div style={{ background: '#1c1c1e', borderRadius: 12, padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 10, color: '#6b7280' }}>💬</span>
-            <span style={{ fontSize: 10, color: '#e5e7eb', fontStyle: 'italic' }}>{note}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Template 1: Note card ───────────────────────────────────────
-function NoteCard({ post, onImageClick }: { post: CommunityPost; onImageClick?: (url: string) => void }) {
-  const dateStr = new Date(post.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }).toUpperCase();
-
-  return (
-    <div
-      style={{ width: '100%', aspectRatio: '4/5', maxHeight: 360, position: 'relative', overflow: 'hidden', borderRadius: 20 }}
-      onClick={post.photoUrl ? () => onImageClick?.(post.photoUrl!) : undefined}
-      className={post.photoUrl ? 'cursor-zoom-in group' : undefined}
-    >
-      {/* ── Fondo: foto o gradiente ── */}
-      {post.photoUrl ? (
-        <>
-          <img
-            src={post.photoUrl} alt=""
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '72%', objectFit: 'cover' }}
-          />
-          {/* Overlay oscuro sobre la foto */}
-          <div style={{ position: 'absolute', inset: 0, height: '72%', background: 'linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,.72))' }} />
-          {/* Botón zoom hover */}
-          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-full p-1.5 z-10">
-            <ZoomIn className="w-4 h-4 text-white" />
-          </div>
-        </>
-      ) : (
-        <>
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(145deg, #064e3b 0%, #0f766e 50%, #0891b2 100%)' }} />
-          <div style={{ position: 'absolute', top: -30, right: -30, width: 130, height: 130, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-          <div style={{ position: 'absolute', bottom: '38%', left: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
-        </>
-      )}
-
-      {/* ── Avatar + nombre (solo si hay foto) ── */}
-      {post.photoUrl && (
-        <div style={{ position: 'absolute', top: 14, left: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#22d3ee,#3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(255,255,255,0.5)' }}>
-            <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>{post.displayName.charAt(0).toUpperCase()}</span>
-          </div>
-          <span style={{ color: '#fff', fontSize: 11, fontWeight: 600, textShadow: '0 1px 4px rgba(0,0,0,.6)' }}>{post.displayName.split(' ')[0]}</span>
-        </div>
-      )}
-
-      {/* ── K logo (sin foto: top-left) ── */}
-      {!post.photoUrl && (
-        <div style={{ position: 'absolute', top: 16, left: 18, color: '#22d3ee', fontSize: 22, fontWeight: 900, letterSpacing: -1 }}>K</div>
-      )}
-
-      {/* ── Tag REFLEXIÓN ── */}
-      <div style={{ position: 'absolute', top: post.photoUrl ? 14 : 14, right: 16, background: 'rgba(34,211,238,0.18)', backdropFilter: 'blur(8px)', borderRadius: 20, padding: '3px 10px' }}>
-        <span style={{ color: '#6ee7b7', fontSize: 9, letterSpacing: 1.5, fontWeight: 700 }}>REFLEXIÓN</span>
-      </div>
-
-      {/* ── Sección crema inferior ── */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: post.photoUrl ? '30%' : '44%', background: '#f5f0e8', padding: '12px 18px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ color: '#22d3ee', fontSize: 22, lineHeight: 1, marginBottom: 4, fontStyle: 'italic', fontWeight: 900 }}>"</div>
-          <p style={{ fontStyle: 'italic', fontSize: post.photoUrl ? 12 : 13, lineHeight: 1.6, color: '#1c1917', display: '-webkit-box', WebkitLineClamp: post.photoUrl ? 2 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {post.content}
-          </p>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-          <span style={{ fontSize: 9, color: '#a8a29e', letterSpacing: 1 }}>{dateStr}</span>
-          <span style={{ fontSize: 11, fontWeight: 900, color: '#22d3ee' }}>Fit K</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Template 2: Workout card ────────────────────────────────────
-function WorkoutCard({ post, onImageClick }: { post: CommunityPost; onImageClick?: (url: string) => void }) {
-  const kcal = post.workoutDuration ? Math.round(post.workoutDuration * 7) : null;
-  const bottomH = post.photoUrl ? '38%' : '49%';
-
-  return (
-    <div
-      style={{ width: '100%', aspectRatio: '4/5', maxHeight: 360, position: 'relative', overflow: 'hidden', borderRadius: 20, background: '#0a0a0a' }}
-      onClick={post.photoUrl ? () => onImageClick?.(post.photoUrl!) : undefined}
-      className={post.photoUrl ? 'cursor-zoom-in group' : undefined}
-    >
-      {/* ── Fondo: foto o gradiente ── */}
-      {post.photoUrl ? (
-        <>
-          <img
-            src={post.photoUrl} alt=""
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '65%', objectFit: 'cover' }}
-          />
-          <div style={{ position: 'absolute', inset: 0, height: '65%', background: 'linear-gradient(to bottom,rgba(10,10,10,.15),rgba(10,10,10,.95))' }} />
-          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-full p-1.5 z-10">
-            <ZoomIn className="w-4 h-4 text-white" />
-          </div>
-        </>
-      ) : (
-        <>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '55%', background: 'linear-gradient(135deg, #0a0a0a 0%, #0e7490 55%, #22d3ee 100%)' }} />
-          <div style={{ position: 'absolute', top: -25, right: -25, width: 110, height: 110, borderRadius: '50%', background: 'rgba(34,211,238,0.1)' }} />
-        </>
-      )}
-
-      {/* ── Avatar + nombre (con foto) ── */}
-      {post.photoUrl && (
-        <div style={{ position: 'absolute', top: 14, left: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#22d3ee,#3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(255,255,255,0.4)' }}>
-            <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>{post.displayName.charAt(0).toUpperCase()}</span>
-          </div>
-          <span style={{ color: '#fff', fontSize: 11, fontWeight: 600, textShadow: '0 1px 4px rgba(0,0,0,.8)' }}>{post.displayName.split(' ')[0]}</span>
-        </div>
-      )}
-
-      {/* ── K logo (sin foto) ── */}
-      {!post.photoUrl && (
-        <div style={{ position: 'absolute', top: 16, left: 18, color: '#22d3ee', fontSize: 22, fontWeight: 900 }}>K</div>
-      )}
-
-      {/* ── Tag ENTRENO ── */}
-      <div style={{ position: 'absolute', top: 14, right: 16, background: 'rgba(34,211,238,0.18)', backdropFilter: 'blur(8px)', borderRadius: 20, padding: '3px 10px' }}>
-        <span style={{ color: '#22d3ee', fontSize: 9, letterSpacing: 1.5, fontWeight: 700 }}>ENTRENO</span>
-      </div>
-
-      {/* ── Sección oscura inferior ── */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: bottomH, background: 'linear-gradient(to bottom, #0f0f0f, #111)', padding: '13px 18px 16px' }}>
-        <p style={{ fontSize: 9, letterSpacing: 2, color: '#6b7280', textTransform: 'uppercase', marginBottom: 3 }}>Resumen del entreno</p>
-        <p style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginBottom: 7, lineHeight: 1.15, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {post.workoutName}
-        </p>
-        <div style={{ height: 2, borderRadius: 2, background: 'linear-gradient(to right, #22d3ee, #3b82f6)', marginBottom: 9 }} />
-        <div style={{ display: 'flex', gap: 20, marginBottom: 8 }}>
-          {post.workoutDuration && (
-            <div>
-              <span style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>{post.workoutDuration}</span>
-              <span style={{ fontSize: 9, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginLeft: 3 }}>min</span>
-            </div>
-          )}
-          {post.workoutExercises && (
-            <div>
-              <span style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>{post.workoutExercises}</span>
-              <span style={{ fontSize: 9, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginLeft: 3 }}>ejerc.</span>
-            </div>
-          )}
-          {kcal && (
-            <div>
-              <span style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>~{kcal}</span>
-              <span style={{ fontSize: 9, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginLeft: 3 }}>kcal</span>
-            </div>
-          )}
-        </div>
-        {post.content && (
-          <div style={{ background: '#1c1c1e', borderRadius: 10, padding: '4px 10px', display: 'inline-flex' }}>
-            <span style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>"{post.content}"</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Stories strip ───────────────────────────────────────────────
-const STORY_GRADIENTS = [
-  'from-emerald-400 to-teal-500',
-  'from-purple-400 to-pink-500',
-  'from-amber-400 to-orange-500',
-  'from-blue-400 to-sky-500',
-  'from-rose-400 to-pink-500',
-  'from-indigo-400 to-violet-500',
-];
-
-function StoriesStrip({ posts, currentUserId, userName, onCreateNote, onScrollToPost }: {
+function StoriesStrip({ posts, currentUserId, userName, avatarUrl, onCreate, onScrollToPost }: {
   posts: CommunityPost[];
   currentUserId: string;
   userName: string;
-  onCreateNote: () => void;
+  avatarUrl?: string;
+  onCreate: () => void;
   onScrollToPost: (postId: string) => void;
 }) {
   const recentPosters = useMemo(() => {
@@ -360,77 +140,32 @@ function StoriesStrip({ posts, currentUserId, userName, onCreateNote, onScrollTo
     return posts
       .filter(p => p.userId !== currentUserId)
       .filter(p => { if (seen.has(p.userId)) return false; seen.add(p.userId); return true; })
-      .slice(0, 5);
+      .slice(0, 8);
   }, [posts, currentUserId]);
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-      {/* Mi historia / Añadir */}
-      <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-        <button onClick={onCreateNote} className="relative w-14 h-14">
-          <div className="w-full h-full rounded-2xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center border-2 border-dashed border-stone-300 dark:border-stone-600">
-            <span className="text-base font-black text-stone-500 dark:text-stone-400">{userName.charAt(0).toUpperCase()}</span>
-          </div>
-          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white dark:border-black shadow">
-            <Plus className="w-3 h-3 text-white" />
-          </div>
-        </button>
-        <span className="text-[9px] text-stone-400 text-center w-14 truncate">Añadir</span>
-      </div>
-
-      {/* Usuarios recientes */}
-      {recentPosters.map((post, idx) => {
+    <div className="flex gap-4 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+      <button type="button" onClick={onCreate} className="flex flex-col items-center gap-1.5 flex-shrink-0">
+        <span className="relative">
+          <span className="block rounded-full p-[4.5px]"><Avatar name={userName} url={avatarUrl} size={56} /></span>
+          <span className="absolute bottom-0.5 right-0.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-[var(--app-bg)]">
+            <Plus className="w-3 h-3 text-white" strokeWidth={3} />
+          </span>
+        </span>
+        <span className="text-[11px] text-stone-500 w-16 truncate text-center">Publicar</span>
+      </button>
+      {recentPosters.map(post => {
         const isNew = Date.now() - new Date(post.createdAt).getTime() < 24 * 3_600_000;
-        const grad = STORY_GRADIENTS[idx % STORY_GRADIENTS.length];
         return (
-          <div key={post.userId} className="flex flex-col items-center gap-1.5 flex-shrink-0">
-            <button
-              onClick={() => onScrollToPost(post.id)}
-              className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center p-0.5 ${isNew ? 'shadow-sm dark:shadow-emerald-900' : ''}`}
-            >
-              <div className="w-full h-full rounded-[14px] bg-white dark:bg-zinc-900 flex items-center justify-center overflow-hidden">
-                {post.avatarUrl
-                  ? <img src={post.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  : <span className="text-base font-black text-stone-700 dark:text-stone-200">{post.displayName.charAt(0).toUpperCase()}</span>
-                }
-              </div>
-            </button>
-            <span className="text-[9px] text-stone-400 text-center w-14 truncate">{post.displayName.split(' ')[0]}</span>
-          </div>
+          <button type="button" key={post.userId} onClick={() => onScrollToPost(post.id)} className="flex flex-col items-center gap-1.5 flex-shrink-0">
+            {isNew
+              ? <Avatar name={post.displayName} url={post.avatarUrl} size={56} ring />
+              : <span className="block rounded-full p-[2.5px] bg-[rgba(118,118,128,0.25)]"><span className="block rounded-full p-[2px] bg-[var(--app-bg)]"><Avatar name={post.displayName} url={post.avatarUrl} size={56} /></span></span>}
+            <span className="text-[11px] text-stone-600 dark:text-stone-300 w-16 truncate text-center">{post.displayName.split(' ')[0]}</span>
+          </button>
         );
       })}
     </div>
-  );
-}
-
-// ─── Post destacado de la semana ──────────────────────────────────
-function HotPostBanner({ post, onScrollToPost }: { post: CommunityPost; onScrollToPost: (id: string) => void }) {
-  if (post.reactionCount < 5) return null;
-  return (
-    <motion.button
-      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      onClick={() => onScrollToPost(post.id)}
-      className="w-full text-left rounded-2xl overflow-hidden relative"
-      style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
-    >
-      <div className="absolute inset-0 opacity-20" style={{ background: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
-      <div className="relative px-4 py-3 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-          <TrendingUp className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-xs font-bold text-white/90 uppercase tracking-wide">Más caliente esta semana</span>
-            <span className="text-sm">🔥</span>
-          </div>
-          <p className="text-white text-sm font-medium truncate">
-            {post.type === 'workout' ? post.workoutName : post.content}
-          </p>
-          <p className="text-white/60 text-xs">{post.displayName.split(' ')[0]} · {post.reactionCount} reacciones</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-white/60 flex-shrink-0" />
-      </div>
-    </motion.button>
   );
 }
 
@@ -620,34 +355,25 @@ function PostCard({
     setEditing(false);
   }
 
-  const visibleComments = showComments ? allComments : allComments.slice(0, 3);
+  const visibleComments = showComments ? allComments : allComments.slice(-2);
+  const kindLabel = post.type === 'note' ? 'Reflexión' : 'Entreno';
+  const caption = post.type === 'workout' ? post.content : undefined;
 
   return (
-    <Card className="bg-white dark:bg-[#111111] border border-stone-100 dark:border-stone-800/60 rounded-3xl shadow-sm overflow-visible">
-      {/* Author */}
-      <div className="px-4 pt-4 pb-2 flex items-center gap-3">
-        {/* Avatar con anillo de color según tipo */}
-        <div className={`p-0.5 rounded-2xl flex-shrink-0 bg-gradient-to-br ${post.type === 'note' ? 'from-purple-400 to-pink-400' : 'from-emerald-400 to-teal-500'}`}>
-          <div className="w-8 h-8 rounded-[14px] bg-white dark:bg-[#111] overflow-hidden flex items-center justify-center">
-            {post.avatarUrl ? (
-              <img src={post.avatarUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className={`font-bold text-sm ${post.type === 'note' ? 'text-purple-500' : 'text-emerald-600'}`}>
-                {post.displayName.charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-        </div>
+    <article className="glass-card rounded-[28px] overflow-visible">
+      {/* Autor */}
+      <div className="pl-4 pr-2 pt-3.5 pb-3 flex items-center gap-3">
+        <Avatar name={post.displayName} url={post.avatarUrl} size={38} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm truncate">{post.displayName.split(' ')[0]}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="font-semibold text-stone-900 dark:text-stone-100 text-[15px] truncate">{post.displayName.split(' ')[0]}</p>
             {post.milestone && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium flex-shrink-0">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold flex-shrink-0 truncate max-w-[9rem]">
                 {post.milestone}
               </span>
             )}
           </div>
-          <p className="text-stone-400 text-[11px]">{timeAgo(post.createdAt)}{isOwner ? ' · Tú' : ''}</p>
+          <p className="text-stone-500 text-xs">{kindLabel} · {timeAgo(post.createdAt)}{isOwner ? ' · Tú' : ''}</p>
         </div>
         <PostMenu
           isOwner={isOwner}
@@ -659,7 +385,12 @@ function PostCard({
         />
       </div>
 
-      {/* Inline edit */}
+      {/* Texto del entreno */}
+      {caption && !editing && (
+        <p className="px-4 pb-3 text-[15px] leading-snug text-stone-800 dark:text-stone-200">{caption}</p>
+      )}
+
+      {/* Edición en línea */}
       {editing ? (
         <div className="px-4 pb-3 space-y-2">
           <textarea
@@ -667,26 +398,22 @@ function PostCard({
             onChange={e => setEditText(e.target.value.slice(0, 280))}
             rows={3}
             autoFocus
-            className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 text-sm text-stone-800 dark:text-stone-100 outline-none focus:border-emerald-400 resize-none"
+            className="w-full glass-input rounded-xl px-3 py-2 text-sm text-stone-800 dark:text-stone-100 outline-none resize-none"
           />
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setEditing(false)} className="px-3 py-1.5 text-sm text-stone-500 hover:text-stone-700 rounded-lg">Cancelar</button>
-            <button onClick={handleSaveEdit} className="px-4 py-1.5 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors">Guardar</button>
+            <button onClick={() => setEditing(false)} className="px-3 py-1.5 text-sm text-stone-500 rounded-lg">Cancelar</button>
+            <button onClick={handleSaveEdit} className="px-4 py-1.5 text-sm font-semibold text-white bg-emerald-500 rounded-lg">Guardar</button>
           </div>
         </div>
       ) : (
-        <div className="px-4 pb-3">
-          {post.type === 'note'
-            ? <NoteCard post={post} onImageClick={onImageClick} />
-            : <WorkoutCard post={post} onImageClick={onImageClick} />
-          }
+        <div className="px-2.5">
+          <PostMedia post={post} onImageClick={onImageClick} />
         </div>
       )}
 
-      {/* Reactions */}
-      <div className="px-4 pb-3 relative">
-        {/* Floating emojis */}
-        <div className="pointer-events-none absolute left-6 -top-2 z-20">
+      {/* Reacciones y acciones */}
+      <div className="px-3 pt-2.5 pb-1 relative">
+        <div className="pointer-events-none absolute left-6 -top-1 z-20">
           <AnimatePresence>
             {floaters.map(f => (
               <motion.span
@@ -703,450 +430,142 @@ function PostCard({
           </AnimatePresence>
         </div>
 
-        {!isOwner && (
-          <div className="flex gap-1.5 flex-wrap">
-            {REACTIONS.map(r => {
-              const isActive = post.myReaction === r.id;
-              return (
-                <motion.button
-                  key={r.id}
-                  whileTap={{ scale: 0.85 }}
-                  onClick={() => handleReact(r.id)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    isActive
-                      ? 'bg-emerald-500 border-emerald-500 text-white'
-                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-emerald-300'
-                  }`}
-                  disabled={reacting}
-                >
-                  <span>{r.emoji}</span>
-                  <span className="hidden sm:inline">{r.label}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-        )}
-        {isOwner && humanMsg && <p className="text-stone-400 text-xs italic">{humanMsg}</p>}
-        {isOwner && !humanMsg && post.reactionCount === 0 && (
-          <p className="text-stone-300 text-xs italic">Aún nadie ha reaccionado. Está bien, tu camino es tuyo.</p>
-        )}
-        {/* Reaction count + share */}
-        <div className="flex items-center justify-between mt-2">
-          {post.reactionCount > 0 ? (
-            <p className="text-stone-400 text-[11px]">
-              {post.reactionCount} {post.reactionCount === 1 ? 'persona se ha identificado' : 'personas se han identificado'}
-            </p>
-          ) : <span />}
-          <button
-            onClick={() => onShare(post)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-          >
-            <Share2 className="w-3.5 h-3.5" /> Compartir
+        <div className="flex items-center gap-1">
+          {!isOwner && REACTIONS.map(r => {
+            const isActive = post.myReaction === r.id;
+            return (
+              <motion.button
+                key={r.id}
+                type="button"
+                whileTap={{ scale: 0.8 }}
+                onClick={() => handleReact(r.id)}
+                disabled={reacting}
+                aria-label={r.label}
+                aria-pressed={isActive}
+                title={r.label}
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-[17px] transition-colors ${
+                  isActive ? 'bg-emerald-500/15 ring-1 ring-emerald-500/50' : 'hover:bg-[rgba(118,118,128,0.12)]'
+                }`}
+              >
+                <span className={isActive ? '' : 'grayscale-[35%]'}>{r.emoji}</span>
+              </motion.button>
+            );
+          })}
+          <span className="flex-1" />
+          <button type="button" onClick={() => { setShowInput(true); setShowComments(true); }}
+            className="h-9 px-2.5 rounded-full flex items-center gap-1.5 text-stone-500 hover:bg-[rgba(118,118,128,0.12)] text-sm" aria-label="Comentar">
+            <MessageCircle className="w-[18px] h-[18px]" />
+            {allComments.length > 0 && <span className="tabular-nums">{allComments.length}</span>}
+          </button>
+          <button type="button" onClick={() => onShare(post)} className="w-9 h-9 rounded-full flex items-center justify-center text-stone-500 hover:bg-[rgba(118,118,128,0.12)]" aria-label="Compartir">
+            <Share2 className="w-[18px] h-[18px]" />
           </button>
         </div>
+
+        <p className="px-1 pt-1 text-xs text-stone-500">
+          {post.reactionCount > 0
+            ? <><span className="font-semibold text-stone-700 dark:text-stone-300 tabular-nums">{post.reactionCount}</span> {post.reactionCount === 1 ? 'persona se ha identificado' : 'personas se han identificado'}</>
+            : isOwner ? 'Aún nadie ha reaccionado. Está bien, tu camino es tuyo.' : 'Sé la primera persona en reaccionar.'}
+        </p>
+        {isOwner && humanMsg && <p className="px-1 pt-0.5 text-xs text-emerald-700 dark:text-emerald-400">{humanMsg}</p>}
       </div>
 
-      {/* Comments */}
-      {(allComments.length > 0 || !isOwner) && (
-        <div className="border-t border-stone-100 dark:border-stone-800 px-4 pt-3 pb-4 space-y-2">
-          {visibleComments.map(c => (
-            <div key={c.id} className="flex gap-2 items-start">
-              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-stone-300 to-stone-400 flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-[9px] font-bold">{c.displayName.charAt(0).toUpperCase()}</span>
-              </div>
-              <div className="bg-stone-50 dark:bg-stone-800 rounded-xl px-3 py-1.5 flex-1">
-                <span className="font-semibold text-stone-700 dark:text-stone-200 text-xs">{c.displayName.split(' ')[0]} </span>
-                <span className="text-stone-600 dark:text-stone-300 text-xs">{renderWithMentions(c.content)}</span>
-              </div>
-            </div>
-          ))}
+      {/* Comentarios */}
+      <div className="px-4 pt-2 pb-4 space-y-2">
+        {visibleComments.map(c => (
+          <p key={c.id} className="text-[13px] leading-snug text-stone-700 dark:text-stone-300">
+            <span className="font-semibold text-stone-900 dark:text-stone-100">{c.displayName.split(' ')[0]}</span>{' '}
+            {renderWithMentions(c.content)}
+          </p>
+        ))}
 
-          {post.commentCount > 3 && (
-            <button onClick={handleLoadAllComments} className="text-xs text-stone-400 hover:text-emerald-600 flex items-center gap-1">
-              {showComments ? <><ChevronUp className="w-3 h-3" /> Mostrar menos</> : <><ChevronDown className="w-3 h-3" /> Ver {post.commentCount - 3} comentarios más</>}
+        {allComments.length > 2 && (
+          <button onClick={handleLoadAllComments} className="text-xs text-stone-500 flex items-center gap-1">
+            {showComments ? <><ChevronUp className="w-3 h-3" /> Mostrar menos</> : <>Ver los {Math.max(post.commentCount, allComments.length)} comentarios</>}
+          </button>
+        )}
+
+        {!isOwner && (
+          !showInput ? (
+            <button type="button" onClick={() => setShowInput(true)}
+              className="w-full flex items-center gap-2.5 pt-1 text-left">
+              <Avatar name={currentUserName} size={24} />
+              <span className="flex-1 text-[13px] text-stone-400">Escribe un comentario…</span>
             </button>
-          )}
-
-          {!isOwner && (
-            <>
-              {!showInput ? (
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {QUICK_REPLIES.slice(0, 4).map(q => (
+          ) : (
+            <div className="relative pt-1 space-y-2">
+              <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+                {QUICK_REPLIES.map(q => (
+                  <button key={q} type="button" onClick={() => handleSendComment(q)}
+                    className="text-xs px-3 py-1.5 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-stone-200 flex-shrink-0">
+                    {q}
+                  </button>
+                ))}
+              </div>
+              {mentionSuggestions.length > 0 && (
+                <div className="absolute bottom-full mb-1 left-0 right-0 glass-modal rounded-xl py-1 shadow-lg z-10">
+                  {mentionSuggestions.map(name => (
                     <button
-                      key={q}
-                      onClick={() => handleSendComment(q)}
-                      className="text-xs px-3 py-1 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border border-stone-200 dark:border-stone-700"
+                      key={name}
+                      onMouseDown={e => { e.preventDefault(); selectMention(name); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left"
                     >
-                      {q}
+                      <AtSign className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      <span className="text-stone-700 dark:text-stone-200">{name}</span>
                     </button>
                   ))}
-                  <button
-                    onClick={() => setShowInput(true)}
-                    className="text-xs px-3 py-1 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border border-stone-200 dark:border-stone-700 flex items-center gap-1"
-                  >
-                    <PenLine className="w-3 h-3" /> Escribir
-                  </button>
-                </div>
-              ) : (
-                <div className="relative mt-1">
-                  {/* Autocomplete de @menciones */}
-                  {mentionSuggestions.length > 0 && (
-                    <div className="absolute bottom-full mb-1 left-0 right-0 glass-modal rounded-xl py-1 shadow-lg z-10">
-                      {mentionSuggestions.map(name => (
-                        <button
-                          key={name}
-                          onMouseDown={e => { e.preventDefault(); selectMention(name); }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-left"
-                        >
-                          <AtSign className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                          <span className="text-stone-700 dark:text-stone-200">{name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={commentText}
-                      onChange={e => handleCommentInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSendComment(commentText)}
-                      placeholder="Escribe un comentario... usa @nombre"
-                      autoFocus
-                      className="flex-1 text-sm bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2 outline-none focus:border-emerald-400 text-stone-800 dark:text-stone-100 placeholder-stone-400"
-                    />
-                    <button
-                      onClick={() => handleSendComment(commentText)}
-                      disabled={!commentText.trim() || loadingComment}
-                      className="w-8 h-8 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-stone-200 dark:disabled:bg-stone-700 flex items-center justify-center transition-colors flex-shrink-0"
-                    >
-                      <Send className="w-3.5 h-3.5 text-white" />
-                    </button>
-                  </div>
                 </div>
               )}
-            </>
-          )}
-
-          {/* Comment toggle for owners with comments */}
-          {isOwner && allComments.length > 0 && (
-            <div className="flex items-center gap-1.5 text-stone-400 text-xs pt-1">
-              <MessageCircle className="w-3.5 h-3.5" />
-              {allComments.length} {allComments.length === 1 ? 'respuesta' : 'respuestas'}
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={e => handleCommentInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendComment(commentText)}
+                  placeholder="Escribe un comentario… usa @nombre"
+                  autoFocus
+                  className="flex-1 text-sm glass-input rounded-full px-4 py-2 outline-none text-stone-800 dark:text-stone-100 placeholder-stone-400"
+                />
+                <button
+                  onClick={() => handleSendComment(commentText)}
+                  disabled={!commentText.trim() || loadingComment}
+                  aria-label="Enviar comentario"
+                  className="w-9 h-9 rounded-full bg-emerald-500 disabled:bg-stone-300 dark:disabled:bg-stone-700 flex items-center justify-center flex-shrink-0"
+                >
+                  {loadingComment ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-// ─── Compositor de Nota ─────────────────────────────────────────────────────
-// Solo para notas. Cuando el usuario pulsa "Continuar", abre el ShareCardModal
-// con opción de publicar en Comunidad desde dentro.
-function CreatePostModal({
-  userName,
-  avatarUrl,
-  promptText,
-  onClose,
-  onReadyToShare,
-}: {
-  userName: string;
-  avatarUrl?: string;
-  promptText?: string;
-  onClose: () => void;
-  onReadyToShare: (content: string, photoUrl?: string) => void;
-}) {
-  useScrollLock();
-  const [content, setContent] = useState('');
-  const [sharePhotoUrl, setSharePhotoUrl] = useState<string | undefined>();
-  const isPosting = false; // se deja para no romper el botón disabled
-
-  const NOTE_SUGGESTIONS = [
-    'Hoy probé algo nuevo.',
-    'Tenía pocas ganas pero fui.',
-    'Hoy me sentí mejor de lo esperado.',
-    'He aprendido algo nuevo hoy.',
-  ];
-
-  function handleContinue() {
-    if (!content.trim()) return;
-    onReadyToShare(content.trim(), sharePhotoUrl);
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center">
-      <motion.div
-        initial={{ y: 400 }}
-        animate={{ y: 0 }}
-        exit={{ y: 400 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="w-full max-w-md bg-white dark:bg-[#111111] rounded-t-3xl px-6 pt-4 pb-10"
-      >
-        <div className="w-10 h-1 bg-stone-300 rounded-full mx-auto mb-5" />
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-stone-900 text-lg">📝 Escribe tu reflexión</h2>
-          <button onClick={onClose} className="p-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 transition-colors">
-            <X className="w-4 h-4 text-stone-600" />
-          </button>
-        </div>
-
-        {promptText && (
-          <div className="mb-4 flex items-start gap-2 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/40 px-4 py-3">
-            <Sparkles className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-            <p className="text-emerald-700 dark:text-emerald-400 text-xs">{promptText}</p>
-          </div>
+          )
         )}
-
-        {/* Preview en vivo — tarjeta Stories 9:16 */}
-        <div className="mb-4 w-2/5 mx-auto">
-          <NoteCardMini content={content} userPhotoUrl={sharePhotoUrl} userName={userName} />
-        </div>
-
-        <div className="space-y-3">
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value.slice(0, 280))}
-            placeholder={promptText || '¿Qué quieres compartir con la comunidad?'}
-            rows={3}
-            autoFocus
-            className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-3 text-stone-800 dark:text-stone-100 placeholder-stone-400 outline-none focus:border-emerald-400 text-sm resize-none"
-          />
-          <div className="flex flex-wrap gap-2">
-            {NOTE_SUGGESTIONS.map(s => (
-              <button key={s} onClick={() => setContent(s)}
-                className="text-xs px-3 py-1.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-emerald-50 hover:text-emerald-700 border border-stone-200 dark:border-stone-700 transition-colors">
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Foto para tarjeta */}
-        <label className={`flex items-center gap-3 p-3 rounded-2xl border border-dashed cursor-pointer transition-colors mt-4 ${sharePhotoUrl ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/50 hover:border-stone-400'}`}>
-          {sharePhotoUrl ? (
-            <>
-              <img src={sharePhotoUrl} alt="preview" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Foto añadida ✓</p>
-                <p className="text-xs text-stone-400">Para la tarjeta de Instagram</p>
-              </div>
-              <button type="button" onClick={e => { e.preventDefault(); setSharePhotoUrl(undefined); }} className="text-stone-400 hover:text-stone-600 p-1">
-                <X className="w-4 h-4" />
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="w-10 h-10 rounded-xl bg-stone-200 dark:bg-stone-700 flex items-center justify-center flex-shrink-0">
-                <ImageIcon className="w-5 h-5 text-stone-400" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-stone-700 dark:text-stone-300">Añadir foto (opcional)</p>
-                <p className="text-xs text-stone-400">Para la tarjeta de Instagram / WhatsApp</p>
-              </div>
-            </>
-          )}
-          <input type="file" accept="image/*" className="hidden" onChange={e => {
-            const file = e.target.files?.[0];
-            if (file) setSharePhotoUrl(URL.createObjectURL(file));
-          }} />
-        </label>
-
-        <Button
-          onClick={handleContinue}
-          disabled={!content.trim()}
-          className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 mt-4 font-semibold"
-        >
-          Ver tarjeta y compartir →
-        </Button>
-      </motion.div>
-    </div>
+      </div>
+    </article>
   );
 }
 
-// ─── Picker de entreno para compartir ────────────────────────────────────────
-function WorkoutPickerModal({
-  sessions,
-  onPick,
-  onClose,
-}: {
-  sessions: import('@/types/user').WeeklySession[];
-  onPick: (s: import('@/types/user').WeeklySession) => void;
-  onClose: () => void;
-}) {
-  useScrollLock();
-  const completed = sessions.filter(s => s.status === 'completed');
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center">
-      <motion.div
-        initial={{ y: 400 }} animate={{ y: 0 }} exit={{ y: 400 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="w-full max-w-md bg-white dark:bg-[#111] rounded-t-3xl px-5 pt-4 pb-10"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="w-10 h-1 bg-stone-300 rounded-full mx-auto mb-5" />
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-bold text-stone-900 dark:text-stone-100 text-lg">🏋️ Elige el entreno</h2>
-          <button onClick={onClose} className="p-1.5 rounded-xl bg-stone-100 dark:bg-stone-800">
-            <X className="w-4 h-4 text-stone-600 dark:text-stone-400" />
-          </button>
-        </div>
-        {completed.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-stone-400 text-sm">Completa al menos un entrenamiento para compartirlo.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {completed.map(s => (
-              <button
-                key={s.id}
-                onClick={() => onPick(s)}
-                className="w-full flex items-center gap-4 p-4 rounded-2xl bg-stone-50 dark:bg-stone-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 border border-stone-100 dark:border-stone-700 hover:border-emerald-200 transition-all text-left"
-              >
-                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                  <Dumbbell className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm">{s.name}</p>
-                  <p className="text-stone-400 text-xs">{s.duration} min · {s.exercises.length} ejercicios</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-stone-400 flex-shrink-0" />
-              </button>
-            ))}
-          </div>
-        )}
-      </motion.div>
-    </div>
-  );
-}
-
-// ─── Compositor de entreno con preview live de la tarjeta ─────────
-function WorkoutComposeModal({
-  session,
-  userName,
-  avatarUrl,
-  onClose,
-  onReadyToShare,
-}: {
-  session: import('@/types/user').WeeklySession;
-  userName: string;
-  avatarUrl?: string;
-  onClose: () => void;
-  onReadyToShare: (note: string, photoUrl?: string) => void;
-}) {
-  useScrollLock();
-  const [note, setNote] = useState('');
-  const [sharePhotoUrl, setSharePhotoUrl] = useState<string | undefined>();
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center">
-      <motion.div
-        initial={{ y: 400 }}
-        animate={{ y: 0 }}
-        exit={{ y: 400 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="w-full max-w-md bg-white dark:bg-[#111111] rounded-t-3xl px-6 pt-4 pb-10 max-h-[90vh] overflow-y-auto"
-      >
-        <div className="w-10 h-1 bg-stone-300 rounded-full mx-auto mb-4" />
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-stone-900 dark:text-stone-100 text-lg">🏋️ {session.name}</h2>
-          <button onClick={onClose} className="p-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 transition-colors">
-            <X className="w-4 h-4 text-stone-600 dark:text-stone-400" />
-          </button>
-        </div>
-
-        {/* Preview en vivo — tarjeta Stories 9:16 */}
-        <div className="mb-4 w-2/5 mx-auto">
-          <WorkoutCardMini
-            content={session.name}
-            userPhotoUrl={sharePhotoUrl}
-            stats={{ minutes: session.duration, exercises: session.exercises.length }}
-            note={note}
-          />
-        </div>
-
-        {/* Nota opcional */}
-        <div className="space-y-3">
-          <textarea
-            value={note}
-            onChange={e => setNote(e.target.value.slice(0, 160))}
-            placeholder="Añade una nota (opcional)…"
-            rows={2}
-            className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-3 text-stone-800 dark:text-stone-100 placeholder-stone-400 outline-none focus:border-emerald-400 text-sm resize-none"
-          />
-        </div>
-
-        {/* Foto */}
-        <label className={`flex items-center gap-3 p-3 rounded-2xl border border-dashed cursor-pointer transition-colors mt-3 ${sharePhotoUrl ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/50 hover:border-stone-400'}`}>
-          {sharePhotoUrl ? (
-            <>
-              <img src={sharePhotoUrl} alt="preview" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Foto añadida ✓</p>
-                <p className="text-xs text-stone-400">Para la tarjeta de Instagram</p>
-              </div>
-              <button type="button" onClick={e => { e.preventDefault(); setSharePhotoUrl(undefined); }} className="text-stone-400 hover:text-stone-600 p-1">
-                <X className="w-4 h-4" />
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="w-10 h-10 rounded-xl bg-stone-200 dark:bg-stone-700 flex items-center justify-center flex-shrink-0">
-                <ImageIcon className="w-5 h-5 text-stone-400" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-stone-700 dark:text-stone-300">Añadir foto (opcional)</p>
-                <p className="text-xs text-stone-400">Aparecerá en la tarjeta</p>
-              </div>
-            </>
-          )}
-          <input type="file" accept="image/*" className="hidden" onChange={e => {
-            const file = e.target.files?.[0];
-            if (file) setSharePhotoUrl(URL.createObjectURL(file));
-          }} />
-        </label>
-
-        <Button
-          onClick={() => onReadyToShare(note.trim(), sharePhotoUrl)}
-          className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 mt-4 font-semibold"
-        >
-          Ver tarjeta y compartir →
-        </Button>
-      </motion.div>
-    </div>
-  );
-}
-
-// ─── Achievements strip ───────────────────────────────────────────
 function AchievementsCard({ badges }: { badges: ReturnType<typeof computeBadges> }) {
   const unlocked = badges.filter(b => b.unlocked).length;
+  const next = badges.find(b => !b.unlocked);
   return (
-    <Card className="bg-white border-0 rounded-2xl shadow-sm p-4">
+    <section className="glass-card rounded-3xl p-4">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="font-semibold text-stone-900 text-sm">Tu rincón</p>
-          <p className="text-stone-400 text-xs">Tu camino aquí · {unlocked}/{badges.length} logros</p>
+          <p className="font-semibold text-stone-900 dark:text-stone-100 text-[15px]">Tu rincón</p>
+          <p className="text-stone-500 text-xs">{next ? `Siguiente: ${next.hint.toLowerCase()}` : 'Has conseguido todos los logros'}</p>
         </div>
-        <Sparkles className="w-5 h-5 text-emerald-400" />
+        <span className="text-xs font-semibold tabular-nums text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-full">{unlocked}/{badges.length}</span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      <div className="grid grid-cols-5 gap-2">
         {badges.map(b => (
-          <div
-            key={b.id}
-            title={b.hint}
-            className={`flex flex-col items-center gap-1 min-w-[64px] px-2 py-2.5 rounded-xl border transition-all ${
-              b.unlocked
-                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
-                : 'bg-stone-50 dark:bg-stone-800/50 border-stone-200 dark:border-stone-700 opacity-60'
-            }`}
-          >
-            <span className={`text-xl ${b.unlocked ? '' : 'grayscale'}`}>{b.emoji}</span>
-            <span className={`text-[9px] text-center leading-tight font-medium ${b.unlocked ? 'text-emerald-700 dark:text-emerald-400' : 'text-stone-400'}`}>
-              {b.label}
-            </span>
+          <div key={b.id} title={b.hint} className="flex flex-col items-center gap-1.5">
+            <span className={`w-11 h-11 rounded-full flex items-center justify-center text-xl ${
+              b.unlocked ? 'bg-emerald-500/12 ring-1 ring-emerald-500/40' : 'bg-[rgba(118,118,128,0.12)] grayscale opacity-50'
+            }`}>{b.emoji}</span>
+            <span className={`text-[10px] text-center leading-tight font-medium ${b.unlocked ? 'text-stone-800 dark:text-stone-200' : 'text-stone-400'}`}>{b.label}</span>
           </div>
         ))}
       </div>
-    </Card>
+    </section>
   );
 }
 
@@ -1155,26 +574,17 @@ export function CommunityScreen() {
   const { user, supabaseUserId } = useApp();
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [createType, setCreateType] = useState<'note' | null>(null);
-  const [composerPrompt, setComposerPrompt] = useState<string | undefined>(undefined);
-  const [showWorkoutPicker, setShowWorkoutPicker] = useState(false);
-  const [workoutCompose, setWorkoutCompose] = useState<{ session: import('@/types/user').WeeklySession } | null>(null);
   const [filter, setFilter] = useState<CommunityFilter>('all');
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<CommunityPost | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [shareCardData, setShareCardData] = useState<import('@/components/community/ShareCardModal').ShareCardData | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showOnlyMine, setShowOnlyMine] = useState(false);
-  const [pendingCommunityPost, setPendingCommunityPost] = useState<{
-    type: 'note' | 'workout'; content?: string; workoutName?: string;
-    workoutDuration?: number; workoutExercises?: number;
-  } | null>(null);
 
   // Estudio de tarjetas para compartir fuera de Fit K
-  const [showShareStudio, setShowShareStudio] = useState(false);
+  const [studio, setStudio] = useState<{ template?: ShareTemplate; prompt?: string } | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
   const theme = useMemo(() => getDailyTheme(), []);
   const challenge = useMemo(() => getWeeklyChallenge(), []);
@@ -1244,12 +654,6 @@ export function CommunityScreen() {
     ownWorkouts: ownPosts.filter(p => p.type === 'workout').length,
     reactionsGiven: posts.filter(p => p.myReaction).length,
   });
-
-  const hotPost = useMemo(() => {
-    return posts
-      .filter(p => !hiddenIds.has(p.id))
-      .sort((a, b) => b.reactionCount - a.reactionCount)[0] || null;
-  }, [posts, hiddenIds]);
 
   const visiblePosts = posts
     .filter(p => !hiddenIds.has(p.id))
@@ -1341,129 +745,36 @@ export function CommunityScreen() {
     showToast('Gracias. Lo revisaremos.');
   }
 
-  // Llega desde el compositor de nota: abre ShareCardModal con opción de publicar en comunidad
-  function handleNoteReadyToShare(content: string, userPhotoUrl?: string) {
-    setCreateType(null);
-    setComposerPrompt(undefined);
-    const postData = { type: 'note' as const, content };
-    setPendingCommunityPost(postData);
-    setShareCardData({
-      type: 'note',
-      content,
-      userName: user?.profile.name ?? 'Usuario',
-      initialUserPhotoUrl: userPhotoUrl,
-    });
+  function openStudio(template?: ShareTemplate, prompt?: string) {
+    setStudio({ template, prompt });
   }
 
-  // Se llama desde el ShareCardModal al pulsar "Publicar en Comunidad"
-  // imageUrl = URL pública de la tarjeta capturada con html2canvas y subida a Storage
-  async function publishPendingPost(imageUrl?: string) {
-    if (!pendingCommunityPost) return;
-    const body = {
-      type: pendingCommunityPost.type,
-      content: pendingCommunityPost.content,
-      workoutName: pendingCommunityPost.workoutName,
-      workoutDuration: pendingCommunityPost.workoutDuration,
-      workoutExercises: pendingCommunityPost.workoutExercises,
-      displayName: user?.profile.name ?? 'Usuario',
-      avatarUrl: user?.profile.avatarUrl,
-      photoUrl: imageUrl,
-    };
-    const res = await fetch('/api/community/posts', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    });
-    const responseData = await res.json();
-    if (responseData.data) {
-      const newPost: CommunityPost = {
-        id: responseData.data.id, userId: responseData.data.user_id,
-        displayName: user?.profile.name ?? 'Usuario',
-        avatarUrl: user?.profile.avatarUrl,
-        type: pendingCommunityPost.type,
-        content: pendingCommunityPost.content,
-        workoutName: pendingCommunityPost.workoutName,
-        workoutDuration: pendingCommunityPost.workoutDuration,
-        workoutExercises: pendingCommunityPost.workoutExercises,
-        photoUrl: imageUrl,
-        createdAt: responseData.data.created_at,
-        myReaction: null, reactionCount: 0, commentCount: 0, comments: [],
-      };
-      setPosts(prev => [newPost, ...prev]);
-      showToast('¡Publicado en la comunidad!');
-    }
-    setPendingCommunityPost(null);
-  }
-
-  // Picker de entreno → abre WorkoutComposeModal con preview live
-  function handleWorkoutSelected(session: import('@/types/user').WeeklySession) {
-    setShowWorkoutPicker(false);
-    setWorkoutCompose({ session });
-  }
-
-  function handleWorkoutReadyToShare(session: import('@/types/user').WeeklySession, note: string, userPhotoUrl?: string) {
-    setWorkoutCompose(null);
-    const postData = {
-      type: 'workout' as const,
-      content: note || undefined,
-      workoutName: session.name,
-      workoutDuration: session.duration,
-      workoutExercises: session.exercises.length,
-    };
-    setPendingCommunityPost(postData);
-    setShareCardData({
-      type: 'workout',
-      content: session.name,
-      workoutStats: { minutes: session.duration, exercises: session.exercises.length },
-      workoutNote: note || undefined,
-      userName: user?.profile.name ?? 'Usuario',
-      initialUserPhotoUrl: userPhotoUrl,
-    });
-  }
-
-  function openComposer(t: 'note' | 'workout', prompt?: string) {
-    if (t === 'workout') {
-      setShowWorkoutPicker(true);
-    } else {
-      setComposerPrompt(prompt);
-      setCreateType('note');
-    }
-  }
-
-  const FILTERS: { id: CommunityFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'Todo', count: counts.all },
-    { id: 'note', label: 'Notas', count: counts.note },
-    { id: 'workout', label: 'Entrenos', count: counts.workout },
+  const SEGMENTS: { id: CommunityFilter | 'mine'; label: string }[] = [
+    { id: 'all', label: 'Todo' },
+    { id: 'workout', label: 'Entrenos' },
+    { id: 'note', label: 'Reflexiones' },
+    { id: 'mine', label: 'Míos' },
   ];
+  const segment = showOnlyMine ? 'mine' : filter;
 
   return (
     <div className="min-h-dvh glass-bg flex flex-col">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="px-4 pt-6 pb-3"
-      >
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-bold text-stone-900">Tu camino</h1>
-          <div className="flex gap-2">
-            <button
+      {/* Cabecera */}
+      <header className="px-4 pt-6 pb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-[30px] leading-tight font-bold tracking-tight text-stone-900 dark:text-stone-50">Comunidad</h1>
+            <p className="text-stone-500 text-sm">Entrena tu cuerpo. Cuida tu cabeza.</p>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="button" aria-label={showSearch ? 'Cerrar búsqueda' : 'Buscar'}
               onClick={() => { setShowSearch(s => !s); if (showSearch) setSearchQuery(''); }}
-              className={`p-2 rounded-xl transition-colors ${showSearch ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 'bg-stone-100 dark:bg-stone-800 text-stone-500 hover:bg-stone-200'}`}
-            >
-              {showSearch ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+              className="w-10 h-10 rounded-full glass-card flex items-center justify-center text-stone-700 dark:text-stone-200">
+              {showSearch ? <X className="w-[18px] h-[18px]" /> : <Search className="w-[18px] h-[18px]" />}
             </button>
-            <button
-              onClick={() => openComposer('note')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
-            >
-              <PenLine className="w-4 h-4" />
-              Nota
-            </button>
-            <button
-              onClick={() => openComposer('workout')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-xl text-sm font-medium hover:bg-stone-200 transition-colors"
-            >
-              <Dumbbell className="w-4 h-4" />
-              Entreno
+            <button type="button" aria-label="Publicar" onClick={() => openStudio()}
+              className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(16,185,129,0.7)] active:scale-95 transition-transform">
+              <Plus className="w-5 h-5" strokeWidth={2.5} />
             </button>
           </div>
         </div>
@@ -1471,19 +782,19 @@ export function CommunityScreen() {
           {showSearch && (
             <motion.div
               initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mt-3"
+              className="overflow-hidden"
             >
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <div className="relative mt-3">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
                 <input
                   autoFocus
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por texto, usuario o entreno..."
-                  className="w-full glass-input rounded-xl pl-9 pr-4 py-2.5 text-sm text-stone-800 dark:text-stone-100 placeholder-stone-400"
+                  placeholder="Buscar personas, entrenos o reflexiones"
+                  className="w-full glass-input rounded-full pl-10 pr-10 py-2.5 text-sm text-stone-800 dark:text-stone-100 placeholder-stone-400"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+                  <button onClick={() => setSearchQuery('')} aria-label="Borrar búsqueda" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400">
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -1491,127 +802,92 @@ export function CommunityScreen() {
             </motion.div>
           )}
         </AnimatePresence>
-        {!showSearch && <p className="text-stone-500 text-sm mt-1">Entrena tu cuerpo. Cuida tu cabeza.</p>}
-      </motion.div>
+      </header>
 
-      {/* Stories strip */}
-      <div className="px-4 pb-3">
+      {/* Historias */}
+      <div className="px-4 pb-4">
         <StoriesStrip
           posts={posts}
           currentUserId={currentUserId}
           userName={userName}
-          onCreateNote={() => openComposer('note')}
+          avatarUrl={avatarUrl}
+          onCreate={() => openStudio()}
           onScrollToPost={scrollToPost}
         />
       </div>
 
-      {/* Achievements + Theme + Filters */}
-      <div className="px-4 space-y-3 pb-3">
+      <div className="px-4 space-y-3 pb-4">
         {/* Tarjetas para compartir fuera de la app */}
         <motion.button
           type="button"
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          onClick={() => setShowShareStudio(true)}
-          className="w-full glass-card rounded-2xl p-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+          onClick={() => openStudio()}
+          className="relative w-full overflow-hidden rounded-[28px] text-left active:scale-[0.99] transition-transform"
+          style={{ background: 'radial-gradient(130% 120% at 100% 0%, #10b981 0%, #047857 38%, #022c22 100%)' }}
         >
-          <span className="w-11 h-11 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
-            <Share2 className="w-5 h-5 text-white" />
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="block font-semibold text-stone-900">Crea tu tarjeta</span>
-            <span className="block text-sm text-stone-500">Comparte tu entreno, tu semana o tu progreso en tus redes.</span>
-          </span>
-          <ChevronRight className="w-5 h-5 text-stone-300 flex-shrink-0" />
+          <div className="relative flex items-stretch min-h-[164px]">
+            <div className="flex-1 min-w-0 p-5 pr-2 flex flex-col">
+              <span className="text-[10px] font-bold tracking-[0.16em] text-emerald-200/90">NUEVO</span>
+              <span className="mt-1 text-[22px] leading-tight font-bold text-white [text-wrap:balance]">Crea tu tarjeta</span>
+              <span className="mt-1 text-[13px] leading-snug text-emerald-50/80">Tu sesión, tu semana o tu progreso, listos para Instagram o WhatsApp.</span>
+              <span className="mt-auto pt-3 inline-flex self-start items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-emerald-800 text-sm font-semibold">
+                Crear tarjeta <ChevronRight className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="relative w-[132px] flex-shrink-0" aria-hidden>
+              <div className="absolute w-[84px] top-5 right-[54px] rotate-[-8deg] rounded-xl overflow-hidden shadow-[0_10px_24px_-8px_rgba(0,0,0,0.6)] ring-1 ring-white/20">
+                <DemoCardCanvas postId="demo-week" width={216} />
+              </div>
+              <div className="absolute w-[92px] top-8 right-3 rotate-[7deg] rounded-xl overflow-hidden shadow-[0_14px_28px_-8px_rgba(0,0,0,0.7)] ring-1 ring-white/25">
+                <DemoCardCanvas postId="demo-session" width={232} />
+              </div>
+            </div>
+          </div>
         </motion.button>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+        {/* Tema de hoy y reto de la semana */}
+        <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card rounded-3xl overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-full bg-emerald-500/12 flex items-center justify-center text-sm">{theme.emoji}</span>
+              <p className="text-[11px] uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300 font-bold">Tema de hoy</p>
+            </div>
+            <p className="font-bold text-[17px] text-stone-900 dark:text-stone-100 leading-snug">{theme.title}</p>
+            <p className="text-stone-500 text-sm mt-0.5 mb-3">{theme.prompt}</p>
+            <button
+              onClick={() => openStudio('note', theme.prompt)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-500 text-white text-sm font-semibold active:scale-95 transition-transform"
+            >
+              <PenLine className="w-4 h-4" /> Escribir sobre esto
+            </button>
+          </div>
+          <div className="flex items-start gap-3 px-4 py-3 border-t border-black/5 dark:border-white/10">
+            <span className="text-base leading-6 flex-shrink-0">{challenge.emoji}</span>
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-stone-500 font-bold">Reto de la semana</p>
+              <p className="text-stone-700 dark:text-stone-300 text-sm leading-snug">{challenge.text}</p>
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <AchievementsCard badges={badges} />
         </motion.div>
 
-        {/* Theme of the day */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <div className="rounded-2xl p-4 bg-emerald-500 text-white relative overflow-hidden">
-            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10" />
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">{theme.emoji}</span>
-                <p className="text-xs uppercase tracking-wide text-emerald-50/90 font-semibold">Tema de hoy</p>
-              </div>
-              <p className="font-bold text-base mb-1">{theme.title}</p>
-              <p className="text-emerald-50/90 text-sm mb-3">{theme.prompt}</p>
-              <button
-                onClick={() => openComposer('note', theme.prompt)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-emerald-700 rounded-xl text-sm font-semibold hover:bg-emerald-50 transition-colors"
-              >
-                <PenLine className="w-4 h-4" /> Escribir sobre esto
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Post más caliente */}
-        {hotPost && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-            <HotPostBanner post={hotPost} onScrollToPost={scrollToPost} />
-          </motion.div>
-        )}
-
-        {/* Weekly challenge (cooperative, no ranking) */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <div className="flex items-start gap-3 rounded-2xl px-4 py-3 bg-white dark:bg-[#161616] border border-stone-100 dark:border-stone-800">
-            <span className="text-lg flex-shrink-0">{challenge.emoji}</span>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-stone-400 font-semibold">Reto de la semana</p>
-              <p className="text-stone-700 dark:text-stone-300 text-sm">{challenge.text}</p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Filter chips */}
-        <div className="flex gap-2 flex-wrap">
-          {FILTERS.map(f => {
-            const active = filter === f.id && !showOnlyMine;
-            return (
-              <button
-                key={f.id}
-                onClick={() => { setFilter(f.id); setShowOnlyMine(false); }}
-                className={`relative px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  active ? 'text-white' : 'text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200'
-                }`}
-              >
-                {active && (
-                  <motion.div
-                    layoutId="filterPill"
-                    className="absolute inset-0 rounded-full bg-emerald-500"
-                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                  />
-                )}
-                <span className="relative z-10">{f.label} · {f.count}</span>
-              </button>
-            );
-          })}
-          {/* Mis posts */}
-          <button
-            onClick={() => setShowOnlyMine(v => !v)}
-            className={`relative flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              showOnlyMine ? 'text-white' : 'text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200'
-            }`}
-          >
-            {showOnlyMine && (
-              <motion.div
-                layoutId="filterPill"
-                className="absolute inset-0 rounded-full bg-purple-500"
-                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-              />
-            )}
-            <User className="w-3.5 h-3.5 relative z-10" />
-            <span className="relative z-10">Mis posts</span>
-          </button>
+        {/* Filtro */}
+        <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]" role="tablist" aria-label="Filtrar publicaciones">
+          {SEGMENTS.map(sg => (
+            <button key={sg.id} type="button" role="tab" aria-selected={segment === sg.id}
+              onClick={() => { if (sg.id === 'mine') { setShowOnlyMine(true); setFilter('all'); } else { setFilter(sg.id); setShowOnlyMine(false); } }}
+              className={`h-8 rounded-lg text-[13px] font-semibold transition-colors ${segment === sg.id ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'}`}>
+              {sg.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Feed */}
-      <div className="flex-1 px-4 space-y-4 overflow-y-auto pb-32">
+      <div className="flex-1 px-4 space-y-4 pb-32">
         {isLoading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
@@ -1632,7 +908,7 @@ export function CommunityScreen() {
                 : 'No hay publicaciones de este tipo. Prueba con otro filtro o comparte la primera.'}
             </p>
             <button
-              onClick={() => openComposer('note')}
+              onClick={() => openStudio()}
               className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-semibold transition-colors"
             >
               Compartir algo
@@ -1670,44 +946,12 @@ export function CommunityScreen() {
       </div>
 
       <AnimatePresence>
-        {showShareStudio && (
-          <ShareStudio onClose={() => setShowShareStudio(false)} onPublished={() => setFeedVersion(v => v + 1)} />
-        )}
-      </AnimatePresence>
-
-      {/* Compositor de nota */}
-      <AnimatePresence>
-        {createType === 'note' && (
-          <CreatePostModal
-            userName={userName}
-            avatarUrl={avatarUrl}
-            promptText={composerPrompt}
-            onClose={() => { setCreateType(null); setComposerPrompt(undefined); }}
-            onReadyToShare={handleNoteReadyToShare}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Picker de entreno */}
-      <AnimatePresence>
-        {showWorkoutPicker && (
-          <WorkoutPickerModal
-            sessions={user.weeklySessions ?? []}
-            onPick={handleWorkoutSelected}
-            onClose={() => setShowWorkoutPicker(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Compositor de entreno con preview live */}
-      <AnimatePresence>
-        {workoutCompose && (
-          <WorkoutComposeModal
-            session={workoutCompose.session}
-            userName={userName}
-            avatarUrl={avatarUrl}
-            onClose={() => setWorkoutCompose(null)}
-            onReadyToShare={(note, photoUrl) => handleWorkoutReadyToShare(workoutCompose.session, note, photoUrl)}
+        {studio && (
+          <ShareStudio
+            initialTemplate={studio.template ?? ((user.weeklySessions ?? []).length > 0 ? 'session' : 'note')}
+            prompt={studio.prompt}
+            onClose={() => setStudio(null)}
+            onPublished={() => setFeedVersion(v => v + 1)}
           />
         )}
       </AnimatePresence>
@@ -1758,17 +1002,6 @@ export function CommunityScreen() {
 
       <BottomNav active="community" />
 
-      {/* ── Modal de tarjeta compartible ── */}
-      <AnimatePresence>
-        {shareCardData && (
-          <ShareCardModalLazy
-            data={shareCardData}
-            onClose={() => { setShareCardData(null); setPendingCommunityPost(null); }}
-            onPublishToCommunity={pendingCommunityPost ? publishPendingPost : undefined}
-          />
-        )}
-      </AnimatePresence>
-
       {/* ── Visor de imagen a pantalla completa ── */}
       <AnimatePresence>
         {fullscreenImage && (
@@ -1777,22 +1010,4 @@ export function CommunityScreen() {
       </AnimatePresence>
     </div>
   );
-}
-
-// Lazy import para no incrementar el bundle principal
-function ShareCardModalLazy(props: {
-  data: import('@/components/community/ShareCardModal').ShareCardData;
-  onClose: () => void;
-  onPublishToCommunity?: (imageUrl?: string) => Promise<void>;
-}) {
-  const [Comp, setComp] = useState<React.ComponentType<{
-    data: typeof props.data;
-    onClose: () => void;
-    onPublishToCommunity?: (imageUrl?: string) => Promise<void>;
-  }> | null>(null);
-  useState(() => {
-    import('@/components/community/ShareCardModal').then(m => setComp(() => m.ShareCardModal));
-  });
-  if (!Comp) return null;
-  return <Comp {...props} />;
 }

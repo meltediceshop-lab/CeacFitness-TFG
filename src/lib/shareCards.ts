@@ -3,13 +3,14 @@
 // idéntica a la vista previa en cualquier navegador. Todas llevan la marca
 // (logo, lema y dirección de la app): son la publicidad de Fit K.
 
-export type ShareTemplate = 'session' | 'photo' | 'week' | 'progress' | 'milestone' | 'sticker';
+export type ShareTemplate = 'session' | 'photo' | 'note' | 'week' | 'progress' | 'milestone' | 'sticker';
 export type ShareFormat = 'story' | 'post' | 'square';
 export type ShareTheme = 'esmeralda' | 'noche' | 'claro' | 'menta';
 
 export const TEMPLATES: { id: ShareTemplate; label: string; hint: string }[] = [
   { id: 'session', label: 'Sesión', hint: 'Cifras y gráfico por zona' },
   { id: 'photo', label: 'Foto', hint: 'Tu foto con las cifras encima' },
+  { id: 'note', label: 'Reflexión', hint: 'Tu frase en grande' },
   { id: 'week', label: 'Semana', hint: 'Calendario y resumen' },
   { id: 'progress', label: 'Progreso', hint: 'Gráfica de un ejercicio' },
   { id: 'milestone', label: 'Hito', hint: 'Tu número en grande' },
@@ -46,6 +47,8 @@ export interface ShareData {
   week?: { days: ShareWeekDay[]; done: number; total: number; minutes: number; sets: number; range: string; volumeKg?: number };
   progress?: { exercise: string; unit: string; points: { label: string; value: number }[] };
   milestone?: { value: string; label: string; sub?: string };
+  /** Texto de la plantilla «Reflexión». */
+  quote?: string;
   /** Dirección de la app que aparece en el pie. */
   host: string;
 }
@@ -135,7 +138,7 @@ function background(k: Kit) {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); // base opaca (fotos con transparencia)
     if (iw > 0 && ih > 0) ctx.drawImage(img, (W - iw * s) / 2, (H - ih * s) / 2, iw * s, ih * s);
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    if (opts.template === 'photo') {
+    if (opts.template === 'photo' || opts.template === 'note') {
       // El texto va abajo: la foto respira arriba.
       g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(0.3, 'rgba(0,0,0,0.12)'); g.addColorStop(0.55, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0.9)');
     } else {
@@ -288,6 +291,27 @@ function tPhoto(k: Kit) {
   footer(k);
 }
 
+/** Reflexión: la frase de la persona en grande, abajo, sobre su foto o el color elegido. */
+function tNote(k: Kit) {
+  const { ctx, pal, data, opts } = k;
+  background(k);
+  header(k, data.date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase());
+  const quote = data.quote?.trim() || 'Escribe aquí lo que quieras contar.';
+  const tall = k.H > 1500; const mid = k.H > 1200;
+  const bottom = contentBottom(k) + 10;
+  const t = fitLines(k, quote, W - 2 * P, tall ? 9 : mid ? 7 : 5, tall ? 92 : 84, 46, 700);
+  const lh = t.size * 1.22;
+  let y = bottom - (opts.show.name ? 70 : 0);
+  if (opts.show.name) text(k, `— ${data.caption?.trim() || data.userName}`, P, bottom, { size: 34, weight: 600, color: pal.soft, max: W - 2 * P });
+  const top = y - lh * (t.lines.length - 1);
+  t.lines.forEach((line, i) => text(k, line, P, top + i * lh, { size: t.size, weight: 700, max: W - 2 * P }));
+  // Comillas grandes de color y rótulo encima del texto
+  const qy = top - t.size - 30;
+  ctx.save(); font(k, 220, 900); ctx.fillStyle = accentGradient(k, P, P + 160); ctx.textBaseline = 'alphabetic'; ctx.fillText('“', P - 8, qy + 120); ctx.restore();
+  text(k, data.kicker ?? 'REFLEXIÓN', P + 150, qy + 20, { size: 28, weight: 700, color: pal.accent, ls: 6 });
+  footer(k);
+}
+
 function tWeek(k: Kit) {
   const { ctx, H, pal, data } = k; const wk = data.week; const tall = H > 1500; const mid = H > 1200;
   background(k);
@@ -431,7 +455,7 @@ export function renderShareCard(ctx: Ctx, data: ShareData, opts: ShareOptions, f
   const usePhoto = !!opts.photo && opts.template !== 'sticker';
   const k: Kit = { ctx, H, pal: usePhoto ? PHOTO_PALETTE : PALETTES[opts.theme], family, data, opts: { ...opts, photo: usePhoto ? opts.photo : null }, shadow: usePhoto };
   ctx.save(); ctx.clearRect(0, 0, W, H);
-  ({ session: tSession, photo: tPhoto, week: tWeek, progress: tProgress, milestone: tMilestone, sticker: tSticker })[opts.template](k);
+  ({ session: tSession, photo: tPhoto, note: tNote, week: tWeek, progress: tProgress, milestone: tMilestone, sticker: tSticker })[opts.template](k);
   ctx.restore();
 }
 /** Tamaño del lienzo para una plantilla y formato. */

@@ -67,6 +67,7 @@ export function TimePicker({
           <motion.ul
             ref={menuRef}
             role="listbox"
+            data-scroll-lock
             aria-label={label}
             initial={{ opacity: 0, scale: 0.92, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

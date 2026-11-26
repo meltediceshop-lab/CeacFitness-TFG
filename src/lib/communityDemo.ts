@@ -1,4 +1,5 @@
 import type { CommunityPost } from '@/types/user';
+import type { ShareData, ShareTemplate } from '@/lib/shareCards';
 
 // ── Tema del día ──────────────────────────────────────────────────
 // Invitaciones suaves a compartir. Sin presión, sin comparación.
@@ -61,63 +62,133 @@ export function computeBadges(opts: {
 // ── Publicaciones de ejemplo ──────────────────────────────────────
 // Semi-anónimas (solo nombre de pila), tono de apoyo. IDs con prefijo "demo-".
 // Son interactivas solo en local (reacciones/comentarios no tocan la base de datos).
+// Hay una de cada plantilla del estudio de tarjetas, todas con foto de fondo,
+// para que se vea lo que cada persona puede compartir.
+
+const photo = (id: string) => `https://images.unsplash.com/${id}?w=1080&h=1350&fit=crop&auto=format&q=72`;
+
+export interface DemoCard {
+  template: ShareTemplate;
+  photo: string;
+  data: ShareData;
+}
+
+const short = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+
+/** Tarjeta de cada publicación de ejemplo (se dibuja con el mismo motor que el estudio). */
+export function getDemoCard(postId: string, host: string): DemoCard | null {
+  const now = new Date();
+  const base = { date: now, host };
+  switch (postId) {
+    case 'demo-session':
+      return {
+        template: 'session', photo: photo('photo-1517836357463-d25dfeac3438'),
+        data: {
+          ...base, userName: 'Javier', title: 'Pierna y Core', kicker: 'ENTRENO COMPLETADO',
+          minutes: 45, exercises: 6, sets: 18, volumeKg: 6240,
+          muscles: [{ label: 'Pierna', sets: 10 }, { label: 'Core', sets: 5 }, { label: 'Espalda', sets: 3 }],
+          topExercises: [
+            { name: 'Sentadilla', detail: '4 × 8 · 70 kg' },
+            { name: 'Peso muerto rumano', detail: '3 × 10 · 60 kg' },
+            { name: 'Plancha', detail: '3 × 45 s' },
+          ],
+        },
+      };
+    case 'demo-photo':
+      return {
+        template: 'photo', photo: photo('photo-1541534741688-6078c6bfb5c5'),
+        data: { ...base, userName: 'Sara', title: 'Espalda y bíceps', kicker: 'ENTRENO COMPLETADO', minutes: 40, exercises: 5, sets: 16, volumeKg: 3180 },
+      };
+    case 'demo-week': {
+      const monday = new Date(now); monday.setHours(0, 0, 0, 0);
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) - 7); // semana pasada, completa
+      const planned = [0, 2, 4];
+      const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((letter, i) => {
+        const d = new Date(monday); d.setDate(monday.getDate() + i);
+        return { letter, date: d.getDate(), planned: planned.includes(i), done: planned.includes(i), today: false, sets: planned.includes(i) ? [16, 18, 15][planned.indexOf(i)] : 0 };
+      });
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      return {
+        template: 'week', photo: photo('photo-1552674605-db6ffd4facb5'),
+        data: { ...base, userName: 'Ana', title: 'Mi semana', week: { days, done: 3, total: 3, minutes: 125, sets: 49, range: `${short(monday)} – ${short(sunday)}`, volumeKg: 14820 } },
+      };
+    }
+    case 'demo-progress': {
+      const values = [60, 62.5, 65, 65, 67.5, 70, 72.5, 75];
+      const points = values.map((value, i) => {
+        const d = new Date(now); d.setDate(d.getDate() - (values.length - 1 - i) * 7);
+        return { label: short(d), value };
+      });
+      return {
+        template: 'progress', photo: photo('photo-1549060279-7e168fcee0c2'),
+        data: { ...base, userName: 'Diego', title: 'Peso muerto', progress: { exercise: 'Peso muerto', unit: 'kg', points } },
+      };
+    }
+    case 'demo-milestone':
+      return {
+        template: 'milestone', photo: photo('photo-1574680096145-d05b474e2155'),
+        data: { ...base, userName: 'Lucía', title: '25 sesiones', milestone: { value: '25', label: 'sesiones completadas', sub: 'Semana 9 con mi plan de Fit K' } },
+      };
+    default:
+      return null;
+  }
+}
+
 export function getDemoPosts(): CommunityPost[] {
   const now = Date.now();
   const h = 3_600_000;
   const iso = (ms: number) => new Date(now - ms).toISOString();
+  const c = (id: string, postId: string, name: string, content: string, ago: number) =>
+    ({ id, postId, userId: `demo-user-${name.toLowerCase()}`, displayName: name, content, createdAt: iso(ago) });
 
   return [
     {
-      id: 'demo-1', userId: 'demo-user-lucia', displayName: 'Lucía', type: 'note',
-      content: 'Hoy no tenía ganas de nada y aun así bajé a entrenar 20 minutos. Pequeña victoria, pero cuenta.',
-      createdAt: iso(2 * h), myReaction: null, reactionCount: 12, commentCount: 2,
-      milestone: 'Constancia 🔥', isDemo: true,
-      comments: [
-        { id: 'demo-c1', postId: 'demo-1', userId: 'demo-user-marcos', displayName: 'Marcos', content: 'Justo lo que necesitaba leer hoy.', createdAt: iso(1.5 * h) },
-        { id: 'demo-c2', postId: 'demo-1', userId: 'demo-user-ana', displayName: 'Ana', content: 'Esos días son los que más cuentan.', createdAt: iso(1 * h) },
-      ],
-    },
-    {
-      id: 'demo-2', userId: 'demo-user-marcos', displayName: 'Marcos', type: 'workout',
-      workoutName: 'Full Body en Casa', workoutDuration: 30, workoutExercises: 6,
-      content: 'Primer día de la semana hecho 💪',
-      createdAt: iso(5 * h), myReaction: null, reactionCount: 7, commentCount: 1, isDemo: true,
-      comments: [
-        { id: 'demo-c3', postId: 'demo-2', userId: 'demo-user-lucia', displayName: 'Lucía', content: '¡Bien hecho! A por la semana.', createdAt: iso(4 * h) },
-      ],
-    },
-    {
-      id: 'demo-3', userId: 'demo-user-ana', displayName: 'Ana', type: 'note',
-      content: 'Llevaba meses diciéndome "el lunes empiezo". Hoy por fin ese lunes llegó.',
-      createdAt: iso(9 * h), myReaction: null, reactionCount: 18, commentCount: 3,
-      milestone: 'Primer paso 🌱', isDemo: true,
-      comments: [
-        { id: 'demo-c4', postId: 'demo-3', userId: 'demo-user-diego', displayName: 'Diego', content: 'Bienvenida, el primer paso es el más difícil.', createdAt: iso(8 * h) },
-        { id: 'demo-c5', postId: 'demo-3', userId: 'demo-user-sara', displayName: 'Sara', content: 'Yo igual hace un mes. Sigue así 💪', createdAt: iso(7.5 * h) },
-        { id: 'demo-c6', postId: 'demo-3', userId: 'demo-user-javier', displayName: 'Javier', content: 'A por ello.', createdAt: iso(7 * h) },
-      ],
-    },
-    {
-      id: 'demo-4', userId: 'demo-user-javier', displayName: 'Javier', type: 'workout',
-      workoutName: 'Pierna y Core', workoutDuration: 45, workoutExercises: 7,
+      id: 'demo-session', userId: 'demo-user-javier', displayName: 'Javier', type: 'workout',
+      workoutName: 'Pierna y Core', workoutDuration: 45, workoutExercises: 6,
       content: 'Las sentadillas ya no me dan tanto respeto.',
-      createdAt: iso(26 * h), myReaction: null, reactionCount: 9, commentCount: 0, isDemo: true,
-      comments: [],
+      createdAt: iso(1.5 * h), myReaction: null, reactionCount: 11, commentCount: 1, isDemo: true,
+      comments: [c('demo-c1', 'demo-session', 'Lucía', '¡Ese peso muerto! A por más.', 1 * h)],
     },
     {
-      id: 'demo-5', userId: 'demo-user-sara', displayName: 'Sara', type: 'note',
-      content: 'Dormí fatal y casi lo dejo pasar. Al final hice 15 minutos. Mejor algo que nada.',
-      createdAt: iso(30 * h), myReaction: null, reactionCount: 14, commentCount: 1,
-      milestone: '3 semanas seguidas 🗓️', isDemo: true,
+      id: 'demo-note', userId: 'demo-user-marcos', displayName: 'Marcos', type: 'note',
+      content: 'Hoy no tenía ganas de nada y aun así bajé a entrenar 20 minutos. Pequeña victoria, pero cuenta.',
+      photoUrl: photo('photo-1576678927484-cc907957088c'),
+      createdAt: iso(4 * h), myReaction: null, reactionCount: 18, commentCount: 2,
+      milestone: 'Constancia', isDemo: true,
       comments: [
-        { id: 'demo-c7', postId: 'demo-5', userId: 'demo-user-ana', displayName: 'Ana', content: 'Mejor algo que nada, totalmente.', createdAt: iso(29 * h) },
+        c('demo-c2', 'demo-note', 'Ana', 'Esos días son los que más cuentan.', 3.5 * h),
+        c('demo-c3', 'demo-note', 'Sara', 'Justo lo que necesitaba leer hoy.', 3 * h),
       ],
     },
     {
-      id: 'demo-6', userId: 'demo-user-diego', displayName: 'Diego', type: 'workout',
-      workoutName: 'Push · Pecho y Hombro', workoutDuration: 40, workoutExercises: 5,
-      createdAt: iso(48 * h), myReaction: null, reactionCount: 6, commentCount: 0, isDemo: true,
+      id: 'demo-photo', userId: 'demo-user-sara', displayName: 'Sara', type: 'workout',
+      workoutName: 'Espalda y bíceps', workoutDuration: 40, workoutExercises: 5,
+      content: 'Primera dominada sin goma 🙌',
+      createdAt: iso(7 * h), myReaction: null, reactionCount: 24, commentCount: 1,
+      milestone: 'Primera dominada', isDemo: true,
+      comments: [c('demo-c4', 'demo-photo', 'Diego', 'Brutal, Sara. Eso cuesta mucho.', 6 * h)],
+    },
+    {
+      id: 'demo-week', userId: 'demo-user-ana', displayName: 'Ana', type: 'workout',
+      workoutName: 'Mi semana', workoutDuration: 125, workoutExercises: 3,
+      content: 'Tres de tres. Llevaba meses diciendo «el lunes empiezo».',
+      createdAt: iso(20 * h), myReaction: null, reactionCount: 15, commentCount: 1, isDemo: true,
+      comments: [c('demo-c5', 'demo-week', 'Javier', 'Semana redonda 👏', 19 * h)],
+    },
+    {
+      id: 'demo-progress', userId: 'demo-user-diego', displayName: 'Diego', type: 'workout',
+      workoutName: 'Peso muerto', workoutDuration: 0, workoutExercises: 1,
+      content: 'Dos meses y 15 kg más en el peso muerto. Poco a poco.',
+      createdAt: iso(30 * h), myReaction: null, reactionCount: 9, commentCount: 0, isDemo: true,
       comments: [],
+    },
+    {
+      id: 'demo-milestone', userId: 'demo-user-lucia', displayName: 'Lucía', type: 'workout',
+      workoutName: '25 sesiones', workoutDuration: 0, workoutExercises: 0,
+      content: 'Nunca había llegado tan lejos con nada que tuviera que ver con hacer deporte.',
+      createdAt: iso(46 * h), myReaction: null, reactionCount: 21, commentCount: 1,
+      milestone: '25 sesiones', isDemo: true,
+      comments: [c('demo-c6', 'demo-milestone', 'Marcos', 'Enhorabuena, Lucía 💪', 44 * h)],
     },
   ];
 }

@@ -31,11 +31,14 @@ const STAT_TOGGLES: { id: keyof ShareOptions['show']; label: string }[] = [
 export function ShareStudio({
   sessionId,
   initialTemplate = 'session',
+  prompt,
   onClose,
   onPublished,
 }: {
   sessionId?: string;
   initialTemplate?: ShareTemplate;
+  /** Sugerencia para el texto de la reflexión (p. ej. el tema del día). */
+  prompt?: string;
   onClose: () => void;
   onPublished?: () => void;
 }) {
@@ -54,6 +57,7 @@ export function ShareStudio({
   const [photo, setPhoto] = useState<HTMLImageElement | null>(null);
   const [title, setTitle] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
+  const [quote, setQuote] = useState('');
   const [show, setShow] = useState<ShareOptions['show']>({ minutes: true, exercises: true, sets: true, volume: true, chart: true, name: true });
   const [busy, setBusy] = useState<'share' | 'save' | 'publish' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -71,19 +75,21 @@ export function ShareStudio({
 
   // Plantillas disponibles con los datos que hay (sin gráfica de progreso si no hay registros, etc.)
   const available = TEMPLATES.filter(t =>
-    t.id === 'progress' ? !!data?.progress : t.id === 'milestone' ? !!data?.milestone : t.id === 'week' ? !!data?.week : true);
+    t.id === 'note' ? true : t.id === 'progress' ? !!data?.progress : t.id === 'milestone' ? !!data?.milestone : t.id === 'week' ? !!data?.week : true);
   const active: ShareTemplate = available.some(t => t.id === template) ? template : 'session';
   const [w, h] = shareCardSize(active, format);
+  const isNote = active === 'note';
+  const cardData = useMemo(() => (data && isNote ? { ...data, kicker: undefined, quote } : data), [data, isNote, quote]);
 
   const blobRef = useRef<Blob | null>(null);
   const draw = useCallback(() => {
     const canvas = canvasRef.current; const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx || !data) return;
-    renderShareCard(ctx, data, { template: active, format, theme, photo, show }, getComputedStyle(document.body).fontFamily);
+    if (!canvas || !ctx || !cardData) return;
+    renderShareCard(ctx, cardData, { template: active, format, theme, photo, show }, getComputedStyle(document.body).fontFamily);
     // La imagen queda preparada para compartir al instante.
     blobRef.current = null;
     canvas.toBlob(b => { blobRef.current = b; }, 'image/png');
-  }, [data, active, format, theme, photo, show]);
+  }, [cardData, active, format, theme, photo, show]);
   useEffect(() => { draw(); document.fonts?.ready.then(draw); }, [draw, w, h]);
 
   const pickPhoto = (file?: File) => {
@@ -127,6 +133,7 @@ export function ShareStudio({
   };
   const handlePublish = async () => {
     if (!user || !data || published) return;
+    if (isNote && !quote.trim()) { setNotice('Escribe tu reflexión antes de publicarla.'); return; }
     setBusy('publish');
     try {
       const blob = await toBlob(); if (!blob) throw new Error('sin imagen');
@@ -135,7 +142,10 @@ export function ShareStudio({
       const { url } = await up.json(); if (!url) throw new Error('sin url');
       const res = await fetch('/api/community/posts', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(isNote ? {
+          type: 'note', content: quote.trim(),
+          displayName: user.profile.name, avatarUrl: user.profile.avatarUrl, photoUrl: url,
+        } : {
           type: 'workout', content: data.title, workoutName: data.title, workoutDuration: data.minutes, workoutExercises: data.exercises,
           displayName: user.profile.name, avatarUrl: user.profile.avatarUrl, photoUrl: url,
         }),
@@ -160,8 +170,8 @@ export function ShareStudio({
           <div className="w-10 h-1 bg-stone-300 dark:bg-white/20 rounded-full mx-auto mb-3" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-stone-900">Comparte tu entreno</h2>
-              <p className="text-sm text-stone-500">Elige una tarjeta y hazla tuya.</p>
+              <h2 className="text-xl font-bold text-stone-900">Crea tu tarjeta</h2>
+              <p className="text-sm text-stone-500">Elige una plantilla y hazla tuya.</p>
             </div>
             <button onClick={onClose} aria-label="Cerrar" className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center flex-shrink-0">
               <X className="w-5 h-5 text-stone-600 dark:text-white/70" />
@@ -189,7 +199,20 @@ export function ShareStudio({
             </div>
           </div>
 
-          {sessions.length > 1 && active !== 'week' && active !== 'progress' && active !== 'milestone' && (
+          {isNote && (
+            <div className="space-y-2">
+              <p className={label}>Tu reflexión</p>
+              <textarea id="share-quote" value={quote} onChange={e => setQuote(e.target.value.slice(0, 220))} rows={3} autoFocus
+                placeholder={prompt || 'Cómo te sientes, qué te ha costado o qué has conseguido…'}
+                className="bare-input w-full rounded-xl bg-[rgba(118,118,128,0.10)] px-3.5 py-3 text-stone-900 dark:text-white outline-none resize-none focus:ring-4 focus:ring-emerald-500/15" />
+              <div className="flex items-center justify-between gap-2">
+                <button type="button" onClick={() => setShow(s => ({ ...s, name: !s.name }))} aria-pressed={show.name} className={chip(show.name)}>Firmar con mi nombre</button>
+                <span className="text-[11px] text-stone-400 tabular-nums">{quote.length}/220</span>
+              </div>
+            </div>
+          )}
+
+          {sessions.length > 1 && !isNote && active !== 'week' && active !== 'progress' && active !== 'milestone' && (
             <div>
               <p className={label}>Sesión</p>
               <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-5 px-5">
