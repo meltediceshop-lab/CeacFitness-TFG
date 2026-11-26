@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlignCenter, AlignLeft, Check, Download, ImagePlus, Loader2, Move, RotateCcw, Share2, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { AlignCenter, AlignLeft, Bold, Highlighter, Italic, Check, Download, ImagePlus, Loader2, Move, RotateCcw, Share2, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { Button } from '@/components/ui/button';
 import { canonicalExerciseId } from '@/lib/fitkMotor';
 import { buildShareData, shareableSessions } from '@/lib/shareData';
 import {
-  ACCENTS, FONTS, FORMATS, TEMPLATES, THEMES, renderShareCard, shareCardSize,
+  ACCENTS, FONTS, FORMATS, TEMPLATES, THEMES, plainText, renderShareCard, shareCardSize,
   type ShareFont, type ShareFormat, type ShareOptions, type ShareTemplate, type ShareTheme,
 } from '@/lib/shareCards';
 
@@ -64,12 +64,29 @@ export function ShareStudio({
   const [textScale, setTextScale] = useState(1);
   const [align, setAlign] = useState<'left' | 'center'>('left');
   const [quote, setQuote] = useState('');
+  const quoteRef = useRef<HTMLTextAreaElement>(null);
+  /** Pone (o quita) una marca de formato alrededor de lo seleccionado en el texto. */
+  const applyFormat = (mark: '**' | '*' | '==') => {
+    const el = quoteRef.current; if (!el) return;
+    const a = el.selectionStart, b = el.selectionEnd;
+    const sel = quote.slice(a, b) || 'texto';
+    const before = quote.slice(0, a), after = quote.slice(b);
+    const wrapped = before.endsWith(mark) && after.startsWith(mark);
+    const next = wrapped ? before.slice(0, -mark.length) + sel + after.slice(mark.length) : before + mark + sel + mark + after;
+    if (next.length > 300) return;
+    setQuote(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const start = wrapped ? a - mark.length : a + mark.length;
+      el.setSelectionRange(start, start + sel.length);
+    });
+  };
   const [accent, setAccent] = useState<string | null>(null);
   const [veil, setVeil] = useState(0.5);
   const [zoom, setZoom] = useState(1);
   const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
   const [font, setFont] = useState<ShareFont>('moderna');
-  const drag = useRef<{ x: number; y: number; pos: { x: number; y: number } } | null>(null);
+  const drag = useRef<{ id: number; x: number; y: number; pos: { x: number; y: number } } | null>(null);
   const [show, setShow] = useState<ShareOptions['show']>({ minutes: true, exercises: true, sets: true, volume: true, chart: true, name: true });
   const [busy, setBusy] = useState<'share' | 'save' | 'publish' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -97,12 +114,14 @@ export function ShareStudio({
   const cardData = useMemo(() => {
     if (!data) return null;
     const d = { ...data, title: tx.title?.trim() ? tx.title : data.title, caption: tx.caption ?? '' };
-    if (isNote) return { ...d, kicker: undefined, quote };
-    if (active === 'progress' && data.progress) return { ...d, progress: { ...data.progress, exercise: tx.title?.trim() || data.progress.exercise } };
+    if (isNote) return { ...d, title: tx.title ?? '', kicker: undefined, quote };
+    if (active === 'progress' && data.progress) return { ...d, title: data.title, progress: { ...data.progress, exercise: tx.title?.trim() || data.progress.exercise } };
     return d;
   }, [data, isNote, active, quote, tx.title, tx.caption]);
 
   const blobRef = useRef<Blob | null>(null);
+  const blobVer = useRef(0);
+  const blobTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const draw = useCallback(() => {
     const canvas = canvasRef.current; const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || !cardData) return;
@@ -110,11 +129,23 @@ export function ShareStudio({
       template: active, format, theme, photo, show,
       accent: accent ?? undefined, veil, photoZoom: zoom, photoPos: pos, font, kicker: tx.kicker, textScale, align,
     }, getComputedStyle(document.body).fontFamily);
-    // La imagen queda preparada para compartir al instante.
+    // La imagen se prepara para compartir cuando se deja de tocar (no en cada movimiento),
+    // y solo vale la del último pintado. Mientras tanto, Compartir la genera del lienzo actual.
     blobRef.current = null;
-    canvas.toBlob(b => { blobRef.current = b; }, 'image/png');
+    const v = ++blobVer.current;
+    clearTimeout(blobTimer.current);
+    blobTimer.current = setTimeout(() => {
+      canvas.toBlob(b => { if (v === blobVer.current) blobRef.current = b; }, 'image/png');
+    }, 250);
   }, [cardData, active, format, theme, photo, show, accent, veil, zoom, pos, font, tx.kicker, textScale, align]);
-  useEffect(() => { draw(); document.fonts?.ready.then(draw); }, [draw, w, h]);
+  useEffect(() => {
+    draw();
+    // Segundo pintado solo si las fuentes aún no habían cargado.
+    let alive = true;
+    if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (alive) draw(); });
+    return () => { alive = false; };
+  }, [draw, w, h]);
+  useEffect(() => () => clearTimeout(blobTimer.current), []);
 
   const pickPhoto = (file?: File) => {
     if (!file) return;
@@ -127,22 +158,23 @@ export function ShareStudio({
 
   // Arrastrar la foto en la vista previa para encuadrarla.
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!photo || active === 'sticker') return;
+    if (!photo || active === 'sticker' || drag.current) return; // solo cuenta el primer dedo
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { x: e.clientX, y: e.clientY, pos };
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, pos };
   };
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const d = drag.current; if (!d || !photo) return;
-    const rect = e.currentTarget.getBoundingClientRect(); const k = rect.width / w; // px de pantalla por px de tarjeta
+    const d = drag.current; if (!d || !photo || e.pointerId !== d.id) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const kx = rect.width / w, ky = rect.height / h; // px de pantalla por px de tarjeta, en cada eje
     const iw = photo.naturalWidth || photo.width, ih = photo.naturalHeight || photo.height;
     const sc = Math.max(w / iw, h / ih) * zoom;
-    const ox = (iw * sc - w) * k, oy = (ih * sc - h) * k; // lo que sobra de foto, en px de pantalla
+    const ox = (iw * sc - w) * kx, oy = (ih * sc - h) * ky; // lo que sobra de foto, en px de pantalla
     setPos({
       x: ox > 1 ? Math.max(0, Math.min(1, d.pos.x - (e.clientX - d.x) / ox)) : 0.5,
       y: oy > 1 ? Math.max(0, Math.min(1, d.pos.y - (e.clientY - d.y) / oy)) : 0.5,
     });
   };
-  const onPointerUp = () => { drag.current = null; };
+  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => { if (drag.current?.id === e.pointerId) drag.current = null; };
   const field = 'w-full h-11 rounded-xl bg-[rgba(118,118,128,0.10)] px-3.5 text-[15px] text-stone-900 dark:text-white placeholder:text-stone-400 outline-none focus:ring-4 focus:ring-emerald-500/15';
   const pr = data?.progress;
   const captionDefault = active === 'note' ? (data?.userName ?? 'Tu nombre')
@@ -186,7 +218,8 @@ export function ShareStudio({
   };
   const handlePublish = async () => {
     if (!user || !data || published) return;
-    if (isNote && !quote.trim()) { setNotice('Escribe tu reflexión antes de publicarla.'); return; }
+    const noteTitle = (texts.note?.title ?? '').trim();
+    if (isNote && !quote.trim() && !noteTitle) { setNotice('Escribe tu reflexión antes de publicarla.'); return; }
     setBusy('publish');
     try {
       const blob = await toBlob(); if (!blob) throw new Error('sin imagen');
@@ -196,7 +229,7 @@ export function ShareStudio({
       const res = await fetch('/api/community/posts', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(isNote ? {
-          type: 'note', content: quote.trim(),
+          type: 'note', content: [noteTitle, plainText(quote).trim()].filter(Boolean).join('\n\n'),
           displayName: user.profile.name, avatarUrl: user.profile.avatarUrl, photoUrl: url,
         } : {
           type: 'workout', content: cardData?.title ?? data.title, workoutName: cardData?.title ?? data.title, workoutDuration: data.minutes, workoutExercises: data.exercises,
@@ -241,7 +274,7 @@ export function ShareStudio({
             >
               <canvas ref={canvasRef} width={w} height={h} aria-label="Vista previa de la tarjeta"
                 onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
-                style={{ display: 'block', height: 'min(46dvh, 420px)', width: 'auto', maxWidth: '100%', touchAction: photo && active !== 'sticker' ? 'none' : 'auto', cursor: photo && active !== 'sticker' ? 'grab' : 'default' }} />
+                style={{ display: 'block', width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: 'min(46dvh, 420px)', touchAction: photo && active !== 'sticker' ? 'none' : 'auto', cursor: photo && active !== 'sticker' ? 'grab' : 'default' }} />
             </div>
           </div>
 
@@ -266,8 +299,23 @@ export function ShareStudio({
             )}
             {isNote && (
               <label className="block">
-                <span className="flex justify-between text-[11px] text-stone-500 mb-1"><span>Tu reflexión</span><span className="tabular-nums">{quote.length}/220</span></span>
-                <textarea id="share-quote" value={quote} onChange={e => setQuote(e.target.value.slice(0, 220))} rows={4}
+                <span className="block text-[11px] text-stone-500 mb-1">Título</span>
+                <input id="share-note-title" value={tx.title ?? ''} onChange={e => setText('title', e.target.value)} maxLength={70}
+                  placeholder="Lo que quieres destacar" className={field} />
+              </label>
+            )}
+            {isNote && (
+              <label className="block">
+                <span className="flex justify-between text-[11px] text-stone-500 mb-1"><span>Texto</span><span className="tabular-nums">{plainText(quote).length}/220</span></span>
+                <span className="flex gap-1 mb-1.5" role="toolbar" aria-label="Formato del texto">
+                  {([['**', Bold, 'Negrita'], ['*', Italic, 'Cursiva'], ['==', Highlighter, 'Resaltar']] as const).map(([m, Icon, l]) => (
+                    <button key={m} type="button" onMouseDown={e => e.preventDefault()} onClick={() => applyFormat(m)} aria-label={l} title={l}
+                      className="h-8 px-2.5 rounded-lg bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-white/80 flex items-center gap-1 text-xs font-semibold">
+                      <Icon className="w-3.5 h-3.5" /> {l}
+                    </button>
+                  ))}
+                </span>
+                <textarea ref={quoteRef} id="share-quote" value={quote} onChange={e => { const v = e.target.value; if (plainText(v).length <= 220 && v.length <= 300) setQuote(v); }} rows={4}
                   placeholder={prompt || 'Cómo te sientes, qué te ha costado o qué has conseguido…'}
                   className={`bare-input ${field} h-auto py-3 resize-none leading-snug`} />
               </label>

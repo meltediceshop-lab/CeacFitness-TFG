@@ -381,40 +381,109 @@ function tPhoto(k: Kit) {
   footer(k);
 }
 
-/** Reflexión: la frase de la persona en grande, abajo, sobre su foto o el color elegido. */
+// ── Texto con formato (negrita **así**, cursiva *así*, resaltado ==así==) ──
+interface Run { text: string; bold: boolean; italic: boolean; mark: boolean }
+/** Quita las marcas de formato (para publicar o contar caracteres). */
+export function plainText(s: string): string { return s.replace(/\*\*|==|\*/g, ''); }
+function parseRich(s: string): Run[] {
+  const runs: Run[] = []; let bold = false, italic = false, mark = false; let buf = '';
+  const push = () => { if (buf) runs.push({ text: buf, bold, italic, mark }); buf = ''; };
+  for (let i = 0; i < s.length; i++) {
+    if (s.startsWith('**', i)) { push(); bold = !bold; i++; continue; }
+    if (s.startsWith('==', i)) { push(); mark = !mark; i++; continue; }
+    if (s[i] === '*') { push(); italic = !italic; continue; }
+    buf += s[i];
+  }
+  push();
+  return runs;
+}
+type Piece = Run & { w: number };
+function richFont(k: Kit, size: number, base: number, r: Run) { k.ctx.font = `${r.italic ? 'italic ' : ''}${r.bold ? 800 : base} ${size}px ${k.family}`; }
+/** Parte el texto con formato en líneas que quepan, reduciendo el tamaño si hace falta. */
+function richLines(k: Kit, s: string, max: number, maxLines: number, start: number, min: number, base: number): { size: number; lines: Piece[][] } {
+  const runs = parseRich(s);
+  const wrap = (size: number) => {
+    const lines: Piece[][] = []; let cur: Piece[] = []; let curW = 0;
+    for (const r of runs) {
+      // Cada palabra (con su espacio) es una pieza con su propio estilo.
+      for (const part of r.text.split(/(\s+)/)) {
+        if (!part) continue;
+        if (/\n/.test(part)) { lines.push(cur); cur = []; curW = 0; continue; }
+        richFont(k, size, base, r); const w = k.ctx.measureText(part).width;
+        if (/^\s+$/.test(part)) { if (cur.length) { cur.push({ ...r, text: part, w }); curW += w; } continue; }
+        if (curW + w > max && cur.length) {
+          while (cur.length && /^\s+$/.test(cur[cur.length - 1].text)) curW -= cur.pop()!.w;
+          lines.push(cur); cur = []; curW = 0;
+        }
+        cur.push({ ...r, text: part, w }); curW += w;
+      }
+    }
+    if (cur.length) lines.push(cur);
+    return lines.map(l => { while (l.length && /^\s+$/.test(l[l.length - 1].text)) l.pop(); return l; });
+  };
+  for (let size = start; size >= min; size -= 2) { const lines = wrap(size); if (lines.length <= maxLines) return { size, lines }; }
+  const lines = wrap(min); return { size: min, lines: lines.slice(0, maxLines) };
+}
+function drawRichLine(k: Kit, line: Piece[], x: number, y: number, size: number, base: number, color: string, align: CanvasTextAlign) {
+  const { ctx } = k; const total = line.reduce((a, p) => a + p.w, 0);
+  let cx = align === 'center' ? x - total / 2 : x;
+  for (const p of line) {
+    richFont(k, size, base, p);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    if (p.mark && !/^\s+$/.test(p.text)) {
+      // Resaltado: fondo del color de acento detrás de la palabra.
+      ctx.save(); ctx.fillStyle = rgba(k.pal.accent, 0.32); rr(ctx, cx - 6, y - size * 0.86, p.w + 12, size * 1.12, 10); ctx.fill(); ctx.restore();
+    }
+    ctx.fillStyle = p.mark ? k.pal.ink : p.bold ? k.pal.ink : color;
+    if (k.shadow) { ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 2; }
+    ctx.fillText(p.text, cx, y);
+    if (k.shadow) { ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; }
+    cx += p.w;
+  }
+}
+
+/** Reflexión: título en grande y un párrafo debajo, sobre su foto o el color elegido. */
 function tNote(k: Kit) {
   const { ctx, pal, data, opts } = k;
   background(k);
   header(k, data.date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase());
-  const quote = data.quote?.trim() || 'Escribe aquí lo que quieras contar.';
+  const title = data.title?.trim() ?? '';
+  const body = data.quote?.trim() || (title ? '' : 'Escribe aquí lo que quieras contar.');
   const tall = k.H > 1500; const mid = k.H > 1200;
   const sc = Math.max(0.7, Math.min(1.4, opts.textScale ?? 1));
   const center = opts.align === 'center';
   const x = center ? W / 2 : P; const align: CanvasTextAlign = center ? 'center' : 'left';
-  const bottom = contentBottom(k) + 10;
-  const t = fitLines(k, quote, W - 2 * P, Math.round((tall ? 9 : mid ? 7 : 5) / Math.max(1, sc * 0.9)), Math.round((tall ? 92 : 84) * sc), Math.round(46 * Math.min(1, sc)), 700);
-  const lh = t.size * 1.22;
-  // Centrado: el bloque entero (rótulo, comillas, texto y firma) va en mitad de la tarjeta.
-  const blockH = 250 + t.size + lh * (t.lines.length - 1) + (opts.show.name ? 70 : 0);
-  const top0 = P + 54 + 60;
-  const sign = center ? Math.min(bottom, top0 + (bottom - top0 + blockH) / 2) : bottom;
-  const y = sign - (opts.show.name ? 70 : 0);
-  if (opts.show.name) text(k, `— ${data.caption?.trim() || data.userName}`, x, sign, { size: 34, weight: 600, color: pal.soft, max: W - 2 * P, align });
-  const top = y - lh * (t.lines.length - 1);
-  t.lines.forEach((line, i) => text(k, line, x, top + i * lh, { size: t.size, weight: 700, max: W - 2 * P, align }));
-  // Comillas grandes de color y rótulo encima del texto
-  const qy = top - t.size - 30;
+  const maxW = W - 2 * P;
+  // Medidas del título y del párrafo
+  const tt = title ? fitLines(k, title, maxW, tall ? 4 : 3, Math.round((tall ? 96 : 84) * sc), Math.round(52 * Math.min(1, sc)), 800) : null;
+  const tlh = tt ? tt.size * 1.12 : 0;
+  const baseW = title ? 500 : 700;
+  const bt = body ? richLines(k, body, maxW, tall ? 10 : mid ? 7 : 5, Math.round((title ? 42 : (tall ? 84 : 76)) * sc), Math.round((title ? 32 : 44) * Math.min(1, sc)), baseW) : null;
+  const blh = bt ? bt.size * (title ? 1.4 : 1.22) : 0;
+  const titleH = tt ? tlh * (tt.lines.length - 1) + tt.size : 0;
+  const bodyH = bt ? blh * (bt.lines.length - 1) + bt.size : 0;
+  const gap = tt && bt ? 44 : 0;
+  const signH = opts.show.name ? 80 : 0;
+  const kickerH = 96; // comillas + rótulo
+  const blockH = kickerH + titleH + gap + bodyH + signH;
+  const bottom = contentBottom(k) + 10; const top0 = P + 54 + 60;
+  // Abajo (izquierda) o en mitad de la tarjeta (centrado).
+  let y = center ? Math.max(top0, top0 + (bottom - top0 - blockH) / 2) : Math.max(top0, bottom - blockH);
+  // Comillas de color y rótulo
   const label = kicker(k, data.kicker ?? 'REFLEXIÓN');
-  ctx.save(); font(k, 220, 900); ctx.textBaseline = 'alphabetic';
-  if (center) {
-    ctx.textAlign = 'center'; ctx.fillStyle = accentGradient(k, W / 2 - 80, W / 2 + 80); ctx.fillText('“', W / 2, qy + 60);
-    ctx.restore();
-    text(k, label, W / 2, qy - 120, { size: 28, weight: 700, color: pal.accent, ls: 6, max: W - 2 * P, align: 'center' });
-  } else {
-    ctx.fillStyle = accentGradient(k, P, P + 160); ctx.fillText('“', P - 8, qy + 120);
-    ctx.restore();
-    text(k, label, P + 150, qy + 20, { size: 28, weight: 700, color: pal.accent, ls: 6, max: W - 2 * P - 150 });
+  ctx.save(); font(k, 150, 900); ctx.textBaseline = 'alphabetic'; ctx.textAlign = align;
+  ctx.fillStyle = accentGradient(k, center ? W / 2 - 60 : P, center ? W / 2 + 60 : P + 120);
+  ctx.fillText('“', center ? W / 2 : P - 6, y + 96); ctx.restore();
+  if (center) text(k, label, W / 2, y - 6, { size: 28, weight: 700, color: pal.accent, ls: 6, max: maxW, align: 'center' });
+  else text(k, label, P + 100, y + 40, { size: 28, weight: 700, color: pal.accent, ls: 6, max: maxW - 100 });
+  y += kickerH;
+  if (tt) { tt.lines.forEach((line, i) => text(k, line, x, y + tt.size + i * tlh, { size: tt.size, weight: 800, max: maxW, align })); y += titleH + gap; }
+  if (bt) {
+    const color = title ? (pal.dark ? 'rgba(255,255,255,0.9)' : pal.ink) : pal.ink;
+    bt.lines.forEach((line, i) => drawRichLine(k, line, x, y + bt.size + i * blh, bt.size, baseW, color, align));
+    y += bodyH;
   }
+  if (opts.show.name) text(k, `— ${data.caption?.trim() || data.userName}`, x, y + 70, { size: 34, weight: 600, color: pal.soft, max: maxW, align });
   footer(k);
 }
 
@@ -477,7 +546,8 @@ function tProgress(k: Kit) {
   const first = pr.points[0].value, last = pr.points[pr.points.length - 1].value; const delta = last - first;
   let y = P + 54 + (tall ? 170 : mid ? 100 : 70);
   text(k, kicker(k, 'MI PROGRESO'), P, y, { size: 28, weight: 700, color: pal.accent, ls: 6, max: W - 2 * P });
-  const t = fitLines(k, pr.exercise, W - 2 * P, mid ? 2 : 1, mid ? 92 : 72, 48);
+  const sc = k.opts.textScale ?? 1;
+  const t = fitLines(k, pr.exercise, W - 2 * P, mid ? 2 : 1, Math.round((mid ? 92 : 72) * sc), Math.round(48 * Math.min(1, sc)));
   y += 24; for (const line of t.lines) { y += t.size * 1.14; text(k, line, P, y, { size: t.size, weight: 800, max: W - 2 * P }); }
   const bigSize = mid ? 170 : 120;
   y += tall ? 190 : mid ? 150 : 116;

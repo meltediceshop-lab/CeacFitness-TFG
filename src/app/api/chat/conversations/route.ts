@@ -14,8 +14,10 @@ export async function GET() {
       .select('mode, role, content, created_at')
       .eq('user_id', user.id)
       .not('mode', 'is', null)
-      .order('created_at', { ascending: true })
-      .limit(5000);
+      .neq('mode', 'session')
+      // Los más recientes primero (Supabase devuelve como mucho 1000 filas por petición).
+      .order('created_at', { ascending: false })
+      .limit(1000);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     type Acc = CoachChatSummary & { first?: string };
@@ -23,10 +25,10 @@ export async function GET() {
     for (const row of data ?? []) {
       const key = row.mode as string;
       if (!isChatKey(key)) continue;
+      // La primera fila de cada chat es la más reciente; el título sale del mensaje de usuario más antiguo que llegue.
       const cur: Acc = byKey.get(key) ?? { key, mode: chatKeyMode(key), title: '', updatedAt: row.created_at, count: 0 };
       cur.count += 1;
-      cur.updatedAt = row.created_at;
-      if (!cur.first && row.role === 'user') cur.first = row.content;
+      if (row.role === 'user') cur.first = row.content;
       byKey.set(key, cur);
     }
     const list: CoachChatSummary[] = [...byKey.values()]

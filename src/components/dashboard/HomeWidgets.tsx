@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { canonicalExerciseId } from '@/lib/fitkMotor';
-import { weekStart } from '@/lib/weekCalendar';
+import { planWeekStart, sameDay, sessionDate } from '@/lib/weekCalendar';
 import type { WeeklySession } from '@/types/user';
 
 // ── Modelo ───────────────────────────────────────────────────────────
@@ -105,7 +105,9 @@ function useStoredWidgets(userId: string) {
     try {
       const raw = localStorage.getItem(key);
       const parsed = raw ? JSON.parse(raw) : [];
-      setWidgets(Array.isArray(parsed) ? parsed.filter(w => w && TEMPLATES.some(t => t.type === w.type)) : []);
+      setWidgets(Array.isArray(parsed)
+        ? parsed.filter(w => w && TEMPLATES.some(t => t.type === w.type)).map(w => ({ ...w, settings: w.settings && typeof w.settings === 'object' ? w.settings : {} }))
+        : []);
     } catch { setWidgets([]); }
     setLoaded(true);
   }, [key]);
@@ -120,8 +122,18 @@ function useStoredWidgets(userId: string) {
 function useNow(everySecond: boolean) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), everySecond ? 1000 : 20000);
-    return () => clearInterval(id);
+    if (everySecond) {
+      const id = setInterval(() => setNow(new Date()), 1000);
+      return () => clearInterval(id);
+    }
+    // Sin segundos: se actualiza justo al empezar cada minuto.
+    let t: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const d = new Date(); setNow(d);
+      t = setTimeout(tick, 60000 - (d.getSeconds() * 1000 + d.getMilliseconds()) + 50);
+    };
+    tick();
+    return () => clearTimeout(t);
   }, [everySecond]);
   return now;
 }
@@ -134,6 +146,7 @@ interface Derived {
 }
 function useDerived(): Derived {
   const { user, exerciseLogs, getExerciseCatalog } = useApp();
+  const today = useNow(false).toDateString(); // para que «hoy» y el mes cambien si la app sigue abierta
   return useMemo(() => {
     const sessions = user?.weeklySessions ?? [];
     const done = sessions.filter(s => s.status === 'completed');
@@ -144,12 +157,15 @@ function useDerived(): Derived {
       const d = s.completedAt ? new Date(s.completedAt) : null;
       return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
-    const start = weekStart(now);
+    // La misma semana del plan que enseña Inicio (los domingos ya es la siguiente)
+    // y cada sesión en su fecha real, aunque no tenga día asignado.
+    const start = planWeekStart(now);
+    const dated = sessions.map((s, i) => ({ s, d: sessionDate(s, i, sessions.length, now) }));
     const weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((letter, i) => {
       const d = new Date(start); d.setDate(start.getDate() + i);
-      const isDone = allDone.some(s => s.completedAt && new Date(s.completedAt).toDateString() === d.toDateString());
-      const planned = sessions.some(s => s.status !== 'completed' && s.dayOfWeek === i);
-      return { letter, date: d.getDate(), done: isDone, planned, today: d.toDateString() === now.toDateString() };
+      const isDone = allDone.some(s => s.completedAt && sameDay(new Date(s.completedAt), d));
+      const planned = dated.some(x => x.s.status !== 'completed' && sameDay(x.d, d));
+      return { letter, date: d.getDate(), done: isDone, planned, today: sameDay(d, now) };
     });
     const names = new Map<string, string>();
     for (const e of getExerciseCatalog()) names.set(canonicalExerciseId(e.id), e.name);
@@ -172,7 +188,8 @@ function useDerived(): Derived {
       weekMinutes: done.reduce((m, s) => m + (s.actualMinutes ?? s.duration ?? 0), 0),
       monthDone, weekDays, bests,
     };
-  }, [user, exerciseLogs, getExerciseCatalog]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, exerciseLogs, getExerciseCatalog, today]);
 }
 
 function metricValue(id: MetricId, s: WidgetSettings, stats: HomeStats, d: Derived): { value: number | null; text: string; unit: string; series?: number[]; sub?: string } {
@@ -188,7 +205,7 @@ function metricValue(id: MetricId, s: WidgetSettings, stats: HomeStats, d: Deriv
       ? { value: stats.totalVolume, text: fmtNum(stats.totalVolume / 1000, 1), unit: 't', sub: 'movidas en total' }
       : { value: stats.totalVolume, text: fmtNum(stats.totalVolume), unit: 'kg', sub: 'movidos en total' };
     case 'exercise': {
-      const b = s.exercise ? d.bests.get(s.exercise) : [...d.bests.values()][0];
+      const b = (s.exercise ? d.bests.get(s.exercise) : undefined) ?? [...d.bests.values()][0];
       return b ? { value: b.best, text: fmtNum(b.best, 1), unit: 'kg', series: b.series, sub: b.name } : { value: null, text: '—', unit: 'kg', sub: 'Registra pesos en tus entrenos' };
     }
   }
@@ -307,19 +324,24 @@ function WidgetBody({ w, stats, d, preview }: { w: HomeWidget; stats: HomeStats;
     }
     case 'goal': {
       const metric = w.settings.metric ?? 'month';
-      const m = metricValue(metric, w.settings, stats, d);
-      const target = w.settings.target ?? 1;
+      const raw = metricValue(metric, w.settings, stats, d);
+      // Los kilos movidos se comparan y se enseñan siempre en kg, como el objetivo.
+      const m = metric === 'volume' && raw.value != null ? { ...raw, text: fmtNum(raw.value), unit: 'kg' } : raw;
+      const target = w.settings.target != null && w.settings.target > 0 ? w.settings.target : null;
+      const kg = metric === 'exercise' || metric === 'volume' || metric === 'weight';
       let pct = 0; let left = '';
-      if (metric === 'weight' && m.value != null) {
+      if (target == null) left = 'Pon un objetivo en Editar';
+      else if (metric === 'weight' && m.value != null) {
+        // Vale para bajar y para subir de peso: el signo de span marca la dirección.
         const start = stats.weights[0]?.value ?? m.value;
         const span = start - target;
         pct = span === 0 ? 1 : (start - m.value) / span;
         const diff = Math.abs(m.value - target);
-        left = diff < 0.05 ? '¡Objetivo cumplido!' : `Te faltan ${fmtNum(diff, 1)} kg`;
+        left = diff < 0.05 || pct >= 1 ? '¡Objetivo cumplido!' : `Te faltan ${fmtNum(diff, 1)} kg`;
       } else if (m.value != null) {
-        pct = m.value / Math.max(target, 0.0001);
+        pct = m.value / target;
         const diff = target - m.value;
-        left = diff <= 0 ? '¡Objetivo cumplido!' : `Te faltan ${fmtNum(diff, metric === 'exercise' ? 1 : 0)}${metric === 'exercise' ? ' kg' : ''}`;
+        left = diff <= 0 ? '¡Objetivo cumplido!' : `Te faltan ${fmtNum(diff, metric === 'exercise' ? 1 : 0)}${kg ? ' kg' : ''}`;
       } else left = 'Aún no hay datos';
       const full = w.size === 'full';
       return (
@@ -328,17 +350,26 @@ function WidgetBody({ w, stats, d, preview }: { w: HomeWidget; stats: HomeStats;
             <span className="text-lg font-bold tabular-nums leading-none">{Math.round(Math.max(0, Math.min(1, pct)) * 100)}%</span>
           </Ring>
           <div className={full ? 'min-w-0' : 'text-center'}>
-            <p className="text-sm font-semibold tabular-nums">{m.text}{m.unit && metric !== 'week' ? ` ${m.unit}` : ''} <span className={muted}>/ {fmtNum(target, 1)}</span></p>
+            <p className="text-sm font-semibold tabular-nums">{m.text}{m.unit && metric !== 'week' ? ` ${m.unit}` : ''} <span className={muted}>/ {target == null ? '—' : fmtNum(target, 1)}</span></p>
             <p className={`text-xs ${muted}`}>{left}</p>
           </div>
         </div>
       );
     }
     case 'countdown': {
-      const target = w.settings.date ? new Date(`${w.settings.date}T00:00:00`) : new Date();
+      const target = w.settings.date ? new Date(`${w.settings.date}T00:00:00`) : null;
+      if (!target || Number.isNaN(target.getTime())) {
+        return (
+          <div className="flex-1 flex flex-col justify-end">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>{w.settings.label || 'Cuenta atrás'}</p>
+            <p className="text-lg font-semibold mt-1">Elige una fecha</p>
+          </div>
+        );
+      }
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const days = Math.round((target.getTime() - today.getTime()) / 86_400_000);
-      const started = w.settings.startedAt ? new Date(w.settings.startedAt) : today;
+      const startedRaw = w.settings.startedAt ? new Date(w.settings.startedAt) : today;
+      const started = Number.isNaN(startedRaw.getTime()) ? today : startedRaw;
       const total = Math.max(1, (target.getTime() - started.getTime()) / 86_400_000);
       const pct = 1 - Math.max(0, days) / total;
       return (
@@ -527,7 +558,14 @@ function Editor({ w, stats, d, index, count, onChange, onMove, onDelete, onClose
             <div><p className={lbl}>{w.type === 'goal' ? 'Qué quieres conseguir' : 'Qué enseña'}</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {METRICS.filter(m => w.type === 'metric' || !['streak'].includes(m.id)).map(m => (
-                  <button key={m.id} type="button" onClick={() => setS({ metric: m.id })} aria-pressed={metric === m.id}
+                  <button key={m.id} type="button" aria-pressed={metric === m.id}
+                    onClick={() => {
+                      if (m.id === metric) return;
+                      const patch: Partial<WidgetSettings> = { metric: m.id };
+                      if (w.type === 'goal') patch.target = undefined; // el objetivo anterior no tiene sentido con otra métrica
+                      if (m.id === 'exercise' && !(w.settings.exercise && d.bests.has(w.settings.exercise)) && d.bests.size) patch.exercise = [...d.bests.keys()][0];
+                      setS(patch);
+                    }}
                     className={`h-10 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-left ${metric === m.id ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.10)] text-stone-700 dark:text-white/80'}`}>
                     <m.icon className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{m.label}</span>
                   </button>
@@ -537,15 +575,16 @@ function Editor({ w, stats, d, index, count, onChange, onMove, onDelete, onClose
             {metric === 'exercise' && (
               <div><p className={lbl}>Ejercicio</p>
                 {d.bests.size ? (
-                  <select id="widget-exercise" value={w.settings.exercise ?? [...d.bests.keys()][0]} onChange={e => setS({ exercise: e.target.value })} className={fieldCls}>
+                  <select id="widget-exercise" value={w.settings.exercise && d.bests.has(w.settings.exercise) ? w.settings.exercise : [...d.bests.keys()][0]} onChange={e => setS({ exercise: e.target.value })} className={fieldCls}>
                     {[...d.bests.entries()].map(([id, b]) => <option key={id} value={id}>{b.name} · {fmtNum(b.best, 1)} kg</option>)}
                   </select>
                 ) : <p className="text-sm text-stone-500">Cuando registres pesos en tus entrenos, podrás elegir el ejercicio aquí.</p>}
               </div>
             )}
             {w.type === 'goal' && (
-              <label className="block"><p className={lbl}>Objetivo</p>
-                <input id="widget-target" type="number" inputMode="decimal" min={0} step="any" value={w.settings.target ?? ''} onChange={e => setS({ target: Number(e.target.value) || 0 })} className={fieldCls} />
+              <label className="block"><p className={lbl}>Objetivo{['weight', 'volume', 'exercise'].includes(metric) ? ' (kg)' : metric === 'minutes' ? ' (min)' : ''}</p>
+                <input id="widget-target" type="number" inputMode="decimal" min={0} step="any" value={w.settings.target ?? ''} placeholder="Escribe tu meta"
+                  onChange={e => { const v = e.target.value; setS({ target: v === '' ? undefined : Math.max(0, Number(v) || 0) }); }} className={fieldCls} />
               </label>
             )}
           </div>

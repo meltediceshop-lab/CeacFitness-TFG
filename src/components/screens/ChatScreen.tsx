@@ -208,7 +208,8 @@ export function ChatScreen() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const loadedRef = useRef<Set<string>>(new Set());
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  // Conversación que está esperando respuesta (una a la vez).
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [savedWorkouts, setSavedWorkouts] = useState<Set<string>>(new Set());
   const [savedPlans, setSavedPlans] = useState<Set<string>>(new Set());
@@ -228,28 +229,42 @@ export function ChatScreen() {
 
   const activeKey = activeChat[coachMode];
   const messages = messagesByKey[activeKey] ?? NO_MESSAGES;
+  const isLoading = loadingKey === activeKey;
+  /** Chats cuyo historial aún se está cargando (no se puede escribir hasta que llegue). */
+  const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
+  const deletedRef = useRef<Set<string>>(new Set());
+  const listReqRef = useRef(0);
 
   /** Carga los mensajes de una conversación (una sola vez). */
   async function loadChat(key: string) {
     if (loadedRef.current.has(key)) return;
     loadedRef.current.add(key);
+    setPendingKeys(p => new Set(p).add(key));
     try {
       const res = await fetch(`/api/chat?conversation=${encodeURIComponent(key)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const msgs: ChatMessage[] = (data.data || []).map((mm: { id: string; role: string; content: string }) => ({
         id: mm.id, role: mm.role as 'user' | 'assistant', content: mm.content,
       }));
-      // Si mientras tanto ya se ha escrito algo, no se pisa.
-      setMessagesByKey(prev => (prev[key]?.length ? prev : { ...prev, [key]: msgs }));
+      // Se juntan con lo que haya en pantalla, sin perder nada.
+      setMessagesByKey(prev => {
+        const local = prev[key] ?? [];
+        return { ...prev, [key]: [...msgs, ...local.filter(m => !msgs.some(x => x.id === m.id))] };
+      });
     } catch {
       loadedRef.current.delete(key);
+    } finally {
+      setPendingKeys(p => { const n = new Set(p); n.delete(key); return n; });
     }
   }
   async function loadChatList() {
+    const req = ++listReqRef.current;
     try {
       const res = await fetch('/api/chat/conversations');
       const data = await res.json();
-      if (Array.isArray(data.data)) setChats(data.data);
+      // Si mientras tanto se ha borrado o creado un chat, esta respuesta ya es vieja.
+      if (req === listReqRef.current && Array.isArray(data.data)) setChats(data.data);
     } catch { /* sin conexión: la lista se queda como está */ }
   }
 
@@ -281,20 +296,38 @@ export function ChatScreen() {
   }
   async function deleteChat(key: string) {
     setConfirmDelete(null);
+    listReqRef.current++;
+    deletedRef.current.add(key);
+    const removed = chats.find(c => c.key === key);
+    const removedMsgs = messagesByKey[key];
     setChats(prev => prev.filter(c => c.key !== key));
     setMessagesByKey(prev => { const next = { ...prev }; delete next[key]; return next; });
     loadedRef.current.delete(key);
     const mode = key.split(':')[0] as CoachMode;
     if (activeChat[mode] === key) {
-      // Se abre el siguiente chat de ese modo o uno vacío.
+      // Se abre el siguiente chat de ese modo o uno vacío, sin cambiar de pestaña ni cerrar el panel.
       const nextChat = chats.find(c => c.mode === mode && c.key !== key);
       if (nextChat) { setActiveChat(prev => ({ ...prev, [mode]: nextChat.key })); loadChat(nextChat.key); }
-      else startNewChat(mode);
+      else {
+        const fresh = newChatKey(mode);
+        loadedRef.current.add(fresh);
+        setMessagesByKey(prev => ({ ...prev, [fresh]: [] }));
+        setActiveChat(prev => ({ ...prev, [mode]: fresh }));
+      }
     }
-    try { await fetch(`/api/chat/conversations?key=${encodeURIComponent(key)}`, { method: 'DELETE' }); } catch { /* se reintentará al recargar */ }
+    try {
+      const res = await fetch(`/api/chat/conversations?key=${encodeURIComponent(key)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      // No se ha borrado: vuelve a la lista para que no parezca que ya no existe.
+      deletedRef.current.delete(key);
+      if (removed) setChats(prev => (prev.some(c => c.key === key) ? prev : [removed, ...prev].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))));
+      if (removedMsgs) { loadedRef.current.add(key); setMessagesByKey(prev => ({ ...prev, [key]: removedMsgs })); }
+    }
   }
   /** Mantiene la lista al día sin pedirla otra vez al servidor. */
   function touchChat(key: string, mode: CoachMode, firstMessage: string, added: number) {
+    listReqRef.current++;
     setChats(prev => {
       const cur = prev.find(c => c.key === key);
       const updated: CoachChatSummary = cur
@@ -315,15 +348,16 @@ export function ChatScreen() {
   async function sendMessage(text: string, opts: { image?: string | null; voice?: boolean } = {}) {
     const trimmed = text.trim();
     const image = opts.image ?? null;
-    if ((!trimmed && !image) || isLoading) return;
+    if ((!trimmed && !image) || loadingKey || pendingKeys.has(activeKey)) return;
 
     const mode = coachMode;
     const key = activeKey;
+    deletedRef.current.delete(key); // una clave reutilizada (p. ej. «gym») vuelve a valer
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed, image: image ?? undefined, voice: opts.voice };
     setMessagesByKey(prev => ({ ...prev, [key]: [...(prev[key] ?? []), userMsg] }));
     setInput('');
     setAttachment(null);
-    setIsLoading(true);
+    setLoadingKey(key);
 
     try {
       const history = (messagesByKey[key] ?? []).slice(-20).map(m => ({ role: m.role, content: m.content }));
@@ -333,6 +367,11 @@ export function ChatScreen() {
         body: JSON.stringify({ message: trimmed || '¿Qué te parece esta foto?', history, mode, conversation: key, image: image ?? undefined }),
       });
       const data = await res.json();
+      if (deletedRef.current.has(key)) {
+        // Se borró mientras respondía: el servidor ya ha guardado los mensajes, se vuelven a quitar.
+        fetch(`/api/chat/conversations?key=${encodeURIComponent(key)}`, { method: 'DELETE' }).catch(() => {});
+        return;
+      }
       if (data.response) {
         const aiMsg: ChatMessage = {
           id: `a-${Date.now()}`,
@@ -354,7 +393,7 @@ export function ChatScreen() {
         content: 'No pude conectarme. Revisa tu conexión e inténtalo de nuevo.',
       }] }));
     } finally {
-      setIsLoading(false);
+      setLoadingKey(prev => (prev === key ? null : prev));
     }
   }
 
@@ -657,7 +696,7 @@ export function ChatScreen() {
             {input.trim() || attachment ? (
               <button
                 onClick={() => sendMessage(input, { image: attachment })}
-                disabled={isLoading}
+                disabled={!!loadingKey || pendingKeys.has(activeKey)}
                 aria-label="Enviar"
                 className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center transition-colors flex-shrink-0"
               >
