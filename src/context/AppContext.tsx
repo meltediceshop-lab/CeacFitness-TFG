@@ -386,7 +386,7 @@ interface AppContextType {
   completeOnboarding: (finalProfile?: Partial<UserProfile>) => void;
   planOptions: WeeklySession[][] | null;
   choosePlanOption: (index: number) => void;
-  completeWeeklySession: (sessionId: string, logs?: ExerciseLog[], sessionInstance?: Exercise[]) => void;
+  completeWeeklySession: (sessionId: string, logs?: ExerciseLog[], sessionInstance?: Exercise[], actualMinutes?: number) => void;
   moveSession: (sessionId: string, toSessionNumber: number) => void;
   removeSession: (sessionId: string) => void;
   setSessionDay: (sessionId: string, day: number) => void;
@@ -884,15 +884,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setScreen('check-in');
   };
 
-  const completeWeeklySession = async (sessionId: string, logs?: ExerciseLog[], sessionInstance?: Exercise[]) => {
+  const completeWeeklySession = async (sessionId: string, logs?: ExerciseLog[], sessionInstance?: Exercise[], actualMinutes?: number) => {
     if (!user) return;
 
     // Si se entrena otro día del previsto, las sesiones se reordenan (la hecha
     // se queda hoy y la de hoy pasa al día que queda libre).
+    // Lo entrenado de verdad (parcial o adaptado por energía), para las tarjetas de compartir.
+    const doneInstance = sessionInstance
+      ?? (selectedWeeklySession && planSessionId(selectedWeeklySession) === sessionId ? selectedWeeklySession.exercises : undefined);
     const daysBefore = new Map(user.weeklySessions.map(s => [s.id, s.dayOfWeek]));
     const updatedSessions = reassignDays(user.weeklySessions, sessionId).map(session =>
       session.id === sessionId
-        ? { ...session, status: 'completed' as const, completedAt: new Date() }
+        ? { ...session, status: 'completed' as const, completedAt: new Date(), doneExercises: doneInstance, actualMinutes }
         : session
     );
     const daysChanged = updatedSessions.some(s => s.id !== sessionId && daysBefore.get(s.id) !== s.dayOfWeek);

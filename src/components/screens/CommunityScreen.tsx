@@ -51,6 +51,7 @@ function renderWithMentions(text: string): React.ReactNode {
 }
 import type { CommunityPost, CommunityComment, CommunityReactionType, CommunityFilter } from '@/types/user';
 import { getDailyTheme, getWeeklyChallenge, getDemoPosts, computeBadges } from '@/lib/communityDemo';
+import { ShareStudio } from '@/components/community/ShareStudio';
 
 // ─── Reaction config ──────────────────────────────────────────────
 const REACTIONS: { id: CommunityReactionType; emoji: string; label: string }[] = [
@@ -1172,6 +1173,9 @@ export function CommunityScreen() {
     workoutDuration?: number; workoutExercises?: number;
   } | null>(null);
 
+  // Estudio de tarjetas para compartir fuera de Fit K
+  const [showShareStudio, setShowShareStudio] = useState(false);
+  const [feedVersion, setFeedVersion] = useState(0);
   const theme = useMemo(() => getDailyTheme(), []);
   const challenge = useMemo(() => getWeeklyChallenge(), []);
 
@@ -1193,7 +1197,7 @@ export function CommunityScreen() {
       }
     }
     loadPosts();
-  }, []);
+  }, [feedVersion]);
 
   // Marcar comunidad visitada y limpiar notif
   useEffect(() => {
@@ -1503,6 +1507,23 @@ export function CommunityScreen() {
 
       {/* Achievements + Theme + Filters */}
       <div className="px-4 space-y-3 pb-3">
+        {/* Tarjetas para compartir fuera de la app */}
+        <motion.button
+          type="button"
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          onClick={() => setShowShareStudio(true)}
+          className="w-full glass-card rounded-2xl p-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+        >
+          <span className="w-11 h-11 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
+            <Share2 className="w-5 h-5 text-white" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold text-stone-900">Crea tu tarjeta</span>
+            <span className="block text-sm text-stone-500">Comparte tu entreno, tu semana o tu progreso en tus redes.</span>
+          </span>
+          <ChevronRight className="w-5 h-5 text-stone-300 flex-shrink-0" />
+        </motion.button>
+
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <AchievementsCard badges={badges} />
         </motion.div>
@@ -1647,6 +1668,12 @@ export function CommunityScreen() {
           </AnimatePresence>
         )}
       </div>
+
+      <AnimatePresence>
+        {showShareStudio && (
+          <ShareStudio onClose={() => setShowShareStudio(false)} onPublished={() => setFeedVersion(v => v + 1)} />
+        )}
+      </AnimatePresence>
 
       {/* Compositor de nota */}
       <AnimatePresence>

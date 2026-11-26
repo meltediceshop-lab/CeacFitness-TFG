@@ -32,6 +32,7 @@ import type { Exercise, ClockStyle } from '@/types/user';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { WorkoutCoachChat } from '@/components/workout/WorkoutCoachChat';
 import { LastWeightsButton } from '@/components/workout/LastWeightsSheet';
+import { ShareStudio } from '@/components/community/ShareStudio';
 import { WarmupModal } from '@/components/workout/WarmupModal';
 import { WARMUP_EXERCISES } from '@/lib/warmupExercises';
 import { WorkoutClock, WorkoutClockLarge } from '@/components/workout/WorkoutClock';
@@ -258,6 +259,7 @@ export function WorkoutScreen() {
   const [setLogs, setSetLogs] = useState<Record<string, LoggedSet[]>>(() => resumed?.sets ?? {}); // modo simple: series registradas
   const [logSheetIndex, setLogSheetIndex] = useState<number | null>(null);
   const [showPartialConfirm, setShowPartialConfirm] = useState(false);
+  const [showShareStudio, setShowShareStudio] = useState(false);
   const [showGuidedFinish, setShowGuidedFinish] = useState(false); // modo guiado: terminar con series sin hacer
 
   // 4. Cronómetro modo simple
@@ -474,6 +476,7 @@ export function WorkoutScreen() {
     } catch { /* silently ignore */ }
   };
 
+  const realMinutes = () => Math.max(1, Math.round(elapsedSince(startedAt) / 60));
   const finishActiveWorkout = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     finishedRef.current = true;
@@ -487,7 +490,7 @@ export function WorkoutScreen() {
       setShowRecordPrompt(true);
     } else {
       const logsToSave = logs.map(l => ({ ...l, timestamp: new Date() }));
-      completeWeeklySession(sessionId, logsToSave, instance);
+      completeWeeklySession(sessionId, logsToSave, instance, realMinutes());
       setShowComplete(true);
     }
   };
@@ -539,11 +542,11 @@ export function WorkoutScreen() {
         })),
     );
     if (logs.length > 0) {
-      completeWeeklySession(sessionId, logs, instance);
+      completeWeeklySession(sessionId, logs, instance, realMinutes());
       setShowComplete(true);
     } else {
       // Se guarda ya: si la app se cierra en la pregunta siguiente, no se pierde.
-      completeWeeklySession(sessionId, undefined, instance);
+      completeWeeklySession(sessionId, undefined, instance, realMinutes());
       setShowRecordPrompt(true);
     }
   };
@@ -697,7 +700,7 @@ export function WorkoutScreen() {
             </button>
 
             <button
-              onClick={() => { setScreen('community'); }}
+              onClick={() => setShowShareStudio(true)}
               className="w-full p-4 bg-white dark:bg-[#1a1a1a] border-2 border-stone-100 dark:border-stone-800 hover:border-emerald-300 rounded-2xl flex items-center gap-4 transition-all shadow-sm"
             >
               <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -705,7 +708,7 @@ export function WorkoutScreen() {
               </div>
               <div className="text-left">
                 <p className="font-semibold text-stone-900">Compartir entrenamiento</p>
-                <p className="text-stone-500 text-sm">{sessionName} · {sessionDuration} min · {exercises.length} ejercicios</p>
+                <p className="text-stone-500 text-sm">Crea tu tarjeta: {sessionName} · {sessionDuration} min</p>
               </div>
             </button>
 
@@ -717,6 +720,9 @@ export function WorkoutScreen() {
             </button>
           </div>
         </motion.div>
+        <AnimatePresence>
+          {showShareStudio && <ShareStudio sessionId={sessionId} onClose={() => setShowShareStudio(false)} />}
+        </AnimatePresence>
       </div>
     );
   }

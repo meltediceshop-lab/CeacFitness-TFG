@@ -243,6 +243,10 @@ export interface WeeklySession {
   /** Versión adaptada para hoy (energía/tiempo): id de la sesión del plan de la que sale. */
   baseSessionId?: string;
   motorTrace?: SessionMotorTrace;
+  /** Lo que se entrenó de verdad al completarla (ejercicios con `skipped` si quedó parcial o adaptada). */
+  doneExercises?: Exercise[];
+  /** Minutos reales del entreno. */
+  actualMinutes?: number;
 }
 
 export interface WorkoutSession {
