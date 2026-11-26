@@ -181,7 +181,6 @@ html.dark {
 .glass-card {
   background: rgba(255, 255, 255, 0.78) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   border: 0.5px solid rgba(0, 0, 0, 0.07) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 30px -18px rgba(0, 0, 0, 0.18) !important;
 }
@@ -195,7 +194,6 @@ html.dark {
 .dark .glass-card {
   background: rgba(28, 28, 30, 0.72) !important;
   backdrop-filter: blur(20px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
   border: 0.5px solid rgba(255, 255, 255, 0.09) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -18px rgba(0, 0, 0, 0.8) !important;
 }
@@ -211,41 +209,55 @@ html.dark {
 .glass-modal {
   background: rgba(249, 249, 248, 0.92) !important;
   backdrop-filter: blur(40px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
   border: 0.5px solid rgba(0, 0, 0, 0.06) !important;
   box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.6), 0 30px 80px -20px rgba(0, 0, 0, 0.35) !important;
 }
 .dark .glass-modal {
   background: rgba(28, 28, 30, 0.97) !important;
   backdrop-filter: blur(40px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(160%) !important;
   border: 0.5px solid rgba(255, 255, 255, 0.10) !important;
   box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.9) !important;
 }
 
 /* ── Vidrio: barra de navegación ──────────────────────────────────── */
 .nav-glass {
-  background: rgba(250, 250, 249, 0.72);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border: 0.5px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 8px 30px -10px rgba(0, 0, 0, 0.18);
-  padding-top: 0.45rem !important;
-  padding-bottom: 0.25rem !important;
+  /* Liquid Glass: muy translúcido, con brillo en el borde superior y sombra suave */
+  background: linear-gradient(180deg, rgba(252, 252, 251, 0.74) 0%, rgba(246, 247, 246, 0.58) 100%);
+  backdrop-filter: blur(28px) saturate(190%);
+  border: 0.5px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 10px 30px -12px rgba(0, 0, 0, 0.22);
 }
 .dark .nav-glass {
-  background: rgba(28, 28, 30, 0.72);
-  backdrop-filter: blur(30px) saturate(160%);
-  -webkit-backdrop-filter: blur(30px) saturate(160%);
-  border: 0.5px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 0 8px 30px -10px rgba(0, 0, 0, 0.8);
+  background: linear-gradient(180deg, rgba(58, 58, 60, 0.68) 0%, rgba(30, 30, 32, 0.62) 100%);
+  backdrop-filter: blur(28px) saturate(170%);
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 10px 30px -12px rgba(0, 0, 0, 0.9);
+}
+/* Pestaña elegida: una «gota» de vidrio sin borde, solo luz y sombra */
+.nav-pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 6px 14px -6px rgba(0, 0, 0, 0.18);
+}
+.dark .nav-pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 6px 14px -6px rgba(0, 0, 0, 0.6);
 }
 
 /* ── Botones de vidrio (iconos, volver, cerrar) ───────────────────── */
 .glass-btn {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 0.5px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   transition: background-color 0.15s ease, transform 0.15s ease;

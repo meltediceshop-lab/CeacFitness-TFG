@@ -529,8 +529,8 @@ export function ChatScreen() {
 
       {/* Barra de escritura fija encima de la navegación */}
       <div
-        className="fixed inset-x-0 z-30 px-4"
-        style={{ bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom) + 0.5rem) + 4.75rem)' }}
+        className="fixed inset-x-0 bottom-0 z-30 px-4 pt-8 bg-gradient-to-t from-[var(--app-bg)] via-[var(--app-bg)] to-transparent"
+        style={{ paddingBottom: 'calc(max(1.25rem, env(safe-area-inset-bottom) + 0.5rem) + 4.75rem)' }}
       >
         <div className="max-w-2xl mx-auto">
           {attachment && (
