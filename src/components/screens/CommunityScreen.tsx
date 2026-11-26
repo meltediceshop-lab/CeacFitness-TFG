@@ -32,6 +32,7 @@ import {
   Search,
   AtSign,
   User,
+  Users,
 } from 'lucide-react';
 
 const COMM_NOTIF_KEY = 'fitk-comm-notif';
@@ -50,7 +51,8 @@ function renderWithMentions(text: string): React.ReactNode {
   );
 }
 import type { CommunityPost, CommunityComment, CommunityReactionType, CommunityFilter } from '@/types/user';
-import { getDailyTheme, getWeeklyChallenge, getDemoPosts, computeBadges } from '@/lib/communityDemo';
+import { getDailyTheme, getWeeklyChallenge, getDemoPosts, computeBadges, getDemoProfile } from '@/lib/communityDemo';
+import { ProfileSheet, FriendsSheet } from '@/components/community/ProfileSheet';
 import { ShareStudio } from '@/components/community/ShareStudio';
 import type { ShareTemplate } from '@/lib/shareCards';
 import { PostMedia, DemoCardCanvas } from '@/components/community/FeedMedia';
@@ -250,6 +252,7 @@ function PostCard({
   onHide,
   onImageClick,
   onShare,
+  onOpenProfile,
 }: {
   post: CommunityPost;
   currentUserId: string;
@@ -262,6 +265,7 @@ function PostCard({
   onHide: (postId: string) => void;
   onImageClick?: (url: string) => void;
   onShare: (post: CommunityPost) => void;
+  onOpenProfile: (userId: string) => void;
 }) {
   const [showComments, setShowComments] = useState(false);
   const [allComments, setAllComments] = useState<CommunityComment[]>(post.comments || []);
@@ -363,8 +367,10 @@ function PostCard({
     <article className="glass-card rounded-[28px] overflow-visible">
       {/* Autor */}
       <div className="pl-4 pr-2 pt-3.5 pb-3 flex items-center gap-3">
-        <Avatar name={post.displayName} url={post.avatarUrl} size={38} />
-        <div className="flex-1 min-w-0">
+        <button type="button" onClick={() => onOpenProfile(post.userId)} aria-label={`Ver el perfil de ${post.displayName.split(' ')[0]}`} className="flex-shrink-0">
+          <Avatar name={post.displayName} url={post.avatarUrl} size={38} />
+        </button>
+        <button type="button" onClick={() => onOpenProfile(post.userId)} className="flex-1 min-w-0 text-left">
           <div className="flex items-center gap-1.5 min-w-0">
             <p className="font-semibold text-stone-900 dark:text-stone-100 text-[15px] truncate">{post.displayName.split(' ')[0]}</p>
             {post.milestone && (
@@ -374,7 +380,7 @@ function PostCard({
             )}
           </div>
           <p className="text-stone-500 text-xs">{kindLabel} · {timeAgo(post.createdAt)}{isOwner ? ' · Tú' : ''}</p>
-        </div>
+        </button>
         <PostMenu
           isOwner={isOwner}
           canEdit={post.type === 'note' || !!post.content}
@@ -586,6 +592,14 @@ export function CommunityScreen() {
   // Estudio de tarjetas para compartir fuera de Fit K
   const [studio, setStudio] = useState<{ template?: ShareTemplate; prompt?: string; kicker?: string } | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
+  // Perfiles y amigos
+  const [profileOf, setProfileOf] = useState<string | null>(null);
+  const [showFriends, setShowFriends] = useState(false);
+  const [incoming, setIncoming] = useState(0);
+  const refreshIncoming = () => {
+    fetch('/api/community/friends').then(r => (r.ok ? r.json() : null)).then(j => { if (j?.data) setIncoming(j.data.incoming.length); }).catch(() => {});
+  };
+  useEffect(() => { refreshIncoming(); }, []);
   const theme = useMemo(() => getDailyTheme(), []);
   const challenge = useMemo(() => getWeeklyChallenge(), []);
 
@@ -767,6 +781,14 @@ export function CommunityScreen() {
             <p className="text-stone-500 text-sm">Entrena tu cuerpo. Cuida tu cabeza.</p>
           </div>
           <div className="flex gap-2 pt-1">
+            <button type="button" aria-label={incoming ? `Amigos, ${incoming} solicitudes` : 'Amigos'} onClick={() => setShowFriends(true)}
+              className="relative w-10 h-10 rounded-full glass-card flex items-center justify-center text-stone-700 dark:text-stone-200">
+              <Users className="w-[18px] h-[18px]" />
+              {incoming > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">{incoming}</span>}
+            </button>
+            <button type="button" aria-label="Mi perfil" onClick={() => setProfileOf('me')} className="rounded-full">
+              <Avatar name={userName} url={avatarUrl} size={40} />
+            </button>
             <button type="button" aria-label={showSearch ? 'Cerrar búsqueda' : 'Buscar'}
               onClick={() => { setShowSearch(s => !s); if (showSearch) setSearchQuery(''); }}
               className="w-10 h-10 rounded-full glass-card flex items-center justify-center text-stone-700 dark:text-stone-200">
@@ -938,6 +960,7 @@ export function CommunityScreen() {
                   onHide={handleHide}
                   onImageClick={url => setFullscreenImage(url)}
                   onShare={handleSharePost}
+                  onOpenProfile={uid => setProfileOf(uid === currentUserId ? 'me' : uid)}
                 />
               </motion.div>
             ))}
@@ -953,6 +976,28 @@ export function CommunityScreen() {
             initialKicker={studio.kicker}
             onClose={() => setStudio(null)}
             onPublished={() => setFeedVersion(v => v + 1)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {profileOf && (
+          <ProfileSheet
+            key={profileOf}
+            userId={profileOf}
+            demo={profileOf.startsWith('demo-user-') ? getDemoProfile(profileOf, posts) : undefined}
+            onClose={() => setProfileOf(null)}
+            onChanged={refreshIncoming}
+            onOpenFriends={profileOf === 'me' ? () => { setProfileOf(null); setShowFriends(true); } : undefined}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showFriends && (
+          <FriendsSheet
+            onClose={() => setShowFriends(false)}
+            onOpenProfile={uid => { setShowFriends(false); setProfileOf(uid); }}
+            onChanged={n => setIncoming(n)}
           />
         )}
       </AnimatePresence>

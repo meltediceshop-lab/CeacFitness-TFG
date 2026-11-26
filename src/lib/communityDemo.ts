@@ -1,5 +1,6 @@
 import type { CommunityPost } from '@/types/user';
 import type { ShareData, ShareTemplate } from '@/lib/shareCards';
+import type { CommunityProfileView } from '@/lib/communityProfiles';
 
 // ── Tema del día ──────────────────────────────────────────────────
 // Invitaciones suaves a compartir. Sin presión, sin comparación.
@@ -191,4 +192,34 @@ export function getDemoPosts(): CommunityPost[] {
       comments: [c('demo-c6', 'demo-milestone', 'Marcos', 'Enhorabuena, Lucía 💪', 44 * h)],
     },
   ];
+}
+
+// ── Perfiles de ejemplo (autores de las publicaciones de demostración) ──
+const DEMO_BIOS: Record<string, string> = {
+  'demo-user-javier': 'Pierna los lunes, constancia el resto de la semana.',
+  'demo-user-marcos': 'Entreno para despejar la cabeza. Mejor 20 minutos que nada.',
+  'demo-user-sara': 'Persiguiendo la primera dominada… ¡conseguida!',
+  'demo-user-ana': 'Empecé en septiembre. Tres días a la semana y sin prisa.',
+  'demo-user-diego': 'Me gusta ver subir la barra poco a poco.',
+  'demo-user-lucia': 'Nunca había sido constante con nada. Hasta ahora.',
+};
+export function getDemoProfile(userId: string, posts: CommunityPost[]): CommunityProfileView | undefined {
+  const mine = posts.filter(p => p.userId === userId && p.isDemo);
+  if (!mine.length) return undefined;
+  const seed = [...userId].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const total = 18 + (seed % 40);
+  const since = new Date(); since.setMonth(since.getMonth() - (2 + (seed % 6)));
+  return {
+    userId, name: mine[0].displayName, bio: DEMO_BIOS[userId], isPublic: true, isMe: false, friendship: 'none',
+    friendsCount: 4 + (seed % 23), canView: true, isDemo: true,
+    stats: {
+      totalSessions: total, totalMinutes: total * (38 + (seed % 12)), monthSessions: 6 + (seed % 7), weekStreak: 2 + (seed % 9),
+      totalVolumeKg: total * (900 + (seed % 500)), posts: mine.length, reactionsReceived: mine.reduce((a, p) => a + p.reactionCount, 0),
+      memberSince: since.toISOString(),
+    },
+    lifts: [
+      { name: 'Sentadilla', kg: 50 + (seed % 40) }, { name: 'Peso muerto', kg: 60 + (seed % 50) }, { name: 'Press banca', kg: 35 + (seed % 30) },
+    ].sort((a, b) => b.kg - a.kg),
+    posts: mine.map(p => ({ id: p.id, type: p.type, content: p.content, workoutName: p.workoutName, createdAt: p.createdAt })),
+  };
 }

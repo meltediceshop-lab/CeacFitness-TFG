@@ -3,7 +3,12 @@
 import { defaultDay } from '@/lib/weekCalendar';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Bell, Minus, Plus } from 'lucide-react';
+import { X, Check, Bell, Minus, Plus, ChevronDown, ChevronRight, Repeat } from 'lucide-react';
+import { useApp } from '@/context/AppContext';
+import { ExercisePreview } from '@/components/workout/ExercisePreview';
+import { DoseChips } from '@/components/workout/ExerciseBits';
+import { ExerciseDetailSheet } from '@/components/workout/ExerciseDetailSheet';
+import { alternativeOptions, resolveAlternative, swapExercise } from '@/lib/exerciseSwap';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { TimePicker } from '@/components/ui/TimePicker';
 import type { WeeklySession } from '@/types/user';
@@ -46,6 +51,38 @@ interface Props {
 
 export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConfirm, onClose, onChangeDays, onRebuild }: Props) {
   useScrollLock();
+  const { getExerciseByName } = useApp();
+  // Sesiones desplegadas y ejercicio abierto en la ficha
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [detail, setDetail] = useState<{ sessionId: string; index: number } | null>(null);
+  const toggleOpen = (id: string) => setOpen(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // Cambiar un ejercicio por una de sus variantes (mantiene series y descanso)
+  function chooseAlternative(name: string) {
+    if (!detail) return;
+    setSessions(prev => prev.map(s => {
+      if (s.id !== detail.sessionId) return s;
+      // No se puede elegir un ejercicio que ya está en otro hueco de la sesión.
+      if (s.exercises.some((e, i) => i !== detail.index && e.name === name)) return s;
+      const exercises = s.exercises.map((e, i) => (i === detail.index && e.name !== name ? swapExercise(e, resolveAlternative(e, name, getExerciseByName)) : e));
+      return { ...s, exercises };
+    }));
+  }
+
+  // Vuelve a aplicar las variantes elegidas cuando el Motor rehace la sesión (otro tiempo u otros días).
+  function keepSwaps(prev: WeeklySession | undefined, next: WeeklySession): WeeklySession {
+    const swaps = new Map((prev?.exercises ?? []).filter(e => e.swappedFrom).map(e => [e.swappedFrom!, e.name]));
+    if (!swaps.size) return next;
+    const used = new Set(next.exercises.map(e => e.name));
+    return {
+      ...next,
+      exercises: next.exercises.map(e => {
+        const alt = swaps.get(e.name);
+        if (!alt || alt === e.name || used.has(alt)) return e;
+        used.add(alt);
+        return swapExercise(e, resolveAlternative(e, alt, getExerciseByName));
+      }),
+    };
+  }
 
   const nextMonday = getNextMonday();
   const weekDates  = getWeekDates(nextMonday);
@@ -91,7 +128,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
   }
 
   function changeDuration(id: string, duration: number) {
-    setSessions(prev => prev.map(s => (s.id !== id ? s : onRebuild ? onRebuild(s, duration, days) : { ...s, duration })));
+    setSessions(prev => prev.map(s => (s.id !== id ? s : onRebuild ? keepSwaps(s, onRebuild(s, duration, days)) : { ...s, duration })));
   }
 
   // Añadir o quitar un entreno: el Motor rehace la semana con esos días.
@@ -101,7 +138,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
     if (!generated.length) return;
     setDays(next);
     setMovingId(null);
-    setSessions(generated.map((s, i) => ({ ...s, dayOfWeek: s.dayOfWeek ?? defaultDay(i, generated.length) })));
+    setSessions(prev => generated.map((s, i) => keepSwaps(prev.find(p => p.name === s.name), { ...s, dayOfWeek: s.dayOfWeek ?? defaultDay(i, generated.length) })));
   }
 
   const sortedSessions = [...sessions].sort((a, b) => (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0));
@@ -249,16 +286,48 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
                 </div>
               </div>
 
-              {/* Ejercicios */}
-              <div className="px-4 pb-3 flex flex-wrap gap-1.5">
-                {session.exercises.slice(0, 4).map(ex => (
-                  <span key={ex.id} className="text-[10px] bg-white border border-stone-200 text-stone-600 rounded-full px-2 py-0.5">
-                    {ex.name}
+              {/* Ejercicios: todos, con sus variantes */}
+              <div className="px-4 pb-3">
+                <button type="button" onClick={() => toggleOpen(session.id)} aria-expanded={open.has(session.id)}
+                  className="w-full flex items-center justify-between gap-2 py-1.5 text-left">
+                  <span className="text-xs font-semibold text-stone-600 dark:text-white/70">
+                    {session.exercises.length} ejercicios{!open.has(session.id) && ` · ${session.exercises.slice(0, 3).map(e => e.name).join(', ')}${session.exercises.length > 3 ? '…' : ''}`}
                   </span>
-                ))}
-                {session.exercises.length > 4 && (
-                  <span className="text-[10px] text-stone-400">+{session.exercises.length - 4} más</span>
-                )}
+                  <ChevronDown className={`w-4 h-4 text-stone-400 flex-shrink-0 transition-transform ${open.has(session.id) ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {open.has(session.id) && (
+                    <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-1.5 pt-1">
+                      {session.exercises.map((ex, i) => {
+                        const alts = alternativeOptions(ex).filter(n => n !== ex.name).length;
+                        return (
+                          <li key={`${ex.id}-${i}`}>
+                            <button type="button" onClick={() => setDetail({ sessionId: session.id, index: i })}
+                              className="w-full flex items-center gap-3 p-2 pr-2.5 rounded-2xl bg-white/80 dark:bg-white/[0.06] border border-stone-100 dark:border-white/10 text-left active:scale-[0.99] transition-transform">
+                              <span className="relative flex-shrink-0">
+                                <ExercisePreview name={ex.name} muscle={ex.targetMuscle} className="w-14 h-14" rounded="rounded-xl" animate={false} />
+                                <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-stone-900 text-white text-[10px] font-bold flex items-center justify-center tabular-nums dark:bg-white dark:text-stone-900">{i + 1}</span>
+                              </span>
+                              <span className="flex-1 min-w-0 space-y-1">
+                                <span className="block text-sm font-semibold text-stone-900 dark:text-white leading-tight truncate">{ex.name}</span>
+                                <DoseChips exercise={ex} />
+                                {ex.swappedFrom && <span className="block text-[11px] text-stone-500 truncate">En lugar de {ex.swappedFrom}</span>}
+                              </span>
+                              <span className="flex flex-col items-end gap-1 flex-shrink-0">
+                                {alts > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                    <Repeat className="w-3 h-3" /> {alts}
+                                  </span>
+                                )}
+                                <ChevronRight className="w-4 h-4 text-stone-300" />
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           ))}
@@ -292,6 +361,20 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
           </button>
         </div>
       </motion.div>
+
+      <ExerciseDetailSheet
+        exercise={(() => {
+          // Sin ofrecer variantes que ya están en otro hueco de la misma sesión.
+          const s = detail && sessions.find(x => x.id === detail.sessionId);
+          const ex = s && detail ? s.exercises[detail.index] : undefined;
+          if (!s || !ex || !detail) return null;
+          const taken = new Set(s.exercises.filter((_, i) => i !== detail.index).map(e => e.name));
+          return { ...ex, alternatives: ex.alternatives?.filter(n => !taken.has(n)) };
+        })()}
+        onClose={() => setDetail(null)}
+        onChooseAlternative={chooseAlternative}
+        zIndex="z-[95]"
+      />
     </motion.div>
   );
 }
