@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, TrendingUp, X } from 'lucide-react';
+import { Check, Repeat, TrendingUp, X } from 'lucide-react';
 import { ExercisePreview } from '@/components/workout/ExercisePreview';
 import { MuscleTags } from '@/components/workout/ExerciseBits';
 import { Button } from '@/components/ui/button';
@@ -86,37 +86,58 @@ export function ExerciseDetailSheet({
                 </div>
               ) : null}
 
-              {alternativeOptions(exercise).length > 0 && (
-                <div className="space-y-2">
-                  <div>
-                    <h3 className="font-semibold text-stone-900">¿No encuentras este ejercicio?</h3>
-                    <p className="text-stone-500 text-sm">Cámbialo por una de estas alternativas:</p>
-                  </div>
-                  {alternativeOptions(exercise).map(alt => {
-                    const selected = alt === exercise.name;
-                    return (
-                      <button
-                        key={alt}
-                        type="button"
-                        onClick={() => onChooseAlternative(alt)}
-                        aria-pressed={selected}
-                        className={`w-full flex items-center gap-3 p-2 pr-3 text-left rounded-2xl border transition-colors ${
-                          selected
-                            ? 'bg-emerald-50 border-emerald-400 dark:border-emerald-500/60'
-                            : 'bg-white/60 dark:bg-white/5 border-stone-200 hover:border-emerald-300'
-                        }`}
-                      >
-                        <ExercisePreview name={alt} muscle={exercise.targetMuscle} className="w-12 h-12 flex-shrink-0" rounded="rounded-xl" animate={false} />
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-sm font-medium text-stone-800">{alt}</span>
-                          {alt === exercise.swappedFrom && <span className="block text-xs text-stone-400">Ejercicio original</span>}
-                        </span>
-                        {selected && <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              {alternativeOptions(exercise).filter(n => n !== exercise.name).length > 0 && (() => {
+                // El ejercicio actual primero y después sus variantes.
+                const options = [exercise.name, ...alternativeOptions(exercise).filter(n => n !== exercise.name)];
+                return (
+                  <section className="space-y-3" aria-label="Variantes">
+                    <div className="flex items-start gap-3">
+                      <span className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center flex-shrink-0">
+                        <Repeat className="w-4 h-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-stone-900 dark:text-white leading-tight">Variantes <span className="text-stone-400 font-medium">· {options.length - 1}</span></h3>
+                        <p className="text-stone-500 text-xs mt-0.5">Si la máquina está ocupada o no la hay, cámbialo. Se mantienen las series y el descanso.</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {options.map(alt => {
+                        const selected = alt === exercise.name;
+                        const original = alt === (exercise.swappedFrom ?? exercise.name) && !!exercise.swappedFrom;
+                        return (
+                          <button
+                            key={alt}
+                            type="button"
+                            onClick={() => !selected && onChooseAlternative(alt)}
+                            aria-pressed={selected}
+                            className={`group relative text-left rounded-2xl overflow-hidden transition-all active:scale-[0.98] ${
+                              selected
+                                ? 'ring-2 ring-emerald-500 bg-emerald-500/[0.06]'
+                                : 'ring-1 ring-black/[0.06] dark:ring-white/10 bg-white/70 dark:bg-white/[0.04]'
+                            }`}
+                          >
+                            <div className="relative">
+                              <ExercisePreview name={alt} muscle={exercise.targetMuscle} className="w-full aspect-[4/3]" rounded="rounded-none" animate={false} />
+                              <span className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/35 to-transparent pointer-events-none" />
+                              {selected ? (
+                                <span className="absolute top-2 right-2 h-6 px-2 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center gap-1 shadow">
+                                  <Check className="w-3 h-3" strokeWidth={3} /> Actual
+                                </span>
+                              ) : original ? (
+                                <span className="absolute top-2 right-2 h-6 px-2 rounded-full bg-white/90 dark:bg-black/60 text-stone-700 dark:text-white text-[10px] font-bold flex items-center shadow">Original</span>
+                              ) : null}
+                            </div>
+                            <div className="px-2.5 py-2">
+                              <p className="text-[13px] font-semibold text-stone-900 dark:text-white leading-snug line-clamp-2">{alt}</p>
+                              {!selected && <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">Cambiar a esta</p>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })()}
 
               <Button onClick={onClose} className="w-full h-12 rounded-2xl text-base font-semibold">Entendido</Button>
             </div>
