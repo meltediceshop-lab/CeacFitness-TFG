@@ -11,6 +11,7 @@ import { WelcomeGuideAccess } from '@/components/dashboard/WelcomeGuideAccess';
 import { ReviewBanner } from '@/components/dashboard/ReviewBanner';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { FreeWorkoutSheet } from '@/components/dashboard/FreeWorkoutSheet';
+import { ShareStudio } from '@/components/community/ShareStudio';
 import { planWeekStart, relativeDay, sameDay, sessionDate } from '@/lib/weekCalendar';
 import { SparkLine } from '@/components/metrics/LineChart';
 import type { BodyMeasurementRecord, WeeklySession } from '@/types/user';
@@ -175,7 +176,7 @@ export function DashboardScreen() {
   const [savingLogs, setSavingLogs] = useState(false);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [sessionLogsMap, setSessionLogsMap] = useState<SessionLogsMap>({});
-  const [dashboardShareData, setDashboardShareData] = useState<{ content: string; minutes: number; exercises: number } | null>(null);
+  const [shareSessionId, setShareSessionId] = useState<string | null>(null);
   const [showWeekPlanner, setShowWeekPlanner] = useState(false);
   const [planningAhead, setPlanningAhead] = useState(false); // configurar la próxima semana sin cerrar la actual
   const [nextWeekPreview, setNextWeekPreview] = useState<import('@/types/user').WeeklySession[]>([]);
@@ -1206,7 +1207,7 @@ export function DashboardScreen() {
             logsMap={sessionLogsMap}
             onShareSession={session => {
               setShowProgressModal(false);
-              setDashboardShareData({ content: session.name, minutes: session.duration, exercises: session.exercises.length });
+              setShareSessionId(session.id);
             }}
             onSaveLogs={(sessionId, entries) => {
               if (!user?.id) return;
@@ -1266,34 +1267,12 @@ export function DashboardScreen() {
 
       {/* ShareCard desde Tu progreso */}
       <AnimatePresence>
-        {dashboardShareData && (
-          <DashboardShareCardModalLazy
-            data={{
-              type: 'workout',
-              content: dashboardShareData.content,
-              workoutStats: { minutes: dashboardShareData.minutes, exercises: dashboardShareData.exercises },
-              userName: user.profile.name ?? 'Usuario',
-            }}
-            onClose={() => setDashboardShareData(null)}
-          />
-        )}
+        {shareSessionId && <ShareStudio sessionId={shareSessionId} onClose={() => setShareSessionId(null)} />}
       </AnimatePresence>
 
       <BottomNav active="dashboard" />
     </div>
   );
-}
-
-function DashboardShareCardModalLazy(props: {
-  data: { type: 'workout'; content: string; workoutStats: { minutes: number; exercises: number }; userName: string };
-  onClose: () => void;
-}) {
-  const [Comp, setComp] = useState<React.ComponentType<{ data: typeof props.data; onClose: () => void }> | null>(null);
-  useState(() => {
-    import('@/components/community/ShareCardModal').then(m => setComp(() => m.ShareCardModal as any));
-  });
-  if (!Comp) return null;
-  return <Comp {...props} />;
 }
 
 // ─── Modal de detalle de progreso ─────────────────────────────────────────────
