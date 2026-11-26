@@ -773,7 +773,7 @@ export function CommunityScreen() {
               {showSearch ? <X className="w-[18px] h-[18px]" /> : <Search className="w-[18px] h-[18px]" />}
             </button>
             <button type="button" aria-label="Publicar" onClick={() => openStudio()}
-              className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(16,185,129,0.7)] active:scale-95 transition-transform">
+              className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-[0_6px_16px_-6px_rgb(var(--acc-500)/0.7)] active:scale-95 transition-transform">
               <Plus className="w-5 h-5" strokeWidth={2.5} />
             </button>
           </div>
@@ -823,7 +823,7 @@ export function CommunityScreen() {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           onClick={() => openStudio()}
           className="relative w-full overflow-hidden rounded-[28px] text-left active:scale-[0.99] transition-transform"
-          style={{ background: 'radial-gradient(130% 120% at 100% 0%, #10b981 0%, #047857 38%, #022c22 100%)' }}
+          style={{ background: 'radial-gradient(130% 120% at 100% 0%, rgb(var(--acc-500)) 0%, rgb(var(--acc-700)) 38%, rgb(var(--acc-950)) 100%)' }}
         >
           <div className="relative flex items-stretch min-h-[164px]">
             <div className="flex-1 min-w-0 p-5 pr-2 flex flex-col">

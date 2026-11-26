@@ -1,5 +1,6 @@
 'use client';
 
+import { statusBarColor } from '@/lib/appTheme';
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -304,7 +305,7 @@ function generateWeeklySessions(
 
 // Color de la barra de estado del navegador según el tema (en claro, el tono del fondo).
 function setStatusBarColor(dark: boolean) {
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#000000' : '#eaf3ef');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', statusBarColor(dark));
 }
 
 // Extrae los datos personales del usuario actual para el Motor

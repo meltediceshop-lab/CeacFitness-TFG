@@ -30,6 +30,9 @@ import { DailyRings } from '@/components/nutrition/DailyRings';
 import { FoodSearchModal, type NewFoodLog } from '@/components/nutrition/FoodSearchModal';
 import { ShoppingListModal } from '@/components/nutrition/ShoppingListModal';
 import { getTargets, personalWaterGoal, MEAL_SLOTS, MACRO_COLORS } from '@/lib/nutritionUtils';
+import { GoalsSheet } from '@/components/nutrition/GoalsSheet';
+import { ageFromRange, type BodyData } from '@/lib/energyCalc';
+import { loadBodyData, loadCustomTargets, saveBodyData, saveCustomTargets } from '@/lib/customFoods';
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -419,114 +422,16 @@ function MealEditModal({ meal, onSave, onClose }: {
   );
 }
 
-// ─── Modal de ajuste de macros ────────────────────────────────────
-function MacroAdjustModal({ plan, onSave, onClose }: {
-  plan: NutritionPlan;
-  onSave: (updated: NutritionPlan) => void;
-  onClose: () => void;
-}) {
-  const [kcal, setKcal] = useState(plan.dailyCalories);
-  const [protein, setProtein] = useState(parseInt(plan.macros.protein) || 150);
-  const [carbs, setCarbs] = useState(parseInt(plan.macros.carbs) || 200);
-  const [fats, setFats] = useState(parseInt(plan.macros.fats) || 60);
-
-  const calculatedKcal = protein * 4 + carbs * 4 + fats * 9;
-  const aligned = Math.abs(calculatedKcal - kcal) <= 100;
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/60 z-[60] flex items-end justify-center"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="w-full max-w-md glass-modal rounded-t-3xl max-h-[90vh] flex flex-col"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
-          <div>
-            <h2 className="font-bold text-stone-900 dark:text-white text-lg">Ajustar objetivos</h2>
-            <p className="text-xs text-stone-400">Cambia las metas de tu plan</p>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl bg-stone-100 dark:bg-white/10">
-            <X className="w-4 h-4 text-stone-600 dark:text-white/70" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 px-5 pb-5 space-y-6">
-          {/* Calorías */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold text-stone-700 dark:text-white/80">Calorías diarias</label>
-              <span className="text-xl font-bold text-stone-900 dark:text-white">{kcal} kcal</span>
-            </div>
-            <input type="range" min={1200} max={4000} step={50} value={kcal} onChange={e => setKcal(Number(e.target.value))}
-              className="w-full accent-emerald-500 h-2" />
-            <div className="flex justify-between text-xs text-stone-400 mt-1"><span>1200</span><span>4000</span></div>
-          </div>
-
-          {/* Proteína */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold text-blue-600">Proteína</label>
-              <div className="text-right">
-                <span className="text-xl font-bold text-blue-600">{protein}g</span>
-                <span className="text-xs text-stone-400 ml-1">({protein * 4} kcal)</span>
-              </div>
-            </div>
-            <input type="range" min={50} max={400} step={5} value={protein} onChange={e => setProtein(Number(e.target.value))}
-              className="w-full accent-blue-500 h-2" />
-          </div>
-
-          {/* Carbohidratos */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold text-amber-600">Carbohidratos</label>
-              <div className="text-right">
-                <span className="text-xl font-bold text-amber-600">{carbs}g</span>
-                <span className="text-xs text-stone-400 ml-1">({carbs * 4} kcal)</span>
-              </div>
-            </div>
-            <input type="range" min={50} max={500} step={5} value={carbs} onChange={e => setCarbs(Number(e.target.value))}
-              className="w-full accent-amber-500 h-2" />
-          </div>
-
-          {/* Grasas */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold text-orange-500">Grasas</label>
-              <div className="text-right">
-                <span className="text-xl font-bold text-orange-500">{fats}g</span>
-                <span className="text-xs text-stone-400 ml-1">({fats * 9} kcal)</span>
-              </div>
-            </div>
-            <input type="range" min={20} max={200} step={5} value={fats} onChange={e => setFats(Number(e.target.value))}
-              className="w-full accent-orange-500 h-2" />
-          </div>
-
-          <div className={`p-3 rounded-xl text-center ${aligned ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}`}>
-            <p className="text-xs text-stone-500 mb-0.5">Calorías calculadas por macros</p>
-            <p className={`text-sm font-bold ${aligned ? 'text-emerald-600' : 'text-amber-600'}`}>
-              {calculatedKcal} kcal {aligned ? '✓ Alineado con el objetivo' : '⚠️ Difiere del objetivo por ' + Math.abs(calculatedKcal - kcal) + ' kcal'}
-            </p>
-          </div>
-        </div>
-
-        <div className="px-5 pb-6 pt-2 flex-shrink-0">
-          <Button onClick={() => onSave({ ...plan, dailyCalories: kcal, macros: { protein: `${protein}g`, carbs: `${carbs}g`, fats: `${fats}g` } })}
-            className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold">
-            Guardar objetivos
-          </Button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
 
 // ─── Main Screen ──────────────────────────────────────────────────
 export function NutritionScreen() {
-  const { user } = useApp();
+  const { user, supabaseUserId, setUser } = useApp();
+  const uid = supabaseUserId || user?.id || 'anon';
+  // Objetivos propios (sin plan de IA) y datos corporales del cálculo
+  const [customTargets, setCustomTargets] = useState<MacroTargets | null>(null);
+  const [bodyData, setBodyData] = useState<Partial<BodyData>>({});
+  const [showGoals, setShowGoals] = useState(false);
+  useEffect(() => { setCustomTargets(loadCustomTargets(uid)); setBodyData(loadBodyData(uid)); }, [uid]);
 
   // Tracking state
   const [logs, setLogs] = useState<NutritionLogEntry[]>([]);
@@ -548,7 +453,6 @@ export function NutritionScreen() {
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [multiSelected, setMultiSelected] = useState<string[]>([]);
   const [textInput, setTextInput] = useState('');
-  const [showMacroAdjust, setShowMacroAdjust] = useState(false);
   const [addingMeal, setAddingMeal] = useState(false);
   const [loggedMealIndex, setLoggedMealIndex] = useState<number | null>(null);
 
@@ -611,7 +515,21 @@ export function NutritionScreen() {
 
   if (!user) return null;
 
-  const targets = getTargets(nutritionPlan, user.profile.weight);
+  const targets = nutritionPlan ? getTargets(nutritionPlan, user.profile.weight) : (customTargets ?? getTargets(null, user.profile.weight));
+
+  async function saveGoals(t: MacroTargets, body: BodyData | null, saveWeight: boolean) {
+    setShowGoals(false);
+    saveCustomTargets(uid, t); setCustomTargets(t);
+    if (body) { saveBodyData(uid, body); setBodyData(body); }
+    if (nutritionPlan) await persistPlan({ ...nutritionPlan, dailyCalories: t.kcal, macros: { protein: `${t.protein}g`, carbs: `${t.carbs}g`, fats: `${t.fats}g` } });
+    if (saveWeight && body && body.weightKg > 0) {
+      if (user) setUser({ ...user, lastWeightUpdate: new Date(), profile: { ...user.profile, weight: body.weightKg } });
+      fetch('/api/metrics', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weight: body.weightKg, recordedAt: new Date().toLocaleDateString('sv-SE') }),
+      }).catch(() => {});
+    }
+  }
   const waterGoal = storedGoal ?? personalWaterGoal(user.profile.weight);
   const waterProgress = Math.min((water / waterGoal) * 100, 100);
   const currentQ = QUESTIONS[step];
@@ -931,7 +849,7 @@ export function NutritionScreen() {
                       onAddMeal={handleAddMeal}
                       addingMeal={addingMeal}
                       loggedMealIndex={loggedMealIndex}
-                      onAdjustMacros={() => setShowMacroAdjust(true)}
+                      onAdjustMacros={() => setShowGoals(true)}
                     />
                   </div>
                 </motion.div>
@@ -959,11 +877,16 @@ export function NutritionScreen() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="p-5 bg-white dark:bg-[#111111] border-0 rounded-2xl shadow-sm">
             <DailyRings consumed={consumed} targets={targets} />
-            {!nutritionPlan && (
-              <p className="text-center text-xs text-stone-400 mt-3">
-                Objetivos estimados por tu peso. <button onClick={() => setShowQuestionnaire(true)} className="text-emerald-600 font-semibold">Crea un plan IA</button> para afinarlos.
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <p className="text-xs text-stone-500 min-w-0">
+                {nutritionPlan ? 'Objetivos de tu plan' : customTargets ? 'Tus objetivos' : 'Objetivos estimados por tu peso'}
+                {' · '}<span className="tabular-nums">{targets.kcal} kcal</span>
               </p>
-            )}
+              <button type="button" onClick={() => setShowGoals(true)}
+                className="h-8 px-3 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5 flex-shrink-0">
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Ajustar objetivos
+              </button>
+            </div>
           </Card>
         </motion.div>
 
@@ -1050,11 +973,13 @@ export function NutritionScreen() {
 
       {/* Macro adjust modal */}
       <AnimatePresence>
-        {showMacroAdjust && nutritionPlan && (
-          <MacroAdjustModal
-            plan={nutritionPlan}
-            onSave={async (updated) => { await persistPlan(updated); setShowMacroAdjust(false); }}
-            onClose={() => setShowMacroAdjust(false)}
+        {showGoals && (
+          <GoalsSheet
+            initialTargets={targets}
+            initialBody={bodyData}
+            profile={{ sex: user.profile.biologicalProfile ?? 'male', age: ageFromRange(user.profile.ageRange), weightKg: user.profile.weight, heightCm: user.profile.height }}
+            onSave={saveGoals}
+            onClose={() => setShowGoals(false)}
           />
         )}
       </AnimatePresence>
@@ -1073,7 +998,7 @@ export function NutritionScreen() {
       {/* Food search modal */}
       <AnimatePresence>
         {foodSlot && (
-          <FoodSearchModal defaultSlot={foodSlot} onClose={() => setFoodSlot(null)} onAdd={addFood} />
+          <FoodSearchModal uid={uid} defaultSlot={foodSlot} onClose={() => setFoodSlot(null)} onAdd={addFood} />
         )}
       </AnimatePresence>
 

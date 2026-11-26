@@ -10,6 +10,20 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Acento de la app: se puede cambiar desde Ajustes (src/lib/appTheme.ts)
+        emerald: {
+          '50': 'rgb(var(--acc-50) / <alpha-value>)',
+          '100': 'rgb(var(--acc-100) / <alpha-value>)',
+          '200': 'rgb(var(--acc-200) / <alpha-value>)',
+          '300': 'rgb(var(--acc-300) / <alpha-value>)',
+          '400': 'rgb(var(--acc-400) / <alpha-value>)',
+          '500': 'rgb(var(--acc-500) / <alpha-value>)',
+          '600': 'rgb(var(--acc-600) / <alpha-value>)',
+          '700': 'rgb(var(--acc-700) / <alpha-value>)',
+          '800': 'rgb(var(--acc-800) / <alpha-value>)',
+          '900': 'rgb(var(--acc-900) / <alpha-value>)',
+          '950': 'rgb(var(--acc-950) / <alpha-value>)',
+        },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

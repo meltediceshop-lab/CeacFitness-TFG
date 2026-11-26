@@ -1099,7 +1099,7 @@ export function WorkoutScreen() {
               <p className="text-stone-500 mb-5 flex items-center gap-2"><Clock className="w-4 h-4" /> Descansa</p>
               <div className="relative w-52 h-52 mb-8">
                 <svg className="w-52 h-52 -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(16,185,129,0.15)" strokeWidth="6" />
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgb(var(--acc-500)/0.15)" strokeWidth="6" />
                   <motion.circle
                     cx="50" cy="50" r="45" fill="none" stroke="#10b981" strokeWidth="6" strokeLinecap="round"
                     strokeDasharray={2 * Math.PI * 45}
