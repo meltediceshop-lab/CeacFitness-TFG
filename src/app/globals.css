@@ -64,13 +64,25 @@
    Fuera de @layer: Tailwind elimina en producción las reglas de @layer
    que no ve en el código (por eso el fondo no se oscurecía). */
 :root {
+    /* Acento (los emerald-* de Tailwind leen estas variables; el tema propio las cambia) */
+    --acc-50: 236 253 245;
+    --acc-100: 209 250 229;
+    --acc-200: 167 243 208;
+    --acc-300: 110 231 183;
+    --acc-400: 52 211 153;
+    --acc-500: 16 185 129;
+    --acc-600: 5 150 105;
+    --acc-700: 4 120 87;
+    --acc-800: 6 95 70;
+    --acc-900: 6 78 59;
+    --acc-950: 2 44 34;
     --app-bg: #f5f6f4;
     /* El borde superior es del mismo color que la barra de estado (theme-color):
        así no se ve corte; el brillo verde empieza un poco más abajo. */
     --app-top: #eaf3ef;
     --app-glow:
       linear-gradient(to bottom, var(--app-top) 0px, rgba(234, 243, 239, 0) 280px),
-      radial-gradient(120% 60% at 0% 12%, rgba(16, 185, 129, 0.08) 0%, transparent 55%),
+      radial-gradient(120% 60% at 0% 12%, rgb(var(--acc-500) / 0.08) 0%, transparent 55%),
       radial-gradient(90% 50% at 100% 8%, rgba(20, 184, 166, 0.05) 0%, transparent 50%);
 }
 html.dark {
@@ -78,7 +90,7 @@ html.dark {
     --app-top: #000000;
     --app-glow:
       linear-gradient(to bottom, var(--app-top) 0px, rgba(0, 0, 0, 0) 240px),
-      radial-gradient(120% 60% at 0% 12%, rgba(16, 185, 129, 0.11) 0%, transparent 55%),
+      radial-gradient(120% 60% at 0% 12%, rgb(var(--acc-500) / 0.11) 0%, transparent 55%),
       radial-gradient(90% 50% at 100% 8%, rgba(20, 184, 166, 0.05) 0%, transparent 50%);
 }
 
@@ -186,7 +198,7 @@ html.dark {
 }
 .glass-card.bg-emerald-50 {
   background: rgba(236, 253, 245, 0.85) !important;
-  border-color: rgba(16, 185, 129, 0.25) !important;
+  border-color: rgb(var(--acc-500) / 0.25) !important;
 }
 .glass-card.bg-stone-50 {
   background: rgba(250, 250, 249, 0.8) !important;
@@ -198,8 +210,8 @@ html.dark {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -18px rgba(0, 0, 0, 0.8) !important;
 }
 .dark .glass-card.bg-emerald-50 {
-  background: rgba(16, 185, 129, 0.10) !important;
-  border-color: rgba(16, 185, 129, 0.28) !important;
+  background: rgb(var(--acc-500) / 0.10) !important;
+  border-color: rgb(var(--acc-500) / 0.28) !important;
 }
 .dark .glass-card.bg-stone-50 {
   background: rgba(36, 36, 38, 0.78) !important;
@@ -279,8 +291,8 @@ html.dark {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .glass-input:focus {
-  border-color: rgba(16, 185, 129, 0.5) !important;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12) !important;
+  border-color: rgb(var(--acc-500) / 0.5) !important;
+  box-shadow: 0 0 0 4px rgb(var(--acc-500) / 0.12) !important;
   outline: none;
 }
 .dark .glass-input {
@@ -288,8 +300,8 @@ html.dark {
   color: rgba(255, 255, 255, 0.92) !important;
 }
 .dark .glass-input:focus {
-  border-color: rgba(16, 185, 129, 0.5) !important;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14) !important;
+  border-color: rgb(var(--acc-500) / 0.5) !important;
+  box-shadow: 0 0 0 4px rgb(var(--acc-500) / 0.14) !important;
 }
 
 /* ── Dark mode: escala de texto ── */
@@ -312,8 +324,8 @@ html.dark {
 .dark .bg-white\/50, .dark .bg-white\/30 { background-color: #161618 !important; }
 
 /* ── Dark mode: fondos de color (icon containers, banners) ─────────── */
-.dark .bg-emerald-50  { background-color: rgba(16, 185, 129, 0.12) !important; }
-.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.18) !important; }
+.dark .bg-emerald-50  { background-color: rgb(var(--acc-500) / 0.12) !important; }
+.dark .bg-emerald-100 { background-color: rgb(var(--acc-500) / 0.18) !important; }
 .dark .bg-violet-50   { background-color: rgba(139, 92, 246, 0.12) !important; }
 .dark .bg-violet-100  { background-color: rgba(139, 92, 246, 0.18) !important; }
 .dark .bg-purple-50   { background-color: rgba(168, 85, 247, 0.12) !important; }
@@ -343,9 +355,9 @@ html.dark {
 .dark .bg-yellow-100  { background-color: rgba(234, 179, 8, 0.18) !important; }
 
 /* ── Dark mode: texto de color ────────────────────────────────────── */
-.dark .text-emerald-800 { color: rgba(52, 211, 153, 0.95) !important; }
-.dark .text-emerald-700 { color: rgba(52, 211, 153, 0.85) !important; }
-.dark .text-emerald-600 { color: rgba(52, 211, 153, 0.95) !important; }
+.dark .text-emerald-800 { color: rgb(var(--acc-400) / 0.95) !important; }
+.dark .text-emerald-700 { color: rgb(var(--acc-400) / 0.85) !important; }
+.dark .text-emerald-600 { color: rgb(var(--acc-400) / 0.95) !important; }
 .dark .text-teal-700, .dark .text-teal-800 { color: rgba(94, 234, 212, 0.9) !important; }
 .dark .text-amber-700, .dark .text-amber-800 { color: rgba(252, 211, 77, 0.9) !important; }
 .dark .text-orange-700 { color: rgba(253, 186, 116, 0.9) !important; }
@@ -357,14 +369,14 @@ html.dark {
 .dark .hover\:bg-stone-50:hover  { background-color: #242428 !important; }
 .dark .hover\:bg-stone-100:hover { background-color: #2e2e34 !important; }
 .dark .hover\:bg-red-50:hover    { background-color: rgba(239, 68, 68, 0.14) !important; }
-.dark .hover\:bg-emerald-50:hover { background-color: rgba(16, 185, 129, 0.14) !important; }
+.dark .hover\:bg-emerald-50:hover { background-color: rgb(var(--acc-500) / 0.14) !important; }
 
 /* ── Dark mode: bordes ─────────────────────────────────────────────── */
 .dark .border-stone-100  { border-color: rgba(255, 255, 255, 0.07) !important; }
 .dark .border-stone-200  { border-color: rgba(255, 255, 255, 0.10) !important; }
 .dark .border-stone-300  { border-color: rgba(255, 255, 255, 0.15) !important; }
-.dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.28) !important; }
-.dark .border-emerald-100 { border-color: rgba(16, 185, 129, 0.18) !important; }
+.dark .border-emerald-200 { border-color: rgb(var(--acc-500) / 0.28) !important; }
+.dark .border-emerald-100 { border-color: rgb(var(--acc-500) / 0.18) !important; }
 .dark .border-violet-200  { border-color: rgba(139, 92, 246, 0.28) !important; }
 .dark .border-amber-200   { border-color: rgba(245, 158, 11, 0.28) !important; }
 .dark .border-red-200     { border-color: rgba(239, 68, 68, 0.28) !important; }
@@ -384,8 +396,8 @@ html.dark {
 .dark input:focus:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not(.bare-input),
 .dark textarea:focus:not(.bare-input),
 .dark select:focus {
-  border-color: rgba(16, 185, 129, 0.55) !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12) !important;
+  border-color: rgb(var(--acc-500) / 0.55) !important;
+  box-shadow: 0 0 0 3px rgb(var(--acc-500) / 0.12) !important;
 }
 
 /* ── Shareable note template — always renders light ─────────────────── */
@@ -404,4 +416,15 @@ html.dark {
 .fixed.inset-0.overflow-y-auto,
 [data-scroll-lock] {
   overscroll-behavior: contain;
+}
+
+/* Cabecera fija del Coach: vidrio con el mismo fondo de la app (fuera de @layer). */
+.coach-header {
+  background: linear-gradient(180deg, var(--app-top) 0%, color-mix(in srgb, var(--app-bg) 82%, transparent) 100%);
+  backdrop-filter: blur(20px) saturate(170%);
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+}
+html.dark .coach-header {
+  background: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.78) 100%);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
 }

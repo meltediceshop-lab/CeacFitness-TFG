@@ -9,7 +9,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { MeasurementReminderFrequency, WorkoutDuration } from '@/types/user';
 import {
   ArrowLeft, Camera, ChevronRight, Calendar, Clock, Bell, Moon, Apple, LogOut, Minus, Plus, Loader2,
+  Palette,
 } from 'lucide-react';
+import { ThemeEditor } from '@/components/profile/ThemeEditor';
 
 // ── Recordatorio de medidas ───────────────────────────────────────
 const FREQUENCIES: MeasurementReminderFrequency[] = ['weekly', '2weeks', '3weeks', 'monthly', '3sessions', '5sessions'];
@@ -77,6 +79,7 @@ function Section({ title, children, footer }: { title: string; children: React.R
 export function ProfileScreen() {
   const { user, setUser, setScreen, logout, isDark, toggleDarkMode, updateAvatar, updateTrainingPrefs } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [showTheme, setShowTheme] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -187,6 +190,16 @@ export function ProfileScreen() {
               <span className={`absolute top-0.5 left-0.5 w-[27px] h-[27px] rounded-full bg-[#fff] shadow transition-transform ${isDark ? 'translate-x-5' : ''}`} />
             </span>
           </Row>
+          <Row icon={Palette} tint="bg-pink-500" title="Colores de la app" subtitle="Color principal y fondo, de día y de noche" onClick={() => setShowTheme(v => !v)}>
+            <ChevronRight className={`w-4 h-4 text-stone-300 transition-transform ${showTheme ? 'rotate-90' : ''}`} />
+          </Row>
+          <AnimatePresence initial={false}>
+            {showTheme && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                <ThemeEditor isDark={isDark} />
+              </motion.div>
+            )}
+          </AnimatePresence>
           <Row icon={Bell} tint="bg-amber-500" title="Recordar medidas" subtitle={frequencyLabel(frequency)} onClick={() => setShowReminder(v => !v)}>
             <ChevronRight className={`w-4 h-4 text-stone-300 transition-transform ${showReminder ? 'rotate-90' : ''}`} />
           </Row>

@@ -1,6 +1,18 @@
 // Base de datos local de alimentos comunes (España). Macros por 100 g.
 // Búsqueda instantánea y fiable; el endpoint /api/nutrition/foods amplía con Open Food Facts.
 
+/** Valores de la etiqueta nutricional de un envase, por 100 g. */
+export interface NutritionLabel {
+  kcal: number;
+  fats: number;
+  saturated?: number;
+  carbs: number;
+  sugars?: number;
+  fiber?: number;
+  protein: number;
+  salt?: number;
+}
+
 export interface FoodItem {
   id: string;
   name: string;
@@ -11,7 +23,10 @@ export interface FoodItem {
   fats: number;
   portionG?: number;     // ración típica en gramos
   portionLabel?: string; // etiqueta de la ración (ej: "1 huevo")
-  source?: 'local' | 'off';
+  source?: 'local' | 'off' | 'custom';
+  /** Tabla nutricional completa por 100 g (alimentos creados por la persona). */
+  label?: NutritionLabel;
+  brand?: string;
 }
 
 export const FOOD_DB: FoodItem[] = [

@@ -473,7 +473,9 @@ export function ChatScreen() {
   return (
     <div className="min-h-dvh glass-bg flex flex-col">
       {/* Cabecera: Coach y modo */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="px-4 pt-6 pb-3 flex-shrink-0 space-y-3">
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
+        className="coach-header sticky z-30 px-4 pt-6 pb-3 flex-shrink-0 space-y-3"
+        style={{ top: 0 }}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(16,185,129,0.6)]">
             <Sparkles className="w-5 h-5 text-white" />
