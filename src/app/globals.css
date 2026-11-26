@@ -127,7 +127,7 @@ html.dark {
   }
 
   html.dark {
-    background-color: #000000;
+    background-color: var(--app-bg);
   }
 
   /* El contenido real empieza debajo de la status bar */
@@ -197,7 +197,7 @@ html.dark {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 30px -18px rgba(0, 0, 0, 0.18) !important;
 }
 .glass-card.bg-emerald-50 {
-  background: rgba(236, 253, 245, 0.85) !important;
+  background: rgb(var(--acc-50) / 0.85) !important;
   border-color: rgb(var(--acc-500) / 0.25) !important;
 }
 .glass-card.bg-stone-50 {
@@ -425,6 +425,6 @@ html.dark {
   border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
 }
 html.dark .coach-header {
-  background: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.78) 100%);
+  background: linear-gradient(180deg, var(--app-top) 0%, color-mix(in srgb, var(--app-bg) 78%, transparent) 100%);
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }

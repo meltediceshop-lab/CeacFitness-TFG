@@ -73,7 +73,7 @@ export function BottomNav({ active }: { active: AppScreen }) {
               <div className="relative z-10">
                 <Icon
                   strokeWidth={isActive ? 2.4 : 2}
-                  className={`w-[22px] h-[22px] flex-shrink-0 transition-colors ${isActive ? 'text-emerald-700 dark:text-emerald-300' : 'text-[#44403c] dark:text-[#e7e5e4]'}`}
+                  className={`w-[22px] h-[22px] flex-shrink-0 transition-colors ${isActive ? 'text-[rgb(var(--acc-700))] dark:text-[rgb(var(--acc-300))]' : 'text-[#44403c] dark:text-[#e7e5e4]'}`}
                 />
                 {showDot && (
                   <motion.div
@@ -82,7 +82,7 @@ export function BottomNav({ active }: { active: AppScreen }) {
                   />
                 )}
               </div>
-              <span className={`relative z-10 text-[10px] leading-none truncate transition-colors ${isActive ? 'text-emerald-700 dark:text-emerald-300 font-semibold' : 'text-[#44403c] dark:text-[#e7e5e4] font-medium'}`}>
+              <span className={`relative z-10 text-[10px] leading-none truncate transition-colors ${isActive ? 'text-[rgb(var(--acc-700))] dark:text-[rgb(var(--acc-300))] font-semibold' : 'text-[#44403c] dark:text-[#e7e5e4] font-medium'}`}>
                 {label}
               </span>
             </button>

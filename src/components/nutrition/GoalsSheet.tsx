@@ -72,8 +72,9 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
   // Datos para el cálculo (texto, para poder dejar campos vacíos)
   const [sex, setSex] = useState<BiologicalProfile>(initialBody.sex ?? profile.sex);
   const [age, setAge] = useState(toStr(initialBody.age ?? profile.age));
-  const [weight, setWeight] = useState(toStr(initialBody.weightKg ?? profile.weightKg));
-  const [height, setHeight] = useState(toStr(initialBody.heightCm ?? profile.heightCm));
+  // Manda el peso actual del perfil; lo guardado en el cálculo anterior solo si el perfil no tiene.
+  const [weight, setWeight] = useState(toStr(profile.weightKg > 0 ? profile.weightKg : initialBody.weightKg));
+  const [height, setHeight] = useState(toStr(profile.heightCm > 0 ? profile.heightCm : initialBody.heightCm));
   const [fat, setFat] = useState(toStr(initialBody.bodyFatPct));
   const [muscle, setMuscle] = useState(toStr(initialBody.muscleKg));
   const [activity, setActivity] = useState<ActivityLevel>(initialBody.activity ?? 'moderate');
@@ -87,6 +88,9 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
     sex, age: parseNum(age) ?? NaN, weightKg: parseNum(weight) ?? NaN, heightCm: parseNum(height) ?? NaN,
     bodyFatPct: parseNum(fat), muscleKg: parseNum(muscle), activity, goal, pace,
   };
+  // Solo se guardan los datos corporales desde «A mano» si se tocaron o ya existían.
+  const [initialBodyKey] = useState(() => JSON.stringify(body));
+  const bodyDirty = JSON.stringify(body) !== initialBodyKey || Object.keys(initialBody).length > 0;
   const result = useMemo(() => computeEnergy(body),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sex, age, weight, height, fat, activity, goal, pace]);
@@ -182,7 +186,7 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
 
               {/* Resultado */}
               {result ? (
-                <div className="rounded-3xl p-4 text-white" style={{ background: 'radial-gradient(120% 120% at 100% 0%, #10b981 0%, #047857 55%, #022c22 100%)' }}>
+                <div className="rounded-3xl p-4 text-white" style={{ background: 'radial-gradient(120% 120% at 100% 0%, rgb(var(--acc-500)) 0%, rgb(var(--acc-700)) 55%, rgb(var(--acc-950)) 100%)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-emerald-100/90">Tu objetivo diario</p>
                   <p className="leading-none mt-1"><span className="text-4xl font-bold tabular-nums">{fmt(result.target)}</span><span className="text-sm font-semibold text-emerald-100/90 ml-1">kcal</span></p>
                   <div className="grid grid-cols-3 gap-2 mt-3">
@@ -245,7 +249,7 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
                 className="flex-1 h-12 rounded-2xl bg-emerald-500 text-white font-semibold disabled:opacity-40">Usar {result ? `${fmt(result.target)} kcal` : 'estos objetivos'}</button>
             </>
           ) : (
-            <button type="button" disabled={manual.kcal < 800} onClick={() => onSave(manual, result ? body : null, saveWeight && weightChanged)}
+            <button type="button" disabled={manual.kcal < 800} onClick={() => onSave(manual, result && bodyDirty ? body : null, saveWeight && weightChanged)}
               className="flex-1 h-12 rounded-2xl bg-emerald-500 text-white font-semibold disabled:opacity-40">{manual.kcal < 800 ? 'Mínimo 800 kcal' : 'Guardar objetivos'}</button>
           )}
         </div>

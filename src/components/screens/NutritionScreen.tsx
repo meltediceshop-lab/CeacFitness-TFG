@@ -425,7 +425,7 @@ function MealEditModal({ meal, onSave, onClose }: {
 
 // ─── Main Screen ──────────────────────────────────────────────────
 export function NutritionScreen() {
-  const { user, supabaseUserId, setUserProfile } = useApp();
+  const { user, supabaseUserId, setUser } = useApp();
   const uid = supabaseUserId || user?.id || 'anon';
   // Objetivos propios (sin plan de IA) y datos corporales del cálculo
   const [customTargets, setCustomTargets] = useState<MacroTargets | null>(null);
@@ -523,10 +523,10 @@ export function NutritionScreen() {
     if (body) { saveBodyData(uid, body); setBodyData(body); }
     if (nutritionPlan) await persistPlan({ ...nutritionPlan, dailyCalories: t.kcal, macros: { protein: `${t.protein}g`, carbs: `${t.carbs}g`, fats: `${t.fats}g` } });
     if (saveWeight && body && body.weightKg > 0) {
-      setUserProfile({ weight: body.weightKg });
+      if (user) setUser({ ...user, lastWeightUpdate: new Date(), profile: { ...user.profile, weight: body.weightKg } });
       fetch('/api/metrics', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weight: body.weightKg, recordedAt: new Date().toISOString().slice(0, 10) }),
+        body: JSON.stringify({ weight: body.weightKg, recordedAt: new Date().toLocaleDateString('sv-SE') }),
       }).catch(() => {});
     }
   }

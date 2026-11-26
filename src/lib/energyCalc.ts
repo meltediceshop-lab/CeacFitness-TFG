@@ -103,10 +103,16 @@ export function computeEnergy(d: BodyData): EnergyResult | null {
 
   // Proteína: por kg de masa magra si se conoce (más justo con % de grasa alto).
   const protPerKg = d.goal === 'lose' ? 2.0 : d.goal === 'gain' ? 1.8 : 1.6;
-  const protein = Math.round(leanKg != null ? Math.min(leanKg * (protPerKg + 0.4), w * 2.4) : w * protPerKg);
-  const fats = Math.round(Math.max(w * 0.8, (target * 0.22) / 9));
-  const carbs = Math.max(0, Math.round((target - protein * 4 - fats * 9) / 4));
   const b = bmi(w, h);
+  // Con IMC > 25 se usa un peso de referencia ajustado (peso con IMC 25 + 40 % del exceso),
+  // para que la proteína no se dispare y deje los hidratos a cero.
+  const w25 = 25 * (h / 100) ** 2;
+  const refW = b != null && b > 25 ? w25 + 0.4 * (w - w25) : w;
+  const protein = Math.round(leanKg != null ? Math.min(leanKg * (protPerKg + 0.4), refW * 2.4) : refW * protPerKg);
+  let fats = Math.round(Math.max(refW * 0.8, (target * 0.22) / 9));
+  // Proteína + grasas nunca se comen todo el objetivo (grasas mínimo 20 % de las kcal).
+  fats = Math.max(Math.round((target * 0.2) / 9), Math.min(fats, Math.floor((target - protein * 4) / 9)));
+  const carbs = Math.max(0, Math.round((target - protein * 4 - fats * 9) / 4));
   return {
     bmr: Math.round(bmr), tdee: Math.round(tdee), target,
     macros: { kcal: target, protein, carbs, fats },

@@ -474,10 +474,10 @@ export function ChatScreen() {
     <div className="min-h-dvh glass-bg flex flex-col">
       {/* Cabecera: Coach y modo */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
-        className="coach-header sticky z-30 px-4 pt-6 pb-3 flex-shrink-0 space-y-3"
-        style={{ top: 0 }}>
+        className="coach-header sticky z-30 px-4 pb-3 flex-shrink-0 space-y-3"
+        style={{ top: 0, marginTop: 'calc(-1 * env(safe-area-inset-top, 0px))', paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(16,185,129,0.6)]">
+          <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center shadow-[0_6px_16px_-6px_rgb(var(--acc-500)/0.6)]">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
@@ -492,7 +492,7 @@ export function ChatScreen() {
             {chats.length > 1 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">{chats.length}</span>}
           </button>
           <button type="button" onClick={() => startNewChat()} aria-label="Chat nuevo"
-            className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-[0_6px_16px_-6px_rgba(16,185,129,0.7)] active:scale-95 transition-transform">
+            className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-[0_6px_16px_-6px_rgb(var(--acc-500)/0.7)] active:scale-95 transition-transform">
             <SquarePen className="w-[18px] h-[18px]" />
           </button>
         </div>
