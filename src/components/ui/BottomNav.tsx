@@ -26,10 +26,10 @@ export function BottomNav({ active }: { active: AppScreen }) {
 
   return (
     <div
-      className="fixed inset-x-4 rounded-full nav-glass px-1.5 py-2 z-40"
+      className="fixed inset-x-4 z-40"
       style={{ bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.5rem))' }}
     >
-      <div className="max-w-md mx-auto flex justify-around">
+      <nav className="max-w-md mx-auto rounded-full nav-glass p-1.5 grid grid-cols-4 gap-1" aria-label="Navegación principal">
         {TABS.map(({ id, label, icon: Icon }) => {
           const isActive = active === id;
           const showDot = id === 'community' && commDot && !isActive;
@@ -37,31 +37,35 @@ export function BottomNav({ active }: { active: AppScreen }) {
             <button
               key={id}
               onClick={() => setScreen(id)}
-              className="relative flex flex-col items-center gap-0.5 px-4 py-1 min-w-0"
+              aria-current={isActive ? 'page' : undefined}
+              className="relative flex flex-col items-center justify-center gap-0.5 h-[52px] rounded-full min-w-0 active:scale-[0.96] transition-transform"
             >
               {isActive && (
                 <motion.div
                   layoutId="navActivePill"
-                  className="absolute inset-0 rounded-2xl bg-emerald-500/12 dark:bg-emerald-400/15 ring-1 ring-emerald-500/20"
-                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute inset-0 rounded-full nav-pill"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 />
               )}
-              <div className="relative">
-                <Icon className={`relative z-10 w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-emerald-500' : 'text-stone-400'}`} />
+              <div className="relative z-10">
+                <Icon
+                  strokeWidth={isActive ? 2.4 : 2}
+                  className={`w-[22px] h-[22px] flex-shrink-0 transition-colors ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500 dark:text-white/55'}`}
+                />
                 {showDot && (
                   <motion.div
                     initial={{ scale: 0 }} animate={{ scale: 1 }}
-                    className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-zinc-900 z-20"
+                    className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#fff] dark:border-zinc-900"
                   />
                 )}
               </div>
-              <span className={`relative z-10 text-[10px] leading-tight truncate transition-colors ${isActive ? 'text-emerald-600 font-semibold' : 'text-stone-400'}`}>
+              <span className={`relative z-10 text-[10px] leading-none truncate transition-colors ${isActive ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-stone-500 dark:text-white/55 font-medium'}`}>
                 {label}
               </span>
             </button>
           );
         })}
-      </div>
+      </nav>
     </div>
   );
 }
