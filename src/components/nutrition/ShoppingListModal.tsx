@@ -64,7 +64,7 @@ export function ShoppingListModal({ plan, onClose }: { plan: NutritionPlan; onCl
               <p className="text-xs text-stone-400">{doneCount}/{items.length} en el carro</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 transition-colors">
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-stone-100">
             <X className="w-4 h-4 text-stone-600" />
           </button>
         </div>

@@ -243,7 +243,7 @@ export function ShareStudio({
   };
 
   if (!user || !data) return null;
-  const chip = (on: boolean) => `px-3 py-1.5 rounded-full text-xs font-semibold transition-colors flex-shrink-0 ${on ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`;
+  const chip = (on: boolean) => `h-9 px-3.5 rounded-full text-xs font-semibold flex-shrink-0 ${on ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`;
   const label = 'text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-1.5';
 
   return (
@@ -280,7 +280,7 @@ export function ShareStudio({
 
           <div>
             <p className={label}>Plantilla</p>
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-5 px-5">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-5 px-5 py-2 -my-2">
               {available.map(t => (
                 <button key={t.id} type="button" onClick={() => setTemplate(t.id)} aria-pressed={active === t.id} title={t.hint} className={chip(active === t.id)}>{t.label}</button>
               ))}
@@ -307,10 +307,10 @@ export function ShareStudio({
             {isNote && (
               <label className="block">
                 <span className="flex justify-between text-[11px] text-stone-500 mb-1"><span>Texto</span><span className="tabular-nums">{plainText(quote).length}/220</span></span>
-                <span className="flex gap-1 mb-1.5" role="toolbar" aria-label="Formato del texto">
+                <span className="flex gap-1.5 mb-1.5" role="toolbar" aria-label="Formato del texto">
                   {([['**', Bold, 'Negrita'], ['*', Italic, 'Cursiva'], ['==', Highlighter, 'Resaltar']] as const).map(([m, Icon, l]) => (
                     <button key={m} type="button" onMouseDown={e => e.preventDefault()} onClick={() => applyFormat(m)} aria-label={l} title={l}
-                      className="h-8 px-2.5 rounded-lg bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-white/80 flex items-center gap-1 text-xs font-semibold">
+                      className="h-10 px-3 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-white/80 flex items-center gap-1 text-xs font-semibold">
                       <Icon className="w-3.5 h-3.5" /> {l}
                     </button>
                   ))}
@@ -358,7 +358,7 @@ export function ShareStudio({
           {sessions.length > 1 && !isNote && active !== 'week' && active !== 'progress' && active !== 'milestone' && (
             <div>
               <p className={label}>Sesión</p>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-5 px-5">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-5 px-5 py-2 -my-2">
                 {sessions.map(s => (
                   <button key={s.id} type="button" onClick={() => { setChosenId(s.id); setTexts(t => ({ ...t, session: { ...t.session, title: undefined }, photo: { ...t.photo, title: undefined }, sticker: { ...t.sticker, title: undefined } })); }} aria-pressed={session?.id === s.id} className={chip(session?.id === s.id)}>{s.name}</button>
                 ))}
@@ -398,7 +398,7 @@ export function ShareStudio({
 
           <div>
             <p className={label}>Color de acento</p>
-            <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar -mx-5 px-5 py-1">
+            <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar -mx-5 px-5 py-2 -my-1">
               <button type="button" onClick={() => setAccent(null)} aria-pressed={accent === null} title="El de la paleta"
                 className={`h-9 px-3 rounded-full text-xs font-semibold flex items-center gap-1 flex-shrink-0 ${accent === null ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
                 <Sparkles className="w-3.5 h-3.5" /> Auto
@@ -421,11 +421,11 @@ export function ShareStudio({
           {active !== 'sticker' && (
             <div className="space-y-3">
               <div className="flex gap-2">
-                <button type="button" onClick={() => fileRef.current?.click()} className="flex-1 h-10 rounded-xl bg-[rgba(118,118,128,0.12)] text-sm font-semibold text-stone-800 dark:text-white flex items-center justify-center gap-2">
+                <button type="button" onClick={() => fileRef.current?.click()} className="flex-1 h-10 rounded-full bg-[rgba(118,118,128,0.12)] text-sm font-semibold text-stone-800 dark:text-white flex items-center justify-center gap-2">
                   <ImagePlus className="w-4 h-4" /> {photo ? 'Cambiar foto de fondo' : 'Poner una foto de fondo'}
                 </button>
                 {photo && (
-                  <button type="button" onClick={() => setPhoto(null)} aria-label="Quitar la foto" className="w-10 h-10 rounded-xl bg-[rgba(118,118,128,0.12)] flex items-center justify-center">
+                  <button type="button" onClick={() => setPhoto(null)} aria-label="Quitar la foto" className="w-10 h-10 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center">
                     <Trash2 className="w-4 h-4 text-stone-600 dark:text-white/70" />
                   </button>
                 )}
@@ -489,10 +489,10 @@ export function ShareStudio({
         <div className="flex-shrink-0 px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-black/5 dark:border-white/10 space-y-2">
           {notice && <p className="text-xs text-center font-medium text-emerald-700 dark:text-emerald-400">{notice}</p>}
           <div className="flex gap-2">
-            <Button onClick={handleShare} disabled={!!busy} className="flex-1 h-12 rounded-2xl text-base">
+            <Button onClick={handleShare} disabled={!!busy} className="flex-1 h-12 rounded-full text-base">
               {busy === 'share' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />} Compartir
             </Button>
-            <Button onClick={handleSave} disabled={!!busy} variant="secondary" aria-label="Guardar la imagen" className="h-12 w-12 rounded-2xl p-0">
+            <Button onClick={handleSave} disabled={!!busy} variant="secondary" aria-label="Guardar la imagen" className="h-12 w-12 rounded-full p-0">
               {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-5 h-5" />}
             </Button>
           </div>

@@ -53,12 +53,12 @@ export function AuthScreen() {
         {/* Card */}
         <div className="glass-card rounded-3xl p-8 space-y-6">
           {/* Toggle */}
-          <div className="flex rounded-2xl glass-card p-1">
+          <div className="flex gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]">
             <button
               type="button"
               onClick={() => { setMode('login'); setError(''); }}
-              className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${
-                mode === 'login' ? 'glass-btn text-stone-900 shadow-sm' : 'text-stone-500'
+              className={`flex-1 py-2 text-sm font-medium rounded-xl ${
+                mode === 'login' ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'
               }`}
             >
               Iniciar sesión
@@ -66,8 +66,8 @@ export function AuthScreen() {
             <button
               type="button"
               onClick={() => { setMode('register'); setError(''); }}
-              className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${
-                mode === 'register' ? 'glass-btn text-stone-900 shadow-sm' : 'text-stone-500'
+              className={`flex-1 py-2 text-sm font-medium rounded-xl ${
+                mode === 'register' ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'
               }`}
             >
               Crear cuenta
@@ -109,7 +109,7 @@ export function AuthScreen() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full py-6 text-base font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl shadow-sm transition-all duration-300 disabled:opacity-60"
+              className="w-full py-6 text-base font-medium bg-emerald-500 text-white rounded-full disabled:opacity-60"
             >
               {loading
                 ? 'Un momento...'

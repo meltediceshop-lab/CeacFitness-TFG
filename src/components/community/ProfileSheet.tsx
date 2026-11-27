@@ -41,7 +41,7 @@ function FriendButton({ state, busy, onAction }: { state: FriendshipState; busy:
   const [confirm, setConfirm] = useState(false);
   useEffect(() => setConfirm(false), [state]);
   const base = 'h-10 px-4 rounded-full text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50';
-  if (busy) return <span className={`${base} bg-[rgba(118,118,128,0.12)] text-stone-500`}><Loader2 className="w-4 h-4 animate-spin" /></span>;
+  if (busy) return <span className={`${base} lg-glass text-stone-500`}><Loader2 className="w-4 h-4 animate-spin" /></span>;
   if (state === 'none') return <button type="button" onClick={() => onAction('request')} className={`${base} bg-emerald-500 text-white flex-1`}><UserPlus className="w-4 h-4" /> Añadir amigo</button>;
   if (state === 'incoming') return (
     <div className="flex gap-2 flex-1">
@@ -135,7 +135,7 @@ export function ProfileSheet({ userId, demo, onClose, onOpenFriends, onChanged }
         className="glass-modal w-full max-w-md rounded-t-3xl max-h-[94dvh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex-1 overflow-y-auto">
           {/* Portada */}
-          <div className="relative h-28" style={{ background: 'radial-gradient(130% 140% at 100% 0%, rgb(var(--acc-400)) 0%, rgb(var(--acc-600)) 45%, rgb(var(--acc-900)) 100%)' }}>
+          <div className="relative h-28" style={{ background: 'radial-gradient(130% 130% at 100% 0%, var(--hero-1) 0%, var(--hero-2) 50%, var(--hero-3) 100%)' }}>
             <div className="w-10 h-1 bg-white/50 rounded-full mx-auto pt-0 absolute top-3 left-1/2 -translate-x-1/2" />
             <button type="button" onClick={onClose} aria-label="Cerrar" className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/25 backdrop-blur flex items-center justify-center">
               <X className="w-5 h-5 text-white" />
@@ -357,11 +357,11 @@ export function FriendsSheet({ onClose, onOpenProfile, onChanged }: { onClose: (
               </button>
               {busy === f.userId ? <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" /> : tab === 'incoming' ? (
                 <div className="flex gap-1.5">
-                  <button type="button" onClick={() => act(f.userId, 'accept')} className="h-8 px-3 rounded-full bg-emerald-500 text-white text-xs font-semibold">Aceptar</button>
-                  <button type="button" onClick={() => act(f.userId, 'decline')} aria-label={`Rechazar a ${f.name}`} className="w-8 h-8 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center"><X className="w-4 h-4 text-stone-600 dark:text-white/70" /></button>
+                  <button type="button" onClick={() => act(f.userId, 'accept')} className="h-10 px-4 rounded-full bg-emerald-500 text-white text-xs font-semibold">Aceptar</button>
+                  <button type="button" onClick={() => act(f.userId, 'decline')} aria-label={`Rechazar a ${f.name}`} className="w-10 h-10 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center"><X className="w-4 h-4 text-stone-600 dark:text-white/70" /></button>
                 </div>
               ) : tab === 'outgoing' ? (
-                <button type="button" onClick={() => act(f.userId, 'cancel')} className="h-8 px-3 rounded-full bg-[rgba(118,118,128,0.12)] text-xs font-semibold text-stone-700 dark:text-white">Retirar</button>
+                <button type="button" onClick={() => act(f.userId, 'cancel')} className="h-10 px-4 rounded-full bg-[rgba(118,118,128,0.12)] text-xs font-semibold text-stone-700 dark:text-white">Retirar</button>
               ) : <ChevronRight className="w-4 h-4 text-stone-300" />}
             </div>
           ))}

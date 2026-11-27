@@ -41,7 +41,7 @@ function AnalogClock({ elapsed, size = 44 }: { elapsed: number; size?: number })
         return (
           <circle key={i} cx={dot.x} cy={dot.y}
             r={i % 3 === 0 ? 1.8 : 1}
-            fill={i % 3 === 0 ? '#10b981' : '#d1d5db'} />
+            className={i % 3 === 0 ? 'fill-emerald-500' : 'fill-stone-300 dark:fill-white/25'} />
         );
       })}
 
@@ -55,10 +55,10 @@ function AnalogClock({ elapsed, size = 44 }: { elapsed: number; size?: number })
 
       {/* Manecilla segundo — suave continuo */}
       <line x1={cx} y1={cy} x2={sec.x} y2={sec.y}
-        stroke="#10b981" strokeWidth="1.1" strokeLinecap="round" />
+        className="stroke-emerald-500" strokeWidth="1.1" strokeLinecap="round" />
 
       {/* Pivote central */}
-      <circle cx={cx} cy={cy} r="2.2" fill="#10b981" />
+      <circle cx={cx} cy={cy} r="2.2" className="fill-emerald-500" />
     </svg>
   );
 }

@@ -123,7 +123,7 @@ function ClockExpandedModal({
           </div>
         )}
         <button onClick={onClose}
-          className="mt-2 px-6 py-2 rounded-xl bg-stone-100 text-stone-600 text-sm font-medium hover:bg-stone-200 transition-colors">
+          className="mt-2 h-10 px-6 rounded-full bg-stone-100 text-stone-600 text-sm font-medium">
           Cerrar
         </button>
       </motion.div>
@@ -171,7 +171,7 @@ function SetLogSheet({
                 onChange={e => update(i, 'reps', e.target.value)} placeholder="—" className="py-4 rounded-xl text-base" />
               <button type="button" aria-label={`Quitar serie ${i + 1}`} disabled={sets.length <= 1}
                 onClick={() => setSets(prev => prev.filter((_, j) => j !== i))}
-                className="w-10 h-10 rounded-xl bg-stone-100 hover:bg-red-50 text-stone-500 hover:text-red-500 flex items-center justify-center disabled:opacity-30 transition-colors">
+                className="w-10 h-10 rounded-full bg-stone-100 text-stone-500 hover:text-red-500 flex items-center justify-center disabled:opacity-30">
                 <Minus className="w-4 h-4" />
               </button>
             </div>
@@ -179,10 +179,10 @@ function SetLogSheet({
         </div>
         <button type="button"
           onClick={() => setSets(prev => [...prev, { ...(prev[prev.length - 1] ?? { weight: '', reps: '' }) }])}
-          className="mt-3 w-full py-3 rounded-xl border-2 border-dashed border-stone-200 text-stone-500 hover:border-emerald-400 hover:text-emerald-600 flex items-center justify-center gap-2 text-sm font-medium transition-colors">
+          className="mt-3 w-full py-3 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white flex items-center justify-center gap-2 text-sm font-medium">
           <Plus className="w-4 h-4" /> Añadir serie
         </button>
-        <Button onClick={() => onSave(sets)} className="mt-5 w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-semibold">
+        <Button onClick={() => onSave(sets)} className="mt-5 w-full py-5 rounded-full bg-emerald-500 font-semibold">
           Guardar series
         </Button>
       </motion.div>
@@ -669,7 +669,7 @@ export function WorkoutScreen() {
               </div>
             </div>
             <div className="pt-2 w-full">
-              <Button onClick={() => setCompletionStep(2)} className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold text-lg">
+              <Button onClick={() => setCompletionStep(2)} className="w-full py-6 rounded-full bg-emerald-500 font-semibold text-lg">
                 Continuar
               </Button>
             </div>
@@ -737,8 +737,8 @@ export function WorkoutScreen() {
           <h2 className="text-2xl font-bold text-stone-900 mb-2">Buen trabajo</h2>
           <p className="text-stone-500 mb-8">¿Quieres registrar los pesos y repeticiones?</p>
           <div className="space-y-3">
-            <Button onClick={() => handleRecordChoice('now')} className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600">Registrar ahora</Button>
-            <Button onClick={() => handleRecordChoice('later')} variant="outline" className="w-full py-5 rounded-xl">Registrar después</Button>
+            <Button onClick={() => handleRecordChoice('now')} className="w-full py-5 rounded-full bg-emerald-500">Registrar ahora</Button>
+            <Button onClick={() => handleRecordChoice('later')} variant="outline" className="w-full py-5 rounded-full">Registrar después</Button>
             <button onClick={() => handleRecordChoice('skip')} className="w-full py-3 text-stone-400 hover:text-stone-600">Omitir</button>
           </div>
         </motion.div>
@@ -765,7 +765,7 @@ export function WorkoutScreen() {
               <p className="text-sm font-semibold">
                 ¡{targetDuration} minutos completados! Sigue hasta que quieras terminar.
               </p>
-              <button onClick={() => setShowDurationBanner(false)} className="ml-3 flex-shrink-0">
+              <button onClick={() => setShowDurationBanner(false)} className="ml-3 flex-shrink-0 w-9 h-9 rounded-full lg-glass flex items-center justify-center">
                 <X className="w-4 h-4" />
               </button>
             </motion.div>
@@ -774,7 +774,7 @@ export function WorkoutScreen() {
 
         <div className="px-6 pt-8 pb-4">
           <div className="flex items-center justify-between mb-4">
-            <button onClick={handleExit} className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+            <button onClick={handleExit} className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center">
               <X className="w-5 h-5 text-stone-600" />
             </button>
             <div className="text-center">
@@ -852,7 +852,7 @@ export function WorkoutScreen() {
                           type="button"
                           aria-label={`Registrar series de ${exercise.name}`}
                           onClick={(e) => { e.stopPropagation(); setLogSheetIndex(index); }}
-                          className={`mt-2 w-16 h-9 rounded-xl flex items-center justify-center gap-1 text-xs font-semibold shadow-sm transition-colors ${logged ? 'bg-emerald-500 text-white' : 'bg-white text-emerald-600 ring-2 ring-emerald-400 animate-pulse'}`}
+                          className={`mt-2 w-16 h-10 rounded-full flex items-center justify-center gap-1 text-xs font-semibold ${logged ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-emerald-600 animate-pulse'}`}
                         >
                           <ClipboardList className="w-4 h-4" />
                           {logged ? logged.length : '+'}
@@ -887,7 +887,7 @@ export function WorkoutScreen() {
                           return next;
                         });
                       }}
-                      className={`w-9 h-9 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${done ? 'border-emerald-500 bg-emerald-500' : 'border-stone-300 hover:border-emerald-400'}`}
+                      className={`lg-keep w-9 h-9 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${done ? 'border-emerald-500 bg-emerald-500' : 'border-stone-300 hover:border-emerald-400'}`}
                       title={done ? 'Marcar como pendiente' : 'Marcar como hecho'}
                     >
                       <Check className={`w-5 h-5 ${done ? 'text-white' : 'text-stone-300'}`} />
@@ -901,7 +901,7 @@ export function WorkoutScreen() {
         </div>
 
         <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[var(--app-bg)] via-[var(--app-bg)]/90 to-transparent">
-          <Button onClick={() => handleSimpleModeComplete()} className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm">
+          <Button onClick={() => handleSimpleModeComplete()} className="w-full py-6 rounded-full bg-emerald-500 text-lg font-semibold">
             <Check className="w-5 h-5 mr-2" />
             Terminar entreno
           </Button>
@@ -913,8 +913,8 @@ export function WorkoutScreen() {
               <h3 className="text-xl font-bold text-stone-900 mb-2">¿Salir del entreno?</h3>
               <p className="text-stone-500 mb-6">Tu progreso no se guardará</p>
               <div className="flex gap-3">
-                <Button onClick={() => setShowExitConfirm(false)} variant="outline" className="flex-1 py-4 rounded-xl">Continuar</Button>
-                <Button onClick={confirmExit} className="flex-1 py-4 rounded-xl bg-stone-900 hover:bg-stone-800">Salir</Button>
+                <Button onClick={() => setShowExitConfirm(false)} variant="outline" className="flex-1 py-4 rounded-full">Continuar</Button>
+                <Button onClick={confirmExit} className="flex-1 py-4 rounded-full bg-red-500 hover:bg-red-600">Salir</Button>
               </div>
             </motion.div>
           </div>
@@ -934,8 +934,8 @@ export function WorkoutScreen() {
               </ul>
               <p className="text-stone-500 text-sm mb-6">Si terminas ahora se guardarán como no hechos.</p>
               <div className="flex gap-3">
-                <Button onClick={() => setShowPartialConfirm(false)} variant="outline" className="flex-1 py-4 rounded-xl">Seguir</Button>
-                <Button onClick={() => handleSimpleModeComplete(true)} className="flex-1 py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600">Terminar</Button>
+                <Button onClick={() => setShowPartialConfirm(false)} variant="outline" className="flex-1 py-4 rounded-full">Seguir</Button>
+                <Button onClick={() => handleSimpleModeComplete(true)} className="flex-1 py-4 rounded-full bg-emerald-500">Terminar</Button>
               </div>
             </motion.div>
           </div>
@@ -1017,7 +1017,7 @@ export function WorkoutScreen() {
             </li>
           ))}
         </ul>
-        <Button onClick={() => setShowGuidedWarmup(false)} className="w-full max-w-sm py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm">
+        <Button onClick={() => setShowGuidedWarmup(false)} className="w-full max-w-sm py-6 rounded-full bg-emerald-500 text-lg font-semibold">
           Continuar al entreno
         </Button>
         <button onClick={confirmExit} className="mt-4 text-stone-400 text-sm">Cancelar</button>
@@ -1035,14 +1035,14 @@ export function WorkoutScreen() {
             className="fixed top-0 inset-x-0 z-50 mx-4 mt-16 bg-amber-400 text-amber-900 rounded-2xl px-4 py-3 flex items-center justify-between shadow-lg"
           >
             <p className="text-sm font-semibold">¡{targetDuration} minutos completados! Sigue hasta terminar.</p>
-            <button onClick={() => setShowDurationBanner(false)}><X className="w-4 h-4" /></button>
+            <button onClick={() => setShowDurationBanner(false)} className="ml-3 flex-shrink-0 w-9 h-9 rounded-full lg-glass flex items-center justify-center"><X className="w-4 h-4" /></button>
           </motion.div>
         )}
       </AnimatePresence>
 
       <div className="px-6 pt-8 pb-4">
         <div className="flex items-center justify-between mb-4">
-          <button onClick={handleExit} className="p-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+          <button onClick={handleExit} className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center">
             <X className="w-5 h-5 text-stone-600" />
           </button>
           <div className="text-center">
@@ -1077,7 +1077,7 @@ export function WorkoutScreen() {
           >
             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800 flex-1">{discomfortMessage}</p>
-            <button onClick={() => setDiscomfortMessage(null)}><X className="w-4 h-4 text-amber-600" /></button>
+            <button onClick={() => setDiscomfortMessage(null)} className="flex-shrink-0 w-9 h-9 rounded-full lg-glass flex items-center justify-center"><X className="w-4 h-4 text-amber-600" /></button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1101,7 +1101,7 @@ export function WorkoutScreen() {
                 <svg className="w-52 h-52 -rotate-90" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="45" fill="none" stroke="rgb(var(--acc-500)/0.15)" strokeWidth="6" />
                   <motion.circle
-                    cx="50" cy="50" r="45" fill="none" stroke="#10b981" strokeWidth="6" strokeLinecap="round"
+                    cx="50" cy="50" r="45" fill="none" className="stroke-emerald-500" strokeWidth="6" strokeLinecap="round"
                     strokeDasharray={2 * Math.PI * 45}
                     animate={{ strokeDashoffset: 2 * Math.PI * 45 * (1 - (restTotal ? restTime / restTotal : 0)) }}
                     transition={{ duration: 0.4, ease: 'linear' }}
@@ -1115,10 +1115,10 @@ export function WorkoutScreen() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button onClick={() => extendRest(15)} variant="outline" className="rounded-xl px-5 h-11">
+                <Button onClick={() => extendRest(15)} variant="outline" className="rounded-full px-5 h-11">
                   +15 s
                 </Button>
-                <Button onClick={skipRest} className="rounded-xl px-6 h-11">Saltar descanso</Button>
+                <Button onClick={skipRest} className="rounded-full px-6 h-11">Saltar descanso</Button>
               </div>
 
             </motion.div>
@@ -1138,7 +1138,7 @@ export function WorkoutScreen() {
                   </div>
                   <button
                     onClick={() => openExerciseDetail(currentExerciseIndex)}
-                    className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 transition-colors ml-3 flex-shrink-0"
+                    className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center ml-3 flex-shrink-0"
                   >
                     <Info className="w-5 h-5 text-stone-500" />
                   </button>
@@ -1181,7 +1181,7 @@ export function WorkoutScreen() {
                       <button
                         type="button"
                         onClick={() => setWeight(String(getLastWeight(currentExercise.id)))}
-                        className="text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-full flex items-center gap-1"
+                        className="text-xs font-medium text-emerald-600 bg-[rgba(118,118,128,0.12)] h-8 px-3 rounded-full flex items-center gap-1"
                       >
                         <TrendingUp className="w-3 h-3" /> Última vez: {getLastWeight(currentExercise.id)} kg
                       </button>
@@ -1189,7 +1189,7 @@ export function WorkoutScreen() {
                       <button
                         type="button"
                         onClick={() => setWeight(String(currentExercise.suggestedWeightKg))}
-                        className="text-xs font-medium text-stone-500 bg-stone-100 px-2.5 py-1 rounded-full flex items-center gap-1"
+                        className="text-xs font-medium text-stone-500 bg-stone-100 h-8 px-3 rounded-full flex items-center gap-1"
                       >
                         Sugerido: {currentExercise.suggestedWeightKg} kg{currentExercise.suggestedWeightUnit === 'per-dumbbell' ? '/mancuerna' : ''}
                       </button>
@@ -1204,7 +1204,7 @@ export function WorkoutScreen() {
               </div>
 
               <div className="mt-auto pb-6">
-                <Button onClick={handleCompleteSet} className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm">
+                <Button onClick={handleCompleteSet} className="w-full py-6 rounded-full bg-emerald-500 text-lg font-semibold">
                   <Check className="w-5 h-5 mr-2" />
                   Serie completada
                 </Button>
@@ -1258,11 +1258,11 @@ export function WorkoutScreen() {
             </p>
             <div className="space-y-3">
               {completedSets.size > 0 && (
-                <Button onClick={finishGuided} className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600">Terminar y guardar</Button>
+                <Button onClick={finishGuided} className="w-full py-4 rounded-full bg-emerald-500">Terminar y guardar</Button>
               )}
               <div className="flex gap-3">
-                <Button onClick={() => setShowExitConfirm(false)} variant="outline" className="flex-1 py-4 rounded-xl">Continuar</Button>
-                <Button onClick={confirmExit} className="flex-1 py-4 rounded-xl bg-stone-900 hover:bg-stone-800">{completedSets.size > 0 ? 'Salir sin guardar' : 'Salir'}</Button>
+                <Button onClick={() => setShowExitConfirm(false)} variant="outline" className="flex-1 py-4 rounded-full">Continuar</Button>
+                <Button onClick={confirmExit} className="flex-1 py-4 rounded-full bg-red-500 hover:bg-red-600">{completedSets.size > 0 ? 'Salir sin guardar' : 'Salir'}</Button>
               </div>
             </div>
           </motion.div>
@@ -1283,8 +1283,8 @@ export function WorkoutScreen() {
             </ul>
             <p className="text-stone-500 text-sm mb-6">Si terminas ahora se guardará lo que has hecho.</p>
             <div className="flex gap-3">
-              <Button onClick={continuePending} variant="outline" className="flex-1 py-4 rounded-xl">Seguir</Button>
-              <Button onClick={finishGuided} className="flex-1 py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600">Terminar</Button>
+              <Button onClick={continuePending} variant="outline" className="flex-1 py-4 rounded-full">Seguir</Button>
+              <Button onClick={finishGuided} className="flex-1 py-4 rounded-full bg-emerald-500">Terminar</Button>
             </div>
           </motion.div>
         </div>

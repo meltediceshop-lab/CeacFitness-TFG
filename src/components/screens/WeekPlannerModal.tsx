@@ -172,7 +172,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
                 {weekDates[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
               </p>
             </div>
-            <button onClick={onClose} className="p-2 rounded-xl bg-stone-100 mt-1">
+            <button onClick={onClose} className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0 mt-1">
               <X className="w-4 h-4 text-stone-600" />
             </button>
           </div>
@@ -213,7 +213,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
                       changeDay(movingId, i);
                     }
                   }}
-                  className={`flex flex-col items-center gap-0.5 rounded-xl py-2 px-0.5 transition-all ${
+                  className={`lg-keep flex flex-col items-center gap-0.5 rounded-xl py-2 px-0.5 transition-all ${
                     session
                       ? 'bg-emerald-500 text-white'
                       : isMoving
@@ -257,7 +257,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
                 {/* Día badge */}
                 <button
                   onClick={() => setMovingId(movingId === session.id ? null : session.id)}
-                  className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center transition-all ${
+                  className={`lg-keep flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center transition-all ${
                     movingId === session.id ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-700'
                   }`}
                   title="Toca para mover de día"
@@ -339,7 +339,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
           {!notifRequested && 'Notification' in window && (
             <button
               onClick={requestNotification}
-              className="w-full flex items-center gap-3 py-3 px-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white text-sm"
             >
               <Bell className="w-4 h-4 flex-shrink-0" />
               <span className="text-xs font-medium">Activar aviso cuando termine la semana</span>
@@ -355,7 +355,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
           {/* Confirmar */}
           <button
             onClick={() => onConfirm(sessions)}
-            className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-base transition-colors"
+            className="w-full py-4 rounded-full bg-emerald-500 text-white font-bold text-base"
           >
             Empezar semana {weekNumber + 1} →
           </button>

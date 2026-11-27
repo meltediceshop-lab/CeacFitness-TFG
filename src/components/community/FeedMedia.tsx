@@ -78,7 +78,7 @@ function NoteMedia({ post }: { post: CommunityPost }) {
       {post.photoUrl ? (
         <img src={post.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
       ) : (
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 90% at 85% 0%, #10b981 0%, #065f46 45%, #022c22 100%)' }} />
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(130% 130% at 100% 0%, var(--hero-1) 0%, var(--hero-2) 50%, var(--hero-3) 100%)' }} />
       )}
       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.55) 62%, rgba(0,0,0,0.85) 100%)' }} />
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
@@ -134,7 +134,7 @@ export function PostMedia({ post, onImageClick }: { post: CommunityPost; onImage
   if (post.type === 'note' && (post.isDemo || !post.photoUrl || broken)) return <NoteMedia post={{ ...post, photoUrl: broken ? undefined : post.photoUrl }} />;
   if (post.photoUrl && !broken) {
     return (
-      <button type="button" onClick={() => onImageClick?.(post.photoUrl!)} className="block w-full rounded-2xl overflow-hidden bg-[rgba(118,118,128,0.12)] cursor-zoom-in">
+      <button type="button" onClick={() => onImageClick?.(post.photoUrl!)} className="lg-keep block w-full rounded-2xl overflow-hidden bg-[rgba(118,118,128,0.12)] cursor-zoom-in">
         <img src={post.photoUrl} alt={post.workoutName || 'Publicación'} loading="lazy" onError={() => setBroken(true)}
           className="w-full h-auto max-h-[600px] object-contain mx-auto" />
       </button>

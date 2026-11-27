@@ -64,34 +64,49 @@
    Fuera de @layer: Tailwind elimina en producción las reglas de @layer
    que no ve en el código (por eso el fondo no se oscurecía). */
 :root {
-    /* Acento (los emerald-* de Tailwind leen estas variables; el tema propio las cambia) */
-    --acc-50: 236 253 245;
-    --acc-100: 209 250 229;
-    --acc-200: 167 243 208;
-    --acc-300: 110 231 183;
-    --acc-400: 52 211 153;
-    --acc-500: 16 185 129;
-    --acc-600: 5 150 105;
-    --acc-700: 4 120 87;
-    --acc-800: 6 95 70;
-    --acc-900: 6 78 59;
-    --acc-950: 2 44 34;
-    --app-bg: #f5f6f4;
-    /* El borde superior es del mismo color que la barra de estado (theme-color):
-       así no se ve corte; el brillo verde empieza un poco más abajo. */
-    --app-top: #eaf3ef;
-    --app-glow:
-      linear-gradient(to bottom, var(--app-top) 0px, rgba(234, 243, 239, 0) 280px),
-      radial-gradient(120% 60% at 0% 12%, rgb(var(--acc-500) / 0.08) 0%, transparent 55%),
-      radial-gradient(90% 50% at 100% 8%, rgba(20, 184, 166, 0.05) 0%, transparent 50%);
+    /* Acento neutro, como las apps nativas de Apple: tinta en claro, blanco en oscuro.
+       Los emerald-* de Tailwind leen estas variables; el tema propio (Ajustes › Colores) las cambia. */
+    --acc-50: 237 237 237;
+    --acc-100: 214 214 214;
+    --acc-200: 173 173 174;
+    --acc-300: 123 123 124;
+    --acc-400: 73 73 75;
+    --acc-500: 28 28 30;
+    --acc-600: 24 24 25;
+    --acc-700: 19 19 20;
+    --acc-800: 15 15 16;
+    --acc-900: 11 11 12;
+    --acc-950: 7 7 8;
+    /* Color del texto e iconos que van ENCIMA del acento */
+    --acc-on: 255 255 255;
+    /* Degradado de las tarjetas destacadas (siempre oscuro: lleva texto blanco) */
+    --hero-1: rgb(58 58 60);
+    --hero-2: rgb(28 28 30);
+    --hero-3: rgb(0 0 0);
+    --app-bg: #f2f2f7;
+    /* El borde superior es del mismo color que la barra de estado (theme-color): así no se ve corte. */
+    --app-top: #f2f2f7;
+    --app-glow: none;
 }
 html.dark {
+    --acc-50: 254 254 254;
+    --acc-100: 253 253 254;
+    --acc-200: 251 251 252;
+    --acc-300: 249 249 250;
+    --acc-400: 247 247 249;
+    --acc-500: 245 245 247;
+    --acc-600: 206 206 207;
+    --acc-700: 167 167 168;
+    --acc-800: 132 132 133;
+    --acc-900: 98 98 99;
+    --acc-950: 64 64 64;
+    --acc-on: 10 10 12;
+    --hero-1: rgb(72 72 74);
+    --hero-2: rgb(44 44 46);
+    --hero-3: rgb(28 28 30);
     --app-bg: #000000;
     --app-top: #000000;
-    --app-glow:
-      linear-gradient(to bottom, var(--app-top) 0px, rgba(0, 0, 0, 0) 240px),
-      radial-gradient(120% 60% at 0% 12%, rgb(var(--acc-500) / 0.11) 0%, transparent 55%),
-      radial-gradient(90% 50% at 100% 8%, rgba(20, 184, 166, 0.05) 0%, transparent 50%);
+    --app-glow: none;
 }
 
 @layer base {
@@ -427,4 +442,185 @@ html.dark {
 html.dark .coach-header {
   background: linear-gradient(180deg, var(--app-top) 0%, color-mix(in srgb, var(--app-bg) 78%, transparent) 100%);
   border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LIQUID GLASS — botones y controles (fuera de @layer: no se purga)
+   Referencia: controles nativos de Apple (iOS 26).
+   · Forma: cápsula para botones con texto, círculo para los de icono.
+   · Dos niveles: «prominente» (cristal teñido con el acento, acción
+     principal) y «cristal» (translúcido neutro, acciones secundarias).
+   · Material: relleno translúcido, brillo en el borde superior, aro de
+     luz y sombra suave. Al pulsar se encoge y rebota.
+   Clases explícitas:  .lg-prominent  .lg-danger  .lg-glass  .lg-blur
+   Para que un botón NO adopte el estilo automático:  .lg-keep
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+  --lg-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.56) 100%);
+  --lg-fill-solid: #f0f0ef;
+  --lg-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 0.5px rgba(255, 255, 255, 0.75), inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  --lg-drop: 0 0 0 0.5px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 18px -10px rgba(0, 0, 0, 0.3);
+  --lg-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0.08) 42%, rgba(0, 0, 0, 0.06) 100%);
+  --lg-rim-tint: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 0 0 0.5px rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+html.dark {
+  --lg-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.07) 100%);
+  --lg-fill-solid: #2c2c2e;
+  --lg-rim: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 0.5px rgba(255, 255, 255, 0.14);
+  --lg-drop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 18px -10px rgba(0, 0, 0, 0.9);
+  --lg-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.05) 42%, rgba(0, 0, 0, 0.1) 100%);
+  --lg-rim-tint: inset 0 1px 0 rgba(255, 255, 255, 0.42), inset 0 0 0 0.5px rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* ── Prominente: cristal teñido (acción principal) ─────────────────
+   Automático en cualquier botón o enlace con relleno de acento. */
+.lg-prominent,
+:is(button, a)[class~="bg-emerald-500"]:not(.lg-keep),
+:is(button, a)[class~="bg-emerald-600"]:not(.lg-keep) {
+  border-radius: 9999px !important;
+  background-image: var(--lg-sheen) !important;
+  box-shadow: var(--lg-rim-tint), 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 18px -9px rgb(var(--acc-600) / 0.7) !important;
+  border-color: transparent !important;
+}
+.lg-prominent { background-color: rgb(var(--acc-500)); color: #fff; }
+
+/* Destructivo: el mismo cristal, en rojo */
+.lg-danger,
+:is(button, a)[class~="bg-red-500"]:not(.lg-keep),
+:is(button, a)[class~="bg-red-600"]:not(.lg-keep),
+:is(button, a)[class~="bg-destructive"]:not(.lg-keep) {
+  border-radius: 9999px !important;
+  background-image: var(--lg-sheen) !important;
+  box-shadow: var(--lg-rim-tint), 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 18px -9px rgba(220, 38, 38, 0.7) !important;
+  border-color: transparent !important;
+}
+.lg-danger { background-color: #ef4444; color: #fff; }
+
+/* ── Cristal: translúcido neutro (acciones secundarias) ──────────── */
+.lg-glass,
+:is(button, a).glass-btn:not(.lg-keep),
+:is(button, a)[class~="bg-[rgba(118,118,128,0.12)]"]:not(.lg-keep),
+:is(button, a)[class~="bg-[rgba(118,118,128,0.10)]"]:not(.lg-keep),
+:is(button, a)[class~="bg-[rgba(118,118,128,0.2)]"]:not(.lg-keep),
+:is(button, a)[class~="bg-stone-100"]:not(.lg-keep),
+:is(button, a).glass-card[class~="rounded-full"]:not(.lg-keep) {
+  border-radius: 9999px !important;
+  background: var(--lg-fill) !important;
+  box-shadow: var(--lg-rim), var(--lg-drop) !important;
+  border-color: transparent !important;
+}
+/* Los que flotan sobre el contenido desenfocan lo que tienen detrás */
+.lg-blur,
+:is(button, a).glass-btn:not(.lg-keep),
+:is(button, a).glass-card[class~="rounded-full"]:not(.lg-keep) {
+  backdrop-filter: blur(18px) saturate(180%) !important;
+}
+
+/* ── Interacción: se encoge al pulsar y rebota al soltar ─────────── */
+.lg-prominent, .lg-danger, .lg-glass,
+:is(button, a):is(
+  [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-red-500"], [class~="bg-red-600"], [class~="bg-destructive"],
+  .glass-btn, [class~="bg-[rgba(118,118,128,0.12)]"], [class~="bg-[rgba(118,118,128,0.10)]"], [class~="bg-[rgba(118,118,128,0.2)]"],
+  [class~="bg-stone-100"], .glass-card[class~="rounded-full"]
+):not(.lg-keep) {
+  transition: scale 0.32s cubic-bezier(0.3, 1.6, 0.5, 1), filter 0.18s ease, opacity 0.18s ease, background-color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+:is(.lg-prominent, .lg-danger, .lg-glass):active:not(:disabled),
+:is(button, a):is(
+  [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-red-500"], [class~="bg-red-600"], [class~="bg-destructive"],
+  .glass-btn, [class~="bg-[rgba(118,118,128,0.12)]"], [class~="bg-[rgba(118,118,128,0.10)]"], [class~="bg-[rgba(118,118,128,0.2)]"],
+  [class~="bg-stone-100"], .glass-card[class~="rounded-full"]
+):not(.lg-keep):active:not(:disabled) {
+  scale: 0.96;
+  filter: brightness(1.07);
+  transition-duration: 0.09s;
+}
+
+/* ── Control segmentado: pista en cápsula con pastilla de cristal ── */
+[class~="p-1"][class~="bg-[rgba(118,118,128,0.12)]"]:is([class~="rounded-xl"], [class~="rounded-lg"], [class~="rounded-2xl"]) {
+  border-radius: 9999px !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+[class~="p-1"][class~="bg-[rgba(118,118,128,0.12)]"]:is([class~="rounded-xl"], [class~="rounded-lg"], [class~="rounded-2xl"]) > button {
+  border-radius: 9999px !important;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+[class~="p-1"][class~="bg-[rgba(118,118,128,0.12)]"] > button[class~="bg-[#fff]"] {
+  background: var(--lg-fill) !important;
+  box-shadow: var(--lg-rim), 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.16) !important;
+}
+html.dark [class~="p-1"][class~="bg-[rgba(118,118,128,0.12)]"] > button[class~="bg-[#fff]"] {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.16) 100%) !important;
+  box-shadow: var(--lg-rim), 0 2px 8px -2px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* ── Accesibilidad ────────────────────────────────────────────────── */
+@media (prefers-reduced-transparency: reduce) {
+  .lg-glass,
+  :is(button, a):is(.glass-btn, [class~="bg-[rgba(118,118,128,0.12)]"], [class~="bg-[rgba(118,118,128,0.10)]"], [class~="bg-[rgba(118,118,128,0.2)]"], [class~="bg-stone-100"], .glass-card[class~="rounded-full"]):not(.lg-keep) {
+    background: var(--lg-fill-solid) !important;
+    backdrop-filter: none !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg-prominent, .lg-danger, .lg-glass, :is(button, a) { transition-duration: 0.01s !important; }
+  :is(button, a):active { scale: 1 !important; }
+}
+
+/* ── Texto e iconos sobre el acento ────────────────────────────────
+   El acento puede ser claro (blanco en modo oscuro): lo que va encima
+   usa --acc-on en vez de blanco fijo. */
+:is([class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="from-emerald-400"], [class~="from-emerald-500"], [class~="from-emerald-600"], .lg-prominent):is([class~="text-white"], [class^="text-white/"], [class*=" text-white/"]),
+:is([class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="from-emerald-400"], [class~="from-emerald-500"], [class~="from-emerald-600"], .lg-prominent) :is([class~="text-white"], [class^="text-white/"], [class*=" text-white/"]) {
+  color: rgb(var(--acc-on)) !important;
+}
+:is(button, a):is([class~="bg-emerald-500"], [class~="bg-emerald-600"]), .lg-prominent { color: rgb(var(--acc-on)); }
+
+/* ══════════════════════════════════════════════════════════════════
+   LIQUID GLASS — hojas, menús y paneles (como en iOS 26)
+   · Las hojas que suben desde abajo flotan: separadas de los bordes,
+     con las cuatro esquinas redondeadas y fondo de cristal.
+   · Menús, desplegables y diálogos: cristal con esquinas amplias.
+   ══════════════════════════════════════════════════════════════════ */
+.glass-modal {
+  background: linear-gradient(180deg, rgba(252, 252, 253, 0.82) 0%, rgba(244, 244, 246, 0.76) 100%) !important;
+  backdrop-filter: blur(36px) saturate(190%) !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.7),
+    0 0 0 0.5px rgba(0, 0, 0, 0.08),
+    0 24px 60px -18px rgba(0, 0, 0, 0.38) !important;
+}
+html.dark .glass-modal {
+  background: linear-gradient(180deg, rgba(44, 44, 46, 0.8) 0%, rgba(28, 28, 30, 0.76) 100%) !important;
+  backdrop-filter: blur(36px) saturate(170%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.12),
+    0 24px 60px -18px rgba(0, 0, 0, 0.95) !important;
+}
+/* Hoja inferior: flota separada de los bordes, con esquinas concéntricas a la pantalla */
+.glass-modal[class~="rounded-t-3xl"] {
+  border-radius: 36px !important;
+  width: calc(100% - 16px) !important;
+  margin: 0 8px max(8px, env(safe-area-inset-bottom, 0px)) !important;
+  max-height: min(92dvh, calc(100dvh - 24px - env(safe-area-inset-top, 0px))) !important;
+  contain: paint; /* el contenido respeta las esquinas sin perder la sombra */
+}
+/* Panel lateral (lista de chats): también flota */
+aside.glass-modal {
+  border-radius: 36px !important;
+  margin: max(8px, env(safe-area-inset-top, 0px)) 0 max(8px, env(safe-area-inset-bottom, 0px)) 8px !important;
+  contain: paint;
+}
+/* Menús y desplegables: esquinas amplias */
+.glass-modal:is([class~="rounded-2xl"], [class~="rounded-xl"]) { border-radius: 22px !important; }
+/* Diálogos centrados */
+.glass-modal[class~="rounded-3xl"]:not([class~="rounded-t-3xl"]) { border-radius: 34px !important; }
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-modal { background: #f7f7f8 !important; backdrop-filter: none !important; }
+  html.dark .glass-modal { background: #1c1c1e !important; }
 }

@@ -35,10 +35,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${geistMono.variable}`}>
+    <html lang="es" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#eaf3ef" />
+        <meta name="theme-color" content="#f2f2f7" />
         <link rel="manifest" href="/manifest.json" />
         {/* Colores propios de la app, antes de pintar (sin parpadeo) */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />

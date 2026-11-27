@@ -54,7 +54,7 @@ export function TimePicker({
         aria-expanded={open}
         aria-label={`${label}: ${value} min`}
         onClick={() => { place(); setOpen(o => !o); }}
-        className="glass-btn h-9 pl-2.5 pr-2 rounded-full flex items-center gap-1.5 text-sm font-semibold text-stone-800 dark:text-white tabular-nums"
+        className="glass-btn h-10 pl-3 pr-2.5 rounded-full flex items-center gap-1.5 text-sm font-semibold text-stone-800 dark:text-white tabular-nums"
       >
         <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
         {value} min

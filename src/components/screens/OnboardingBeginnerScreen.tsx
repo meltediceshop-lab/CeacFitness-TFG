@@ -402,7 +402,7 @@ export function OnboardingBeginnerScreen() {
       >
         <button
           onClick={handleBack}
-          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
+          className="w-9 h-9 flex items-center justify-center rounded-full glass-btn"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>
@@ -654,12 +654,12 @@ export function OnboardingBeginnerScreen() {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: index * 0.05 }}
                         onClick={() => handleDayToggle(day.id)}
-                        className={`px-4 py-3 rounded-xl font-medium transition-all relative ${
+                        className={`px-4 py-3 rounded-full font-medium relative ${
                           isSelected
                             ? hasTime
-                              ? 'bg-emerald-500 text-white shadow-sm'
-                              : 'bg-emerald-400 text-white shadow-md ring-2 ring-emerald-300 ring-offset-2'
-                            : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-emerald-500 text-white outline outline-2 outline-offset-2 outline-emerald-300'
+                            : 'bg-[rgba(118,118,128,0.12)] text-stone-600'
                         }`}
                       >
                         <span>{day.label}</span>
@@ -793,10 +793,10 @@ export function OnboardingBeginnerScreen() {
                                         <button
                                           key={time.id}
                                           onClick={() => handleDayTimeSelect(day, time.id)}
-                                          className={`flex-1 py-3 px-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                                          className={`flex-1 py-3 px-3 rounded-full text-sm font-medium flex items-center justify-center gap-2 ${
                                             isSelected
-                                              ? 'bg-emerald-500 text-white shadow-sm'
-                                              : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                              ? 'bg-emerald-500 text-white'
+                                              : 'bg-stone-100 text-stone-600'
                                           }`}
                                         >
                                           <Icon className="w-4 h-4" />
@@ -831,7 +831,7 @@ export function OnboardingBeginnerScreen() {
               <Button
                 onClick={handleConfirmDays}
                 disabled={selectedDays.length === 0 || !allDaysHaveTime}
-                className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                className="w-full py-5 rounded-full bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
               >
                 Continuar
               </Button>
@@ -1006,7 +1006,7 @@ export function OnboardingBeginnerScreen() {
               <div className="space-y-3 pt-4">
                 <Button
                   onClick={handleConfirmPlan}
-                  className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm"
+                  className="w-full py-5 rounded-full bg-emerald-500 text-lg font-semibold"
                 >
                   Confirmar y continuar
                 </Button>

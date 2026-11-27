@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Check, RotateCcw, Sun, Moon } from 'lucide-react';
 import {
   ACCENT_PRESETS, DARK_BG_PRESETS, DEFAULT_THEME, LIGHT_BG_PRESETS,
-  applyTheme, loadTheme, resetTheme, type AppTheme,
+  applyTheme, loadTheme, onAccent, resetTheme, type AppTheme,
 } from '@/lib/appTheme';
 
 const seg = (on: boolean) => `h-9 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5 ${on ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'}`;
@@ -21,14 +21,14 @@ function Preview({ accent, bg, dark }: { accent: string; bg: string; dark: boole
   return (
     <div className="rounded-2xl p-3 border border-black/5 dark:border-white/10" style={{ background: bg }}>
       <div className="rounded-xl p-3 flex items-center gap-3" style={{ background: card }}>
-        <span className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: accent }}>K</span>
+        <span className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: accent, color: `rgb(${onAccent(accent)})` }}>K</span>
         <span className="flex-1 min-w-0">
           <span className="block text-[13px] font-semibold" style={{ color: ink }}>Pierna y core</span>
           <span className="block text-[11px]" style={{ color: soft }}>45 min · 6 ejercicios</span>
         </span>
         <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold" style={{ background: `${accent}22`, color: accent }}>Hoy</span>
       </div>
-      <div className="mt-2.5 h-9 rounded-full text-white text-[13px] font-semibold flex items-center justify-center" style={{ background: accent }}>Empezar</div>
+      <div className="mt-2.5 h-9 rounded-full text-[13px] font-semibold flex items-center justify-center" style={{ background: accent, color: `rgb(${onAccent(accent)})` }}>Empezar</div>
     </div>
   );
 }
@@ -42,6 +42,8 @@ export function ThemeEditor({ isDark }: { isDark: boolean }) {
 
   const cur = theme[mode];
   const presets = mode === 'light' ? LIGHT_BG_PRESETS : DARK_BG_PRESETS;
+  // Cada color con su tono para el modo que se está editando
+  const presetsFor = ACCENT_PRESETS.map(a => ({ ...a, hex: mode === 'dark' ? a.dark ?? a.id : a.id }));
   const update = (patch: Partial<AppTheme['light']>) => {
     const next = { ...theme, [mode]: { ...theme[mode], ...patch } };
     setTheme(next); applyTheme(next); setCustom(true);
@@ -62,14 +64,14 @@ export function ThemeEditor({ isDark }: { isDark: boolean }) {
       <div>
         <p className={lbl}>Color principal</p>
         <div className="flex flex-wrap gap-2.5">
-          {ACCENT_PRESETS.map(a => (
-            <button key={a.id} type="button" onClick={() => update({ accent: a.id })} aria-label={`Color ${a.label}`} aria-pressed={cur.accent === a.id} title={a.label}
-              className={`w-9 h-9 rounded-full flex items-center justify-center ${ring(cur.accent === a.id)}`} style={{ background: a.id }}>
-              {cur.accent === a.id && <Check className="w-4 h-4 text-white" />}
+          {presetsFor.map(a => (
+            <button key={a.id} type="button" onClick={() => update({ accent: a.hex })} aria-label={`Color ${a.label}`} aria-pressed={cur.accent === a.hex} title={a.label}
+              className={`lg-keep w-9 h-9 rounded-full flex items-center justify-center border border-[rgba(128,128,128,0.35)] ${ring(cur.accent === a.hex)}`} style={{ background: a.hex }}>
+              {cur.accent === a.hex && <Check className="w-4 h-4" style={{ color: `rgb(${onAccent(a.hex)})` }} />}
             </button>
           ))}
-          <label title="Elige cualquier color" className={`relative w-9 h-9 rounded-full cursor-pointer ${ring(!ACCENT_PRESETS.some(a => a.id === cur.accent))}`}
-            style={{ background: ACCENT_PRESETS.some(a => a.id === cur.accent) ? 'conic-gradient(#f43f5e, #f59e0b, #84cc16, #10b981, #06b6d4, #6366f1, #d946ef, #f43f5e)' : cur.accent }}>
+          <label title="Elige cualquier color" className={`relative w-9 h-9 rounded-full cursor-pointer ${ring(!presetsFor.some(a => a.hex === cur.accent))}`}
+            style={{ background: presetsFor.some(a => a.hex === cur.accent) ? 'conic-gradient(#f43f5e, #f59e0b, #84cc16, #10b981, #06b6d4, #6366f1, #d946ef, #f43f5e)' : cur.accent }}>
             <input type="color" aria-label="Elegir un color principal" value={cur.accent} onChange={e => update({ accent: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
           </label>
         </div>

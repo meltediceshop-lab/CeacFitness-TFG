@@ -104,7 +104,7 @@ export function EnergyCheckScreen() {
       >
         <button
           onClick={() => setScreen('workout-preview')}
-          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
+          className="w-10 h-10 rounded-full glass-btn flex items-center justify-center"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>

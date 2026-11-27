@@ -81,7 +81,7 @@ export function CheckInScreen() {
           >
             <Button
               onClick={handleContinue}
-              className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-lg font-semibold shadow-sm"
+              className="w-full h-12 rounded-full bg-emerald-500 text-lg font-semibold"
             >
               Ver mi plan
               <ChevronRight className="w-5 h-5 ml-2" />

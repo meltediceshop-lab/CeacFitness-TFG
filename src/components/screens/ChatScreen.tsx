@@ -492,7 +492,7 @@ export function ChatScreen() {
             {chats.length > 1 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">{chats.length}</span>}
           </button>
           <button type="button" onClick={() => startNewChat()} aria-label="Chat nuevo"
-            className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-[0_6px_16px_-6px_rgb(var(--acc-500)/0.7)] active:scale-95 transition-transform">
+            className="w-10 h-10 rounded-full glass-card flex items-center justify-center text-stone-700 dark:text-stone-200">
             <SquarePen className="w-[18px] h-[18px]" />
           </button>
         </div>
@@ -502,7 +502,7 @@ export function ChatScreen() {
             return (
               <button key={m} type="button" onClick={() => setCoachMode(m)} aria-pressed={coachMode === m}
                 className={`h-9 rounded-lg flex items-center justify-center gap-1.5 text-sm font-semibold transition-colors ${
-                  coachMode === m ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm' : 'text-stone-500'
+                  coachMode === m ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'
                 }`}>
                 <Icon className="w-4 h-4" /> {MODE_CONFIG[m].label}
               </button>
@@ -668,8 +668,8 @@ export function ChatScreen() {
             <div className="mb-2 inline-flex items-start gap-2 glass-card rounded-2xl p-1.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={attachment} alt="Foto para enviar" className="w-16 h-16 rounded-xl object-cover" />
-              <button type="button" aria-label="Quitar la foto" onClick={() => setAttachment(null)} className="w-6 h-6 rounded-full bg-[rgba(118,118,128,0.2)] flex items-center justify-center">
-                <X className="w-3.5 h-3.5 text-stone-700" />
+              <button type="button" aria-label="Quitar la foto" onClick={() => setAttachment(null)} className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.2)] flex items-center justify-center">
+                <X className="w-3.5 h-3.5 text-stone-700 dark:text-white/80" />
               </button>
             </div>
           )}
@@ -700,7 +700,7 @@ export function ChatScreen() {
                 onClick={() => sendMessage(input, { image: attachment })}
                 disabled={!!loadingKey || pendingKeys.has(activeKey)}
                 aria-label="Enviar"
-                className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center transition-colors flex-shrink-0"
+                className="w-9 h-9 rounded-full bg-emerald-500 disabled:opacity-50 flex items-center justify-center flex-shrink-0"
               >
                 {isLoading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
               </button>
@@ -709,7 +709,7 @@ export function ChatScreen() {
                 onClick={toggleRecording}
                 disabled={transcribing || isLoading}
                 aria-label={recording ? 'Parar y enviar la nota de voz' : 'Grabar una nota de voz'}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-50 ${recording ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50 ${recording ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`}
               >
                 {transcribing ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : recording ? <Square className="w-3.5 h-3.5 text-white fill-white" /> : <Mic className="w-4 h-4 text-white" />}
               </button>
@@ -827,10 +827,10 @@ function WorkoutCard({ workout, saved, onAdd }: { workout: CoachWorkout; saved: 
         <button
           onClick={onAdd}
           disabled={saved}
-          className={`w-full mt-2 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors ${
+          className={`w-full mt-2 py-2.5 rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 ${
             saved
               ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-              : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+              : 'bg-emerald-500 text-white'
           }`}
         >
           {saved
@@ -885,7 +885,7 @@ function NutritionCard({ plan, saved, saving, onSave, onView }: {
         {saved ? (
           <button
             onClick={onView}
-            className="w-full mt-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-400"
+            className="w-full mt-1 py-2.5 rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white"
           >
             <Check className="w-4 h-4" /> Guardado · Ver en Nutrición <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -893,7 +893,7 @@ function NutritionCard({ plan, saved, saving, onSave, onView }: {
           <button
             onClick={onSave}
             disabled={saving}
-            className="w-full mt-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60 transition-colors"
+            className="w-full mt-1 py-2.5 rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 bg-emerald-500 text-white disabled:opacity-60"
           >
             {saving
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando…</>
@@ -942,13 +942,13 @@ function ExerciseAddCard({ proposal }: { proposal: { exercise: Exercise; target?
           <div className="flex flex-wrap gap-1.5">
             {pending.map(s => (
               <button key={s.id} type="button" onClick={() => setSessionId(s.id)} aria-pressed={s.id === sessionId}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${s.id === sessionId ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
+                className={`min-h-[36px] px-3.5 py-1.5 rounded-full text-xs font-semibold ${s.id === sessionId ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
                 {s.name}
               </button>
             ))}
           </div>
           <button type="button" disabled={!session || already} onClick={() => session && add(session)}
-            className="w-full h-10 rounded-xl bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
+            className="w-full h-10 rounded-full bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
             <Plus className="w-4 h-4" /> {already ? 'Ya está en esa sesión' : `Añadir a ${session?.name ?? 'la sesión'}`}
           </button>
         </>
@@ -1018,19 +1018,19 @@ function MoveCard({ request }: { request: { session?: string; day: string } }) {
         <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check className="w-4 h-4" /> {result}</p>
       ) : wantsSkip ? (
         <button type="button" onClick={() => { removeSession(session.id); setResult('Quitada de esta semana'); }}
-          className="w-full h-10 rounded-xl bg-red-500 text-white text-sm font-semibold">Quitar de esta semana</button>
+          className="w-full h-10 rounded-full bg-red-500 text-white text-sm font-semibold">Quitar de esta semana</button>
       ) : (
         <>
           <div className="grid grid-cols-7 gap-1">
             {DAY_LABELS.map((d, i) => (
               <button key={d} type="button" onClick={() => setDay(i)} aria-pressed={day === i}
-                className={`h-9 rounded-lg text-xs font-semibold ${day === i ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
+                className={`lg-keep h-9 rounded-lg text-xs font-semibold ${day === i ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
                 {d.slice(0, 2).toUpperCase()}
               </button>
             ))}
           </div>
           <button type="button" disabled={day === null} onClick={() => { if (day !== null) { setSessionDay(session.id, day); setResult(`Movida al ${DAY_LABELS[day]}`); } }}
-            className="w-full h-10 rounded-xl bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50">
+            className="w-full h-10 rounded-full bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50">
             {day !== null ? `Mover al ${DAY_LABELS[day]}` : 'Elige el día'}
           </button>
         </>

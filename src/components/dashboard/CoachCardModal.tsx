@@ -58,7 +58,7 @@ export function CoachCardModal({ weekNumber }: { weekNumber: number }) {
           <div className="glass-modal rounded-2xl p-5 relative border border-emerald-200/50 dark:border-emerald-500/20">
             <button
               onClick={dismiss}
-              className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-white/10 transition-colors"
+              className="absolute top-2 right-2 w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center"
             >
               <X className="w-4 h-4 text-stone-400" />
             </button>
@@ -72,7 +72,7 @@ export function CoachCardModal({ weekNumber }: { weekNumber: number }) {
                 {pending === 'first_week' ? (
                   <>
                     <div className="mb-4"><FitKPhilosophyContent /></div>
-                    <Button onClick={dismiss} className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-sm font-semibold">
+                    <Button onClick={dismiss} className="w-full py-5 rounded-full bg-emerald-500 text-sm font-semibold">
                       Empezar mi primera semana
                     </Button>
                   </>
@@ -82,7 +82,7 @@ export function CoachCardModal({ weekNumber }: { weekNumber: number }) {
                     <p className="text-stone-500 dark:text-stone-400 text-sm leading-relaxed mb-4">
                       Seguimos construyendo sobre lo que ya has conseguido.
                     </p>
-                    <Button onClick={dismiss} className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-sm font-semibold">
+                    <Button onClick={dismiss} className="w-full py-5 rounded-full bg-emerald-500 text-sm font-semibold">
                       Tu Plan
                     </Button>
                   </>

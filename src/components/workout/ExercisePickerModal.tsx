@@ -55,7 +55,7 @@ export function ExercisePickerModal({
         <div className="px-5 pt-2 pb-3 flex-shrink-0">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-stone-900 text-lg">{title}</h2>
-            <button onClick={onClose} className="p-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 transition-colors">
+            <button onClick={onClose} className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center">
               <X className="w-4 h-4 text-stone-600" />
             </button>
           </div>
@@ -69,13 +69,13 @@ export function ExercisePickerModal({
               className="flex-1 bg-transparent outline-none text-sm text-stone-800 dark:text-stone-100 placeholder-stone-400"
             />
           </div>
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-3 -mx-5 px-5">
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-2 -mx-5 px-5 pt-1 pb-4 -mb-4">
             {[null, ...muscles].map(m => (
               <button
                 key={m ?? 'todos'}
                 type="button"
                 onClick={() => setMuscle(m)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${muscle === m ? 'bg-emerald-500 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'}`}
+                className={`flex-shrink-0 h-8 px-3 rounded-full text-xs font-semibold ${muscle === m ? 'bg-emerald-500 text-white' : 'bg-stone-100 text-stone-600 dark:text-stone-300'}`}
               >
                 {m ? MUSCLE_LABELS[m] : 'Todos'}
               </button>

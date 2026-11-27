@@ -55,7 +55,7 @@ export function WelcomeScreen() {
         >
           <Button
             onClick={() => setScreen('onboarding-level')}
-            className="w-full py-6 text-lg font-medium bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-emerald-300"
+            className="w-full py-6 text-lg font-medium bg-emerald-500 text-white rounded-full"
           >
             Empezamos
           </Button>

@@ -483,7 +483,7 @@ export function DashboardScreen() {
           </div>
           <button
             onClick={() => setScreen('profile')}
-            className="w-11 h-11 rounded-2xl overflow-hidden bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1"
+            className="w-11 h-11 rounded-full overflow-hidden bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-1"
           >
             {user.profile.avatarUrl ? (
               <img src={user.profile.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
@@ -519,11 +519,11 @@ export function DashboardScreen() {
               </div>
               <button
                 onClick={() => { setDismissedMetricAlert(true); setShowMetricsModal(true); }}
-                className="h-8 px-3.5 rounded-full bg-emerald-500 text-white text-xs font-semibold flex-shrink-0"
+                className="h-10 px-3.5 rounded-full bg-emerald-500 text-white text-xs font-semibold flex-shrink-0"
               >
                 Registrar
               </button>
-              <button onClick={() => setDismissedMetricAlert(true)} aria-label="Cerrar aviso" className="w-7 h-7 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-600 flex-shrink-0">
+              <button onClick={() => setDismissedMetricAlert(true)} aria-label="Cerrar aviso" className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center text-stone-500 hover:text-stone-700 flex-shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -548,7 +548,7 @@ export function DashboardScreen() {
               setNextWeekPreview(preview);
               setShowWeekPlanner(true);
             }}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-emerald-500 text-white mb-4 shadow-lg active:scale-95 transition-transform"
+            className="lg-keep w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-emerald-500 text-white mb-4 shadow-lg active:scale-95 transition-transform"
           >
             <span className="text-2xl">🎉</span>
             <div className="flex-1 text-left">
@@ -581,12 +581,12 @@ export function DashboardScreen() {
           </div>
           <div className="flex items-center gap-1">
             {weekOffset !== 0 && (
-              <button type="button" onClick={() => setWeekOffset(0)} className="px-2.5 h-8 rounded-full text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-[rgba(118,118,128,0.12)]">Hoy</button>
+              <button type="button" onClick={() => setWeekOffset(0)} className="px-3.5 h-10 rounded-full text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-[rgba(118,118,128,0.12)]">Hoy</button>
             )}
-            <button type="button" aria-label="Semana anterior" disabled={weekOffset <= -52} onClick={() => setWeekOffset(o => o - 1)} className="w-8 h-8 rounded-full glass-btn flex items-center justify-center disabled:opacity-30">
+            <button type="button" aria-label="Semana anterior" disabled={weekOffset <= -52} onClick={() => setWeekOffset(o => o - 1)} className="w-10 h-10 rounded-full glass-btn flex items-center justify-center disabled:opacity-30">
               <ChevronRight className="w-4 h-4 text-stone-600 rotate-180" />
             </button>
-            <button type="button" aria-label="Semana siguiente" disabled={weekOffset >= 4} onClick={() => setWeekOffset(o => o + 1)} className="w-8 h-8 rounded-full glass-btn flex items-center justify-center disabled:opacity-30">
+            <button type="button" aria-label="Semana siguiente" disabled={weekOffset >= 4} onClick={() => setWeekOffset(o => o + 1)} className="w-10 h-10 rounded-full glass-btn flex items-center justify-center disabled:opacity-30">
               <ChevronRight className="w-4 h-4 text-stone-600" />
             </button>
           </div>
@@ -605,7 +605,7 @@ export function DashboardScreen() {
                   type="button"
                   disabled={!onDay.length}
                   onClick={() => weekOffset === 0 && onDay[0] && handleSessionClick(onDay.find(s => s.status !== 'completed') ?? onDay[0])}
-                  className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${today ? 'bg-emerald-500 text-white' : onDay.length ? 'hover:bg-stone-100' : ''}`}
+                  className={`lg-keep flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${today ? 'bg-emerald-500 text-white' : onDay.length ? 'hover:bg-stone-100' : ''}`}
                 >
                   <span className={`text-[10px] font-semibold uppercase tracking-wide ${today ? 'text-white/85' : 'text-stone-400'}`}>
                     {['L', 'M', 'X', 'J', 'V', 'S', 'D'][i]}
@@ -613,8 +613,8 @@ export function DashboardScreen() {
                   <span className={`text-base font-semibold tabular-nums leading-none ${today ? 'text-white' : onDay.length ? 'text-stone-900' : 'text-stone-400'}`}>{day.getDate()}</span>
                   <span className={`w-1.5 h-1.5 rounded-full ${
                     !onDay.length ? 'bg-transparent'
-                    : done ? (today ? 'bg-[#fff]' : 'bg-emerald-500')
-                    : today ? 'ring-1 ring-[#fff] bg-transparent' : 'ring-1 ring-emerald-500 bg-transparent'
+                    : done ? (today ? 'bg-current' : 'bg-emerald-500')
+                    : today ? 'ring-1 ring-current bg-transparent' : 'ring-1 ring-emerald-500 bg-transparent'
                   }`} />
                 </button>
               );
@@ -655,7 +655,7 @@ export function DashboardScreen() {
                     : ' Si prefieres dejarla lista ya, configúrala ahora.')}
                 </p>
                 {weekOffset === 1 && supabaseUserId && (
-                  <button type="button" onClick={configureNextWeek} className="h-9 px-4 rounded-full bg-emerald-500 text-white text-sm font-semibold">
+                  <button type="button" onClick={configureNextWeek} className="h-10 px-4 rounded-full bg-emerald-500 text-white text-sm font-semibold">
                     {orderedSessions.length > 0 ? 'Cambiar la próxima semana' : 'Configurar la próxima semana'}
                   </button>
                 )}
@@ -694,7 +694,7 @@ export function DashboardScreen() {
                 onClick={() => !otherWeekView && handleSessionClick(session)}
                 className={`p-4 cursor-pointer border-0 rounded-2xl transition-all ${
                   isNext ? 'bg-emerald-50 dark:bg-emerald-500/15 shadow-md hover:shadow-lg ring-1 ring-emerald-200 dark:ring-emerald-500/25'
-                  : isCompleted ? 'bg-stone-50 dark:bg-white/5 hover:bg-stone-100 dark:hover:bg-white/8'
+                  : isCompleted ? 'bg-stone-50 dark:bg-white/5 hover:bg-stone-100 dark:hover:bg-white/10'
                   : 'glass-card shadow-sm hover:shadow-md'
                 }`}
               >
@@ -767,7 +767,7 @@ export function DashboardScreen() {
         {weekOffset === 0 && <button
           type="button"
           onClick={() => setShowFreeWorkout(true)}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-300 dark:border-white/15 py-3.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:border-emerald-400 transition-colors"
+          className="w-full flex items-center justify-center gap-2 rounded-full bg-[rgba(118,118,128,0.12)] py-3.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400"
         >
           <Plus className="w-4 h-4" /> Entrenamiento libre
         </button>}
@@ -1149,7 +1149,7 @@ export function DashboardScreen() {
                                         className="glass-input w-full rounded-xl px-3 py-2 text-sm"
                                       />
                                       {/* Escala de sensación */}
-                                      <div className="flex gap-1">
+                                      <div className="flex gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]">
                                         {[{ v: 1, e: '😣' }, { v: 2, e: '😐' }, { v: 3, e: '😌' }].map(opt => (
                                           <button
                                             key={opt.v}
@@ -1159,7 +1159,7 @@ export function DashboardScreen() {
                                               updated[i] = { ...updated[i], feel: opt.v };
                                               return { ...prev, [ex.id]: updated };
                                             })}
-                                            className={`flex-1 py-1.5 rounded-lg text-base transition-all ${row.feel === opt.v ? 'bg-purple-100 scale-110' : 'bg-white border border-stone-200'}`}
+                                            className={`flex-1 py-1 rounded-lg text-base ${row.feel === opt.v ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'}`}
                                           >
                                             {opt.e}
                                           </button>
@@ -1189,7 +1189,7 @@ export function DashboardScreen() {
                       <button
                         onClick={() => handleSaveLogs(activeSessionPopup.sessionId)}
                         disabled={savingLogs}
-                        className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold disabled:opacity-60"
+                        className="w-full py-4 rounded-full bg-emerald-500 text-white font-semibold disabled:opacity-60"
                       >
                         {savingLogs ? 'Guardando…' : 'Guardar y cerrar'}
                       </button>
@@ -1372,17 +1372,17 @@ function ProgressDetailModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
           <h2 className="font-bold text-stone-900 dark:text-white text-lg">Tu progreso</h2>
-          <button onClick={onClose} className="p-2 rounded-xl bg-stone-100 dark:bg-white/10">
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center">
             <X className="w-4 h-4 text-stone-600 dark:text-white/70" />
           </button>
         </div>
 
         {/* Selector de semana */}
-        <div className="flex items-center justify-between px-5 pb-3 border-b border-stone-100 dark:border-white/8 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 pb-3 border-b border-stone-100 dark:border-white/10 flex-shrink-0">
           <button
             onClick={() => goWeek(-1)}
             disabled={weekIdx === 0}
-            className="w-9 h-9 rounded-xl bg-stone-100 dark:bg-white/10 flex items-center justify-center disabled:opacity-30 transition-opacity"
+            className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center disabled:opacity-30"
           >
             <Arrow className="w-4 h-4 text-stone-600 dark:text-white/70 rotate-180" />
           </button>
@@ -1397,7 +1397,7 @@ function ProgressDetailModal({
           <button
             onClick={() => goWeek(1)}
             disabled={weekIdx === weeks.length - 1}
-            className="w-9 h-9 rounded-xl bg-stone-100 dark:bg-white/10 flex items-center justify-center disabled:opacity-30 transition-opacity"
+            className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center disabled:opacity-30"
           >
             <Arrow className="w-4 h-4 text-stone-600 dark:text-white/70" />
           </button>
@@ -1421,7 +1421,7 @@ function ProgressDetailModal({
             const isEditing = editingId === session.id;
 
             return (
-              <div key={session.id} className={`rounded-2xl border ${isCompleted ? 'border-emerald-200 dark:border-emerald-500/25 bg-emerald-50 dark:bg-emerald-500/10' : 'border-stone-100 dark:border-white/8 bg-stone-50 dark:bg-white/5'}`}>
+              <div key={session.id} className={`rounded-2xl border ${isCompleted ? 'border-emerald-200 dark:border-emerald-500/25 bg-emerald-50 dark:bg-emerald-500/10' : 'border-stone-100 dark:border-white/10 bg-stone-50 dark:bg-white/5'}`}>
                 {/* Cabecera sesión */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -1445,14 +1445,14 @@ function ProgressDetailModal({
                       {/* Botón compartir */}
                       <button
                         onClick={() => onShareSession(session)}
-                        className="p-1.5 rounded-xl bg-white dark:bg-white/10 border border-stone-200 dark:border-white/12 text-stone-500 dark:text-white/50 hover:text-cyan-600 dark:hover:text-cyan-400 hover:border-cyan-300 transition-colors"
+                        className="w-10 h-10 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center text-stone-500 dark:text-white/50 hover:text-cyan-600 dark:hover:text-cyan-400"
                         title="Compartir entrenamiento"
                       >
                         <Share2Icon className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => isEditing ? saveEdit(session.id) : startEdit(session.id)}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors ${isEditing ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-white/10 border border-stone-200 dark:border-white/12 text-stone-600 dark:text-white/70'}`}
+                        className={`text-xs font-semibold px-3.5 h-10 rounded-full ${isEditing ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}
                       >
                         {isEditing ? 'Guardar' : (log ? 'Editar' : 'Registrar')}
                       </button>
@@ -1514,11 +1514,11 @@ function ProgressDetailModal({
                                       className="flex-1 border border-stone-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-emerald-400" />
                                   )}
                                   {mode === 'stretch' && (
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)] flex-shrink-0">
                                       {[{ v: 1, e: '😣' }, { v: 2, e: '😐' }, { v: 3, e: '😌' }].map(opt => (
                                         <button key={opt.v} type="button"
                                           onClick={() => setEditEntries(prev => { const u = [...(prev[ex.id] ?? rows)]; u[i] = { ...u[i], feel: opt.v }; return { ...prev, [ex.id]: u }; })}
-                                          className={`w-7 h-7 rounded-lg text-sm ${row.feel === opt.v ? 'bg-purple-100' : 'bg-stone-50 border border-stone-200'}`}
+                                          className={`w-7 h-7 rounded-lg text-sm ${row.feel === opt.v ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'}`}
                                         >{opt.e}</button>
                                       ))}
                                     </div>

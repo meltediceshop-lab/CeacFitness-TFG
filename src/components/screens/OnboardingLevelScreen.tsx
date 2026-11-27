@@ -24,7 +24,7 @@ export function OnboardingLevelScreen() {
       >
         <button
           onClick={() => setScreen('welcome')}
-          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
+          className="w-9 h-9 flex items-center justify-center rounded-full glass-btn"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>
@@ -89,8 +89,8 @@ export function OnboardingLevelScreen() {
               className="p-6 cursor-pointer border-2 border-transparent hover:border-teal-300 hover:shadow-lg hover:shadow-teal-100 transition-all duration-300 glass-card rounded-2xl group"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-100 to-cyan-100 flex items-center justify-center group-hover:from-teal-200 group-hover:to-cyan-200 transition-colors">
-                  <Rocket className="w-6 h-6 text-teal-600" />
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <Rocket className="w-6 h-6 text-emerald-600" />
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-stone-900 text-lg mb-1">

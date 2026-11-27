@@ -124,7 +124,7 @@ export function MetricsModal({ currentWeight, height, lastRecord, history = [], 
           <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)] mt-4 mb-3">
             {([['summary', 'Resumen'], ['register', 'Registrar']] as const).map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} aria-pressed={tab === id}
-                className={`h-8 rounded-lg text-sm font-semibold transition-colors ${tab === id ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm' : 'text-stone-500'}`}>
+                className={`h-8 rounded-lg text-sm font-semibold ${tab === id ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'}`}>
                 {label}
               </button>
             ))}
@@ -226,7 +226,7 @@ export function MetricsModal({ currentWeight, height, lastRecord, history = [], 
                 </section>
               )}
 
-              <Button onClick={() => setTab('register')} className="w-full h-12 rounded-2xl text-base">Registrar medidas de hoy</Button>
+              <Button onClick={() => setTab('register')} className="w-full h-12 rounded-full text-base">Registrar medidas de hoy</Button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -289,12 +289,12 @@ export function MetricsModal({ currentWeight, height, lastRecord, history = [], 
               <AnimatePresence mode="wait">
                 {saved ? (
                   <motion.div key="ok" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                    className="flex items-center justify-center gap-2 h-12 bg-emerald-50 rounded-2xl text-emerald-700 dark:text-emerald-400 font-semibold">
+                    className="flex items-center justify-center gap-2 h-12 bg-emerald-50 rounded-full text-emerald-700 dark:text-emerald-400 font-semibold">
                     <Check className="w-5 h-5" /> Guardado
                   </motion.div>
                 ) : (
                   <motion.div key="btn">
-                    <Button onClick={handleSave} disabled={!filled} className="w-full h-12 rounded-2xl text-base">
+                    <Button onClick={handleSave} disabled={!filled} className="w-full h-12 rounded-full text-base">
                       Guardar {filled ? `(${filled})` : ''}
                     </Button>
                   </motion.div>

@@ -51,7 +51,7 @@ export function ExerciseDetailSheet({
               <button
                 onClick={onClose}
                 aria-label="Cerrar"
-                className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur flex items-center justify-center shadow-sm"
+                className="absolute top-3 right-3 w-9 h-9 rounded-full lg-glass lg-blur flex items-center justify-center"
               >
                 <X className="w-5 h-5 text-stone-700 dark:text-white" />
               </button>
@@ -139,7 +139,7 @@ export function ExerciseDetailSheet({
                 );
               })()}
 
-              <Button onClick={onClose} className="w-full h-12 rounded-2xl text-base font-semibold">Entendido</Button>
+              <Button onClick={onClose} className="w-full h-12 rounded-full text-base font-semibold">Entendido</Button>
             </div>
           </motion.div>
         </motion.div>

@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { MeasurementReminderFrequency, WorkoutDuration } from '@/types/user';
 import {
   ArrowLeft, Camera, ChevronRight, Calendar, Clock, Bell, Moon, Apple, LogOut, Minus, Plus, Loader2,
-  Palette,
+  Palette, Smartphone, Sun,
 } from 'lucide-react';
 import { ThemeEditor } from '@/components/profile/ThemeEditor';
 
@@ -77,7 +77,7 @@ function Section({ title, children, footer }: { title: string; children: React.R
 
 // ── Pantalla ──────────────────────────────────────────────────────
 export function ProfileScreen() {
-  const { user, setUser, setScreen, logout, isDark, toggleDarkMode, updateAvatar, updateTrainingPrefs } = useApp();
+  const { user, setUser, setScreen, logout, isDark, appearance, setAppearance, updateAvatar, updateTrainingPrefs } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [showTheme, setShowTheme] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -166,12 +166,12 @@ export function ProfileScreen() {
           <Row icon={Calendar} tint="bg-emerald-500" title="Días por semana">
             <span className="flex items-center gap-2">
               <button type="button" aria-label="Un día menos" disabled={days <= 1} onClick={() => updateTrainingPrefs({ daysPerWeek: days - 1 })}
-                className="w-8 h-8 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center disabled:opacity-30">
+                className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center disabled:opacity-30">
                 <Minus className="w-4 h-4 text-stone-700" />
               </button>
               <span className="w-5 text-center font-semibold text-stone-900 tabular-nums">{days}</span>
               <button type="button" aria-label="Un día más" disabled={days >= 6} onClick={() => updateTrainingPrefs({ daysPerWeek: days + 1 })}
-                className="w-8 h-8 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center disabled:opacity-30">
+                className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center disabled:opacity-30">
                 <Plus className="w-4 h-4 text-stone-700" />
               </button>
             </span>
@@ -185,11 +185,17 @@ export function ProfileScreen() {
         </Section>
 
         <Section title="Preferencias">
-          <Row icon={Moon} tint="bg-indigo-500" title="Modo oscuro" onClick={toggleDarkMode}>
-            <span role="switch" aria-checked={isDark} className={`relative w-[51px] h-[31px] rounded-full transition-colors ${isDark ? 'bg-emerald-500' : 'bg-[rgba(120,120,128,0.24)]'}`}>
-              <span className={`absolute top-0.5 left-0.5 w-[27px] h-[27px] rounded-full bg-[#fff] shadow transition-transform ${isDark ? 'translate-x-5' : ''}`} />
-            </span>
-          </Row>
+          <Row icon={Moon} tint="bg-indigo-500" title="Apariencia" subtitle={appearance === 'system' ? `Automática: como tu teléfono (${isDark ? 'oscuro' : 'claro'})` : appearance === 'dark' ? 'Siempre oscuro' : 'Siempre claro'} />
+          <div className="px-4 pb-3 -mt-1">
+            <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]" role="radiogroup" aria-label="Apariencia">
+              {([['system', 'Automático', Smartphone], ['light', 'Claro', Sun], ['dark', 'Oscuro', Moon]] as const).map(([id, label, Icon]) => (
+                <button key={id} type="button" role="radio" aria-checked={appearance === id} onClick={() => setAppearance(id)}
+                  className={`h-9 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5 ${appearance === id ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'}`}>
+                  <Icon className="w-4 h-4" /> {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <Row icon={Palette} tint="bg-pink-500" title="Colores de la app" subtitle="Color principal y fondo, de día y de noche" onClick={() => setShowTheme(v => !v)}>
             <ChevronRight className={`w-4 h-4 text-stone-300 transition-transform ${showTheme ? 'rotate-90' : ''}`} />
           </Row>
@@ -210,7 +216,7 @@ export function ProfileScreen() {
                   {FREQUENCIES.map(f => (
                     <button key={f} type="button" aria-pressed={frequency === f}
                       onClick={() => { setUser({ ...user, profile: { ...user.profile, reminderFrequency: f } }); setShowReminder(false); }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${frequency === f ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
+                      className={`h-9 px-3.5 rounded-full text-xs font-semibold ${frequency === f ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'}`}>
                       {frequencyLabel(f)}
                     </button>
                   ))}
@@ -244,8 +250,8 @@ export function ProfileScreen() {
               <h3 className="text-xl font-bold text-stone-900 mb-2">¿Cerrar sesión?</h3>
               <p className="text-stone-500 mb-6">Tendrás que volver a iniciar sesión para acceder a tu cuenta.</p>
               <div className="flex gap-3">
-                <Button onClick={() => setShowLogoutConfirm(false)} variant="outline" className="flex-1 h-12 rounded-xl">Cancelar</Button>
-                <Button onClick={() => { logout(); setShowLogoutConfirm(false); }} className="flex-1 h-12 rounded-xl bg-red-500 hover:bg-red-600">Cerrar sesión</Button>
+                <Button onClick={() => setShowLogoutConfirm(false)} variant="outline" className="flex-1 h-12 rounded-full">Cancelar</Button>
+                <Button onClick={() => { logout(); setShowLogoutConfirm(false); }} className="flex-1 h-12 rounded-full bg-red-500 hover:bg-red-600">Cerrar sesión</Button>
               </div>
             </motion.div>
           </motion.div>

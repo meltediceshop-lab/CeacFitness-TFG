@@ -126,7 +126,7 @@ export function ProfileSetupScreen() {
       >
         <button
           onClick={handleBack}
-          className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
+          className="w-9 h-9 flex items-center justify-center rounded-full glass-btn"
         >
           <ArrowLeft className="w-5 h-5 text-stone-600" />
         </button>
@@ -184,20 +184,20 @@ export function ProfileSetupScreen() {
                   <div className="flex gap-3 mt-2">
                     <button
                       onClick={() => setBiologicalProfile('male')}
-                      className={`flex-1 py-4 rounded-xl font-medium transition-all ${
+                      className={`flex-1 py-4 rounded-full font-medium ${
                         biologicalProfile === 'male'
-                          ? 'bg-emerald-500 text-white shadow-sm'
-                          : 'bg-white text-stone-600 hover:bg-stone-100'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-[rgba(118,118,128,0.12)] text-stone-600'
                       }`}
                     >
                       Masculino
                     </button>
                     <button
                       onClick={() => setBiologicalProfile('female')}
-                      className={`flex-1 py-4 rounded-xl font-medium transition-all ${
+                      className={`flex-1 py-4 rounded-full font-medium ${
                         biologicalProfile === 'female'
-                          ? 'bg-emerald-500 text-white shadow-sm'
-                          : 'bg-white text-stone-600 hover:bg-stone-100'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-[rgba(118,118,128,0.12)] text-stone-600'
                       }`}
                     >
                       Femenino
@@ -239,10 +239,10 @@ export function ProfileSetupScreen() {
                       <button
                         key={range.id}
                         onClick={() => setAgeRange(range.id)}
-                        className={`px-4 py-3 rounded-xl font-medium transition-all ${
+                        className={`px-4 py-3 rounded-full font-medium ${
                           ageRange === range.id
-                            ? 'bg-emerald-500 text-white shadow-sm'
-                            : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-[rgba(118,118,128,0.12)] text-stone-600'
                         }`}
                       >
                         {range.label}
@@ -255,7 +255,7 @@ export function ProfileSetupScreen() {
               <Button
                 onClick={handleStep1}
                 disabled={!name.trim() || !biologicalProfile || !weight || !height || !ageRange}
-                className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 mt-4"
+                className="w-full py-5 rounded-full bg-emerald-500 disabled:opacity-50 mt-4"
               >
                 Continuar
               </Button>
@@ -285,10 +285,10 @@ export function ProfileSetupScreen() {
                   <button
                     key={sport}
                     onClick={() => toggleSport(sport)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    className={`px-4 py-2.5 rounded-full text-sm font-medium ${
                       selectedSports.includes(sport)
                         ? 'bg-emerald-500 text-white'
-                        : 'bg-white text-stone-600 hover:bg-stone-100'
+                        : 'bg-[rgba(118,118,128,0.12)] text-stone-600'
                     }`}
                   >
                     {sport}
@@ -306,10 +306,10 @@ export function ProfileSetupScreen() {
                       <button
                         key={n}
                         onClick={() => setSportsDays(n.toString())}
-                        className={`w-12 h-12 rounded-xl font-medium transition-all ${
+                        className={`w-12 h-12 rounded-full font-medium ${
                           sportsDays === n.toString()
-                            ? 'bg-emerald-500 text-white shadow-sm'
-                            : 'bg-white text-stone-600 hover:bg-stone-100'
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-[rgba(118,118,128,0.12)] text-stone-600'
                         }`}
                       >
                         {n}
@@ -321,7 +321,7 @@ export function ProfileSetupScreen() {
 
               <Button
                 onClick={handleStep2}
-                className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 mt-4"
+                className="w-full py-5 rounded-full bg-emerald-500 mt-4"
               >
                 Continuar
               </Button>
@@ -352,10 +352,10 @@ export function ProfileSetupScreen() {
                     <button
                       key={injury}
                       onClick={() => toggleInjury(injury)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      className={`px-4 py-2.5 rounded-full text-sm font-medium ${
                         selectedInjuries.includes(injury)
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-white text-stone-600 hover:bg-stone-100'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-[rgba(118,118,128,0.12)] text-stone-600'
                       }`}
                     >
                       {injury}
@@ -397,7 +397,7 @@ export function ProfileSetupScreen() {
                   <Button
                     onClick={addCustomInjury}
                     variant="outline"
-                    className="px-4 rounded-xl"
+                    className="w-11 px-0 shrink-0 rounded-full"
                   >
                     <Plus className="w-5 h-5" />
                   </Button>
@@ -419,7 +419,7 @@ export function ProfileSetupScreen() {
 
               <Button
                 onClick={handleComplete}
-                className="w-full py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm mt-4"
+                className="w-full py-5 rounded-full bg-emerald-500 text-white mt-4"
               >
                 Completar perfil
               </Button>
