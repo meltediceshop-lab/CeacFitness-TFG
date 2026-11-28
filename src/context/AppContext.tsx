@@ -1,5 +1,6 @@
 'use client';
 
+import { EXTRA_CATALOG, buildCardioSession, buildWodSession } from '@/lib/cardioCatalog';
 import { loadAppearance, refreshStoredTheme, resolveDark, saveAppearance, statusBarColor, type Appearance } from '@/lib/appTheme';
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
@@ -1135,6 +1136,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const ob = user.onboarding as Partial<BeginnerOnboarding & AdvancedOnboarding>;
     const base = { daysPerWeek: ob.daysPerWeek || 3, workoutDuration: ob.workoutDuration || '45min', startFrom: 1, ...motorInputFromUser(user) } as MotorInput;
     if (opts.place === 'outdoor') return addFreeSession(buildOutdoorSession(base, opts.minutes), 'Calle y barras', opts.minutes, opts.day);
+    if (opts.focus === 'cardio') { const c = buildCardioSession({ place: 'gym', minutes: opts.minutes, style: 'mixto' }); return addFreeSession(c.exercises, c.name, opts.minutes, opts.day); }
+    if (opts.focus === 'crossfit') { const w = buildWodSession({ minutes: opts.minutes, advanced: base.level === 'advanced' }); return addFreeSession(w.exercises, w.name, opts.minutes, opts.day); }
     const session = buildMotorWorkout(base, { focus: opts.focus, minutes: opts.minutes }).workout?.session;
     return session ? addFreeSession(session.exercises, session.name, opts.minutes, opts.day) : null;
   };
@@ -1383,14 +1386,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getExerciseByName = (name: string): Exercise | undefined => {
-    const allExercisesFlat = [...motorCatalog(), ...Object.values(SAMPLE_EXERCISES).flat()];
+    const allExercisesFlat = [...motorCatalog(), ...EXTRA_CATALOG, ...Object.values(SAMPLE_EXERCISES).flat()];
     return allExercisesFlat.find(ex => ex.name === name);
   };
 
   // Catálogo único de ejercicios (para añadir/cambiar en una sesión) —
   // primero la lista oficial BOE-FK, después los legacy de muestra
   const getExerciseCatalog = (): Exercise[] => {
-    const flat = [...motorCatalog(), ...Object.values(SAMPLE_EXERCISES).flat()];
+    const flat = [...motorCatalog(), ...EXTRA_CATALOG, ...Object.values(SAMPLE_EXERCISES).flat()];
     const seen = new Set<string>();
     return flat.filter(ex => {
       if (seen.has(ex.name)) return false;

@@ -1641,6 +1641,8 @@ const relaxRir = (e: Exercise): Exercise =>
 function exerciseTimed(e: Exercise): TimedItem {
   const lib = e.libraryId ? libraryById.get(e.libraryId) : undefined;
   const ex = lib ?? ({ executionTimeCost: 'Medio', setupCost: 'Medio', block: e.targetMuscle } as LibraryExercise);
+  // Cardio continuo: los minutos cuentan como segundos de trabajo.
+  if (e.repUnit === 'minutes') return { ex, sets: e.sets, restSeconds: e.restSeconds, perSide: false, unit: 'seconds', target: (e.reps[0] ?? 10) * 60 };
   return { ex, sets: e.sets, restSeconds: e.restSeconds, perSide: !!e.perSide, unit: e.repUnit ?? 'reps', target: e.reps[0] ?? 10 };
 }
 

@@ -188,7 +188,7 @@ export interface Exercise {
   slotRole?: 'principal' | 'secundario' | 'complementario'; // rol programático (MOTOR-ROLE-036)
   essential?: boolean;       // forma parte de la sesión esencial (MOTOR-ESSENTIAL-042)
   priority?: boolean;        // cubre la prioridad muscular del usuario
-  repUnit?: 'reps' | 'seconds' | 'steps';
+  repUnit?: 'reps' | 'seconds' | 'steps' | 'minutes';
   perSide?: boolean;         // reps/tiempo por lado
   configurations?: string[]; // configuraciones registradas (hoja Variantes), no ejercicios aparte
   motorTrace?: ExerciseMotorTrace; // modo debug (sec. 16): por qué se eligió

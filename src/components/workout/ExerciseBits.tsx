@@ -31,9 +31,9 @@ export function DoseChips({ exercise, rest = true }: { exercise: Exercise; rest?
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold tabular-nums">
       <span className="px-2 py-0.5 rounded-lg bg-stone-900/5 dark:bg-white/10 text-stone-700 dark:text-white/80">
-        {exercise.sets} × {formatRepLine(exercise)}
+        {exercise.sets > 1 || exercise.repUnit !== 'minutes' ? `${exercise.sets} × ` : ''}{formatRepLine(exercise)}
       </span>
-      {rest && (
+      {rest && exercise.restSeconds > 0 && (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-stone-900/5 dark:bg-white/10 text-stone-500 dark:text-white/60">
           <Timer className="w-3 h-3" /> {formatRest(exercise.restSeconds)}
         </span>

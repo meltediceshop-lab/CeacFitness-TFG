@@ -139,7 +139,7 @@ function SetLogSheet({
 }) {
   useScrollLock();
   const [sets, setSets] = useState<LoggedSet[]>(initial);
-  const unit = exercise.repUnit === 'seconds' ? 'seg' : exercise.repUnit === 'steps' ? 'pasos' : 'reps';
+  const unit = exercise.repUnit === 'seconds' ? 'seg' : exercise.repUnit === 'minutes' ? 'min' : exercise.repUnit === 'steps' ? 'pasos' : 'reps';
   const update = (i: number, field: keyof LoggedSet, value: string) =>
     setSets(prev => prev.map((s, j) => (j === i ? { ...s, [field]: value } : s)));
   return (

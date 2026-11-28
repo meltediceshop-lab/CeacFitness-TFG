@@ -16,6 +16,9 @@ const MUSCLE_LABELS: Record<string, string> = {
   chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros',
   legs: 'Piernas', arms: 'Brazos', core: 'Core', none: 'General',
 };
+/** Filtros por tipo (cardio y funcional: saltos, barras, CrossFit). */
+const KIND_LABELS: Record<string, string> = { cardio: 'Cardio', funcional: 'Funcional' };
+const kindOf = (e: Exercise) => (e.slotFunction === 'cardio' || e.slotFunction === 'funcional' ? e.slotFunction : null);
 
 export function ExercisePickerModal({
   catalog,
@@ -31,13 +34,16 @@ export function ExercisePickerModal({
   useScrollLock();
   const [query, setQuery] = useState('');
   const [muscle, setMuscle] = useState<string | null>(null);
-  const muscles = useMemo(() => Object.keys(MUSCLE_LABELS).filter(m => catalog.some(e => e.targetMuscle === m)), [catalog]);
+  const muscles = useMemo(() => [
+    ...Object.keys(KIND_LABELS).filter(k => catalog.some(e => kindOf(e) === k)),
+    ...Object.keys(MUSCLE_LABELS).filter(m => catalog.some(e => e.targetMuscle === m)),
+  ], [catalog]);
 
   const filtered = useMemo(() => {
     const q = normalize(query.trim());
     return catalog.filter(e =>
-      (!muscle || e.targetMuscle === muscle)
-      && (!q || normalize(e.name).includes(q) || normalize(MUSCLE_LABELS[e.targetMuscle] || '').includes(q))
+      (!muscle || (KIND_LABELS[muscle] ? kindOf(e) === muscle : e.targetMuscle === muscle))
+      && (!q || normalize(e.name).includes(q) || normalize(MUSCLE_LABELS[e.targetMuscle] || '').includes(q) || normalize(KIND_LABELS[kindOf(e) ?? ''] || '').includes(q))
     );
   }, [catalog, query, muscle]);
 
@@ -77,7 +83,7 @@ export function ExercisePickerModal({
                 onClick={() => setMuscle(m)}
                 className={`flex-shrink-0 h-8 px-3 rounded-full text-xs font-semibold ${muscle === m ? 'bg-emerald-500 text-white' : 'bg-stone-100 text-stone-600 dark:text-stone-300'}`}
               >
-                {m ? MUSCLE_LABELS[m] : 'Todos'}
+                {m ? KIND_LABELS[m] ?? MUSCLE_LABELS[m] : 'Todos'}
               </button>
             ))}
           </div>
@@ -97,7 +103,7 @@ export function ExercisePickerModal({
                   <ExercisePreview name={ex.name} muscle={ex.targetMuscle} className="w-14 h-14 flex-shrink-0" rounded="rounded-lg" animate={false} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-stone-800 dark:text-stone-100 leading-snug">{ex.name}</p>
-                    <p className="text-[11px] text-stone-400">{MUSCLE_LABELS[ex.targetMuscle] || 'General'} · {ex.sets} × {formatRepLine(ex)}</p>
+                    <p className="text-[11px] text-stone-400">{KIND_LABELS[kindOf(ex) ?? ''] ?? MUSCLE_LABELS[ex.targetMuscle] ?? 'General'} · {ex.sets > 1 ? `${ex.sets} × ` : ''}{formatRepLine(ex)}</p>
                   </div>
                   <Plus className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                 </button>

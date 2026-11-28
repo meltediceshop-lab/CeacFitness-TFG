@@ -1,5 +1,6 @@
 'use client';
 
+import { isExtra } from '@/lib/cardioCatalog';
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus, Sparkles, X } from 'lucide-react';
@@ -26,6 +27,8 @@ const FOCUS_OPTIONS = [
   { id: 'legs', label: 'Pierna' },
   { id: 'push', label: 'Empuje' },
   { id: 'pull', label: 'Tirón' },
+  { id: 'cardio', label: 'Cardio' },
+  { id: 'crossfit', label: 'CrossFit' },
 ];
 const MINUTE_OPTIONS = [30, 45, 60];
 
@@ -69,7 +72,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
   };
 
   const catalog = useMemo(
-    () => (open ? getExerciseCatalog().filter(e => e.libraryId && !chosen.some(c => c.id === e.id)) : []),
+    () => (open ? getExerciseCatalog().filter(e => (e.libraryId || isExtra(e)) && !chosen.some(c => c.id === e.id)) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [open, chosen],
   );
