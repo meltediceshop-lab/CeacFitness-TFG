@@ -10,16 +10,16 @@ export function formatRepTarget(ex: Pick<Exercise, 'reps' | 'repRange' | 'repUni
   if (ex.repRange) {
     const [lo, hi] = ex.repRange;
     const range = lo === hi ? `${lo}` : `${lo}-${hi}`;
-    return `${range}${ex.repUnit === 'seconds' ? ' s' : ''}${side}`;
+    return `${range}${ex.repUnit === 'seconds' ? ' s' : ex.repUnit === 'minutes' ? ' min' : ''}${side}`;
   }
   const reps = ex.reps ?? [];
   if (reps.length === 0) return '';
-  return `${reps.every(r => r === reps[0]) ? reps[0] : reps.join('/')}${side}`;
+  return `${reps.every(r => r === reps[0]) ? reps[0] : reps.join('/')}${ex.repUnit === 'minutes' ? ' min' : ex.repUnit === 'seconds' ? ' s' : ''}${side}`;
 }
 
 /** Unidad para acompañar al objetivo ("reps", "pasos" o nada si ya lleva "s"). */
 export function repUnitLabel(ex: Pick<Exercise, 'repUnit'>): string {
-  return ex.repUnit === 'seconds' ? '' : ex.repUnit === 'steps' ? ' pasos' : ' reps';
+  return ex.repUnit === 'seconds' || ex.repUnit === 'minutes' ? '' : ex.repUnit === 'steps' ? ' pasos' : ' reps';
 }
 
 /** Objetivo completo con unidad antes del lado: "8-12 reps/lado", "30 s", "10 pasos". */

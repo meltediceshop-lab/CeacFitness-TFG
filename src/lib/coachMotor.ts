@@ -1,3 +1,5 @@
+import { estimateSessionMinutes } from '@/lib/fitkMotor';
+import { findExtraExercise, fitToMinutes, outdoorExtras } from '@/lib/cardioCatalog';
 import { ALL_EQUIPMENT, SESSION_FOCUS, durationFromMinutes, generateFocusSession, motorCatalog, type MotorInput } from '@/lib/fitkMotor';
 import { formatRepLine } from '@/lib/exerciseFormat';
 import { libraryById } from '@/lib/fitkLibrary';
@@ -89,7 +91,22 @@ export function buildOutdoorSession(base: MotorInput, minutes: number): import('
       if (!seen.has(key)) { seen.add(key); exercises.push(e); }
     }
   }
-  return exercises;
+  // Variedad (cambia cada día): barras, saltos y calistenia alternados con los de la
+  // Biblioteca, y un final de cardio si queda tiempo. Se añade mientras quepa.
+  const extras = outdoorExtras({ minutes: 60, advanced: base.level === 'advanced' }).filter(e => !seen.has(e.name));
+  const finisher = extras.find(e => e.slotFunction === 'cardio');
+  const funcs = extras.filter(e => e !== finisher);
+  const order: import('@/types/user').Exercise[] = [];
+  for (let i = 0; i < Math.max(exercises.length, funcs.length); i++) {
+    if (exercises[i]) order.push(exercises[i]);
+    if (funcs[i]) order.push(funcs[i]);
+  }
+  const fits = (l: import('@/types/user').Exercise[]) =>
+    estimateSessionMinutes({ id: 'x', sessionNumber: 0, name: '', targetMuscles: '', duration: 0, exercises: l, status: 'available' }) <= minutes + 2;
+  const chosen: import('@/types/user').Exercise[] = [];
+  for (const e of order) if (chosen.length < 3 || fits([...chosen, e])) chosen.push(e);
+  if (finisher && fits([...chosen, finisher])) chosen.push(finisher);
+  return fitToMinutes(chosen, minutes);
 }
 
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -112,5 +129,11 @@ export function findLibraryExercise(query: string): { exercise: import('@/types/
   }).filter(x => x.score > 5).sort((a, b) => b.score - a.score);
   const best = scored[0];
   const confident = best && (best.score >= 40 || (words.length > 0 && best.score >= words.length * 10 - 1));
-  return { exercise: confident ? best.e : null, similar: scored.slice(0, 4).map(x => x.e.name) };
+  // Cardio, saltos, barras y CrossFit no están en la Biblioteca: se buscan aparte.
+  const extra = findExtraExercise(query);
+  if (extra.exercise && (!confident || extra.score >= 80 || extra.score > (best?.score ?? 0))) {
+    return { exercise: extra.exercise, similar: [...extra.similar, ...scored.slice(0, 2).map(x => x.e.name)].slice(0, 4) };
+  }
+  const similar = [...scored.slice(0, 4).map(x => x.e.name), ...extra.similar];
+  return { exercise: confident ? best.e : null, similar: [...new Set(similar)].slice(0, 4) };
 }

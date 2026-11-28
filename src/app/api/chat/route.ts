@@ -6,6 +6,8 @@ import { COACH_MODEL, COACH_REASONING_EFFORT } from '@/lib/llm';
 import { ALL_EQUIPMENT, EXTRA_FUNCTIONS, SESSION_FOCUS, type MotorInput } from '@/lib/fitkMotor';
 import { motorInputFromRows } from '@/lib/motorInputFromRows';
 import { buildMotorWorkout, findLibraryExercise, toPlainText } from '@/lib/coachMotor';
+import { buildCardioSession, buildWodSession } from '@/lib/cardioCatalog';
+import { formatRepLine } from '@/lib/exerciseFormat';
 import type { CoachWorkout } from '@/types/user';
 import { chatKeyMode, isChatKey } from '@/lib/coachChats';
 import OpenAI from 'openai';
@@ -68,7 +70,7 @@ RESTRICCIÓN DE TEMA OBLIGATORIA: Solo debes responder preguntas relacionadas co
   if (isGym) {
     instructions += `\n- Entrenos de GIMNASIO: pesas libres, barras, máquinas, mancuernas. No propones ejercicios al aire libre ni running.\n\n${BOE_FK}`;
   } else if (isOutdoor) {
-    instructions += '\n- Entrenos AL AIRE LIBRE: la sesión de fuerza la construye el Motor con peso corporal y barras de parque (equipment ["dominadas","paralelas"], o [] si no tiene barras). Usa preferentemente el enfoque "fullB" o "legs" (la Biblioteca no tiene remo ni bisagra sin material). Para running o cardio da pautas en texto (no hay tarjeta para eso).';
+    instructions += '\n- Entrenos AL AIRE LIBRE: la sesión de fuerza la construye el Motor con peso corporal y barras de parque (equipment ["dominadas","paralelas"], o [] si no tiene barras). Usa preferentemente el enfoque "fullB" o "legs" (la Biblioteca no tiene remo ni bisagra sin material). Para running, bici o cualquier cardio usa la herramienta "request_conditioning_session" con place "outdoor".';
   } else if (isNutrition) {
     instructions += '\n- Céntrate en nutrición: macros, timing de comidas, recetas, suplementos, dietas. Si preguntan sobre entrenamiento, puedes dar una respuesta mínima pero redirige a nutrición.';
   }
@@ -218,6 +220,8 @@ PERFIL DE ${name.toUpperCase()}:
 - Si pregunta cómo va, su progreso o un resumen, usa "progress_summary" y respóndele con esos datos reales (breve, motivador, sin inventar).
 - Si pregunta si debe subir peso o cómo progresar en un ejercicio, usa "exercise_progress" y explica la recomendación con sus series reales.
 - Si pregunta qué puedes hacer, explícalo en pocas frases (también cambiar ejercicios, mover sesiones, resumir su progreso y decirle cuándo subir peso): crear una sesión con el Motor (gimnasio, casa o calle), añadir un ejercicio a una sesión, adaptar el día a la energía o al tiempo (desde la pantalla de energía y "Cambiar tiempo"), preparar planes de comidas y macros, entender fotos (comida, máquinas, técnica, etiquetas) y notas de voz, y resolver dudas de técnica, descansos o progresión.
+- CARDIO y CROSSFIT: si pide cardio (bici estática, cinta, correr, elíptica, remo, comba, escaleras, natación, HIIT…) o un entreno estilo CrossFit/WOD/metabólico, usa "request_conditioning_session" (type "cardio" o "crossfit", sitio, minutos, estilo y la máquina si la nombra). Si solo pregunta qué opciones tiene, explícale brevemente las opciones (continuo suave en zona 2, intervalos, mixto; y en qué máquinas o sitios) y ofrécele preparárselo.
+- Para AÑADIR un ejercicio concreto (también de cardio como «20 minutos de bici», saltos, burpees, dominadas o movimientos de CrossFit como wall ball o kettlebell swing) usa "add_exercise_to_session".
 - La herramienta "create_nutrition_plan" crea un plan de comidas que se guarda en la pestaña Nutrición; adáptalo a su perfil.
 - Cuando uses una herramienta, en tu respuesta de texto explica brevemente qué le has preparado y por qué, y anímale a guardarlo con el botón de la tarjeta. No repitas todos los datos: ya los verá en la tarjeta.
 - Para nutrición puedes crear el plan directamente con la herramienta aunque no haya completado el cuestionario, usando los datos de su perfil
@@ -514,6 +518,16 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
 
     const fn = (name: string, description: string, properties: Record<string, unknown>, required: string[] = []): OpenAI.Chat.Completions.ChatCompletionTool =>
       ({ type: 'function', function: { name, description, parameters: { type: 'object', properties, required } } });
+    const conditioningTool = fn('request_conditioning_session',
+      'Prepara una sesión de CARDIO (bici estática, cinta, correr, elíptica, remo, escaladora, comba, natación, HIIT) o de estilo CROSSFIT/WOD. Úsala cuando pida cardio, quemar calorías con máquinas, correr, intervalos, HIIT o un WOD.',
+      {
+        type: { type: 'string', enum: ['cardio', 'crossfit'], description: 'cardio = máquinas o carrera; crossfit = circuito funcional (thrusters, wall balls, burpees, saltos…)' },
+        place: { type: 'string', enum: ['gym', 'outdoor', 'home'], description: 'Dónde lo hará. gym por defecto; outdoor si habla de correr fuera, parque o bici de carretera; home si es en casa sin material.' },
+        minutes: { type: 'number', description: 'Minutos si los indica (15-90).' },
+        style: { type: 'string', enum: ['suave', 'intervalos', 'mixto'], description: 'Solo para cardio: suave (zona 2, continuo), intervalos (HIIT) o mixto. Por defecto suave.' },
+        machine: { type: 'string', description: 'Máquina o actividad concreta si la nombra: "bici estática", "cinta", "remo", "elíptica", "correr", "comba"…' },
+        advanced: { type: 'boolean', description: 'Solo true si dice que tiene experiencia en CrossFit (permite muscle-ups, power clean, double unders…).' },
+      }, ['type']);
     const swapTool = fn('swap_exercise', 'Cambia un ejercicio de una de sus sesiones por una alternativa del Motor (ocupado, sin material o no le gusta; nunca por dolor).',
       { exercise: { type: 'string', description: 'Ejercicio que quiere cambiar, como lo dice el usuario' } }, ['exercise']);
     const moveTool = fn('move_session', 'Mueve una sesión de la semana a otro día o la quita de esta semana.',
@@ -532,6 +546,8 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
     const wantsWorkoutSaved = !wantsExerciseAdded &&
       /(anad|agreg|guard|apunt|\bmete)/.test(normalized) &&
       /(entren|rutina|sesion)/.test(normalized);
+    // Guardar un entreno de cardio o CrossFit va a su herramienta, no a la de fuerza.
+    const wantsConditioning = /(cardio|bici|cinta|correr|running|carrera|eliptic|remo ergo|comba|hiit|crossfit|wod|metabolic)/.test(normalized);
 
     const completion = await deepseek.chat.completions.create({
       model: COACH_MODEL,
@@ -539,9 +555,9 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       messages,
       max_tokens: 1200,
       temperature: 0.7,
-      tools: [workoutTool, nutritionTool, addExerciseTool, swapTool, moveTool, progressTool, liftTool],
+      tools: [workoutTool, conditioningTool, nutritionTool, addExerciseTool, swapTool, moveTool, progressTool, liftTool],
       tool_choice: wantsWorkoutSaved
-        ? { type: 'function', function: { name: 'request_motor_session' } }
+        ? { type: 'function', function: { name: wantsConditioning ? 'request_conditioning_session' : 'request_motor_session' } }
         : 'auto',
     });
 
@@ -557,7 +573,7 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
       const toolCall = choice.message.tool_calls[0] as { id: string; type: string; function: { name: string; arguments: string } };
       const fnName = toolCall.function?.name;
 
-      if (['request_motor_session', 'create_nutrition_plan', 'add_exercise_to_session', 'swap_exercise', 'move_session', 'progress_summary', 'exercise_progress'].includes(fnName)) {
+      if (['request_motor_session', 'request_conditioning_session', 'create_nutrition_plan', 'add_exercise_to_session', 'swap_exercise', 'move_session', 'progress_summary', 'exercise_progress'].includes(fnName)) {
         let parsed: Record<string, unknown> = {};
         try { parsed = JSON.parse(toolCall.function.arguments || '{}'); } catch { /* ignore */ }
 
@@ -582,6 +598,19 @@ Ten en cuenta esta revisión al aconsejar (p.ej. si hay molestias, estrés alto 
           } else {
             successMsg = `No hay un ejercicio claro con ese nombre en la Biblioteca.${found.similar.length ? ` Los más parecidos: ${found.similar.join(', ')}.` : ''} Pregúntale cuál quiere (nombra esas opciones) o que lo describa de otra forma.`;
           }
+        } else if (fnName === 'request_conditioning_session') {
+          const place = ['gym', 'outdoor', 'home'].includes(String(parsed.place)) ? parsed.place as 'gym' | 'outdoor' | 'home' : (mode === 'outdoor' ? 'outdoor' : 'gym');
+          const minutes = typeof parsed.minutes === 'number' ? parsed.minutes : undefined;
+          const session = parsed.type === 'crossfit'
+            ? buildWodSession({ minutes, place, advanced: parsed.advanced === true })
+            : buildCardioSession({ place, minutes, style: ['suave', 'intervalos', 'mixto'].includes(String(parsed.style)) ? parsed.style as 'suave' | 'intervalos' | 'mixto' : 'suave', machine: typeof parsed.machine === 'string' ? parsed.machine : undefined });
+          workoutData = {
+            name: session.name, targetMuscles: session.targetMuscles, duration: session.duration,
+            exercises: session.exercises.map(e => ({ name: e.name, sets: e.sets, reps: e.reps, restSeconds: e.restSeconds, instructions: e.instructions, repLabel: formatRepLine(e) })),
+            session,
+          };
+          const lines = session.exercises.map(e => `- ${e.name}: ${e.sets > 1 ? `${e.sets} x ` : ''}${formatRepLine(e)}${e.restSeconds ? `, descanso ${e.restSeconds} s` : ''}. ${e.instructions ?? ''}`);
+          successMsg = `Sesión preparada: ${session.name} (~${session.duration} min).\n${lines.join('\n')}\nEl usuario ya ve la sesión en la tarjeta y puede guardarla. Responde en 2-4 frases de texto plano: qué le has preparado, a qué intensidad (usa las pautas de arriba) y anímale a guardarla. No enumeres los ejercicios ni cambies la dosis.`;
         } else if (fnName === 'request_motor_session') {
           const motor = buildMotorWorkout(motorBase, parsed as Parameters<typeof buildMotorWorkout>[1], mode);
           workoutData = motor.workout;
