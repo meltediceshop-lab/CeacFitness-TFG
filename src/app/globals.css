@@ -594,6 +594,7 @@ html.dark [class~="p-1"][class~="bg-[rgba(118,118,128,0.12)]"] > button[class~="
     0 24px 60px -18px rgba(0, 0, 0, 0.38) !important;
 }
 html.dark .glass-modal {
+  border: 0 !important;
   background: linear-gradient(180deg, rgba(44, 44, 46, 0.8) 0%, rgba(28, 28, 30, 0.76) 100%) !important;
   backdrop-filter: blur(36px) saturate(170%) !important;
   box-shadow:
@@ -605,14 +606,15 @@ html.dark .glass-modal {
 .glass-modal[class~="rounded-t-3xl"] {
   border-radius: 36px !important;
   width: calc(100% - 16px) !important;
-  margin: 0 8px max(8px, env(safe-area-inset-bottom, 0px)) !important;
+  /* Margen fijo: las hojas ya reservan dentro la zona de la barra de inicio */
+  margin: 0 8px 8px !important;
   max-height: min(92dvh, calc(100dvh - 24px - env(safe-area-inset-top, 0px))) !important;
   contain: paint; /* el contenido respeta las esquinas sin perder la sombra */
 }
 /* Panel lateral (lista de chats): también flota */
 aside.glass-modal {
   border-radius: 36px !important;
-  margin: max(8px, env(safe-area-inset-top, 0px)) 0 max(8px, env(safe-area-inset-bottom, 0px)) 8px !important;
+  margin: 8px 0 8px 8px !important; /* la zona segura ya va dentro del panel */
   contain: paint;
 }
 /* Menús y desplegables: esquinas amplias */
@@ -622,5 +624,11 @@ aside.glass-modal {
 
 @media (prefers-reduced-transparency: reduce) {
   .glass-modal { background: #f7f7f8 !important; backdrop-filter: none !important; }
-  html.dark .glass-modal { background: #1c1c1e !important; }
+  html.dark .glass-modal { background: #1c1c1e !important; backdrop-filter: none !important; }
+}
+
+/* Foco de teclado visible en botones y enlaces (el cristal usa box-shadow, así que va con outline) */
+:is(button, a, [role="tab"], [role="radio"]):focus-visible {
+  outline: 2px solid rgb(var(--acc-500) / 0.65) !important;
+  outline-offset: 2px;
 }

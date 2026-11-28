@@ -102,10 +102,10 @@ function NoteMedia({ post }: { post: CommunityPost }) {
 /** Entreno antiguo sin imagen: resumen compacto y honesto (sin calorías inventadas). */
 function WorkoutMedia({ post }: { post: CommunityPost }) {
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl p-5" style={{ background: 'radial-gradient(120% 120% at 100% 0%, #065f46 0%, #0a0a0a 60%)' }}>
+    <div className="relative w-full overflow-hidden rounded-2xl p-5" style={{ background: 'radial-gradient(120% 120% at 100% 0%, var(--hero-1) 0%, var(--hero-3) 70%)' }}>
       <div className="flex items-center justify-between mb-6">
         <span className="text-white font-black text-lg tracking-tight">Fit K</span>
-        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.14em] text-emerald-300 bg-emerald-400/10 border border-emerald-400/25">ENTRENO COMPLETADO</span>
+        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.14em] text-white bg-white/15 border border-white/20">ENTRENO COMPLETADO</span>
       </div>
       <p className="text-white text-2xl font-bold leading-tight [text-wrap:balance] mb-5">{post.workoutName || 'Entrenamiento'}</p>
       <div className="flex gap-6">

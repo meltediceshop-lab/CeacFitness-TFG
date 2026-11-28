@@ -852,7 +852,7 @@ export function CommunityScreen() {
               <span className="text-[10px] font-bold tracking-[0.16em] text-emerald-200/90">NUEVO</span>
               <span className="mt-1 text-[22px] leading-tight font-bold text-white [text-wrap:balance]">Crea tu tarjeta</span>
               <span className="mt-1 text-[13px] leading-snug text-emerald-50/80">Tu sesión, tu semana o tu progreso, listos para Instagram o WhatsApp.</span>
-              <span className="mt-auto pt-3 inline-flex self-start items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-emerald-800 text-sm font-semibold">
+              <span className="mt-auto pt-3 inline-flex self-start items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#fff] text-[color:var(--hero-3)] text-sm font-semibold">
                 Crear tarjeta <ChevronRight className="w-4 h-4" />
               </span>
             </div>

@@ -126,6 +126,24 @@ export function resetTheme() {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#000000' : '#f2f2f7');
 }
 
+/** Al arrancar: si el tema guardado viene de la versión anterior (su CSS no trae --acc-on),
+ *  lo regenera. Entonces el verde y el fondo Menta eran el valor por defecto, no una elección:
+ *  se pasan al neutro nuevo; cualquier otro color elegido se conserva. */
+export function refreshStoredTheme() {
+  try {
+    if (!localStorage.getItem(STORAGE)) return;
+    const css = localStorage.getItem(STORAGE_CSS) ?? '';
+    if (css.includes('--acc-on:')) return;
+    const s = loadTheme();
+    const t: AppTheme = { light: { ...s.light }, dark: { ...s.dark } };
+    for (const m of ['light', 'dark'] as const) {
+      if (t[m].accent.toLowerCase() === '#10b981') t[m].accent = DEFAULT_THEME[m].accent;
+    }
+    if (t.light.bg.toLowerCase() === '#f5f6f4') { t.light.bg = DEFAULT_THEME.light.bg; t.light.top = DEFAULT_THEME.light.top; }
+    applyTheme(t);
+  } catch { /* sin almacenamiento */ }
+}
+
 /** Color de la barra de estado según el modo y el tema guardado. */
 export function statusBarColor(dark: boolean): string {
   try {
@@ -159,4 +177,4 @@ export function resolveDark(a: Appearance): boolean {
 }
 
 /** Script que se ejecuta antes de pintar la página: aplica el modo y el CSS guardados (sin parpadeo). */
-export const THEME_BOOT_SCRIPT = `try{var a=localStorage.getItem('${APPEARANCE}');if(a!=='system'&&a!=='light'&&a!=='dark'){a=localStorage.getItem('${LEGACY_DARK}')==='true'?'dark':'system'}if(a==='dark'||(a==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}var c=localStorage.getItem('${STORAGE_CSS}');if(c){var s=document.createElement('style');s.id='fitk-theme';s.textContent=c;document.head.appendChild(s);}}catch(e){}`;
+export const THEME_BOOT_SCRIPT = `try{var a=localStorage.getItem('${APPEARANCE}');if(a!=='system'&&a!=='light'&&a!=='dark'){a=localStorage.getItem('${LEGACY_DARK}')==='true'?'dark':'system'}if(a==='dark'||(a==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}var c=localStorage.getItem('${STORAGE_CSS}');if(c){var s=document.createElement('style');s.id='fitk-theme';s.textContent=c;document.head.appendChild(s);}var d=document.documentElement.classList.contains('dark'),m=document.querySelector('meta[name="theme-color"]'),t=JSON.parse(localStorage.getItem('${STORAGE}')||'null'),o=t&&(d?t.dark:t.light);if(m){m.setAttribute('content',(o&&(o.top||o.bg))||(d?'#000000':'#f2f2f7'))}}catch(e){}`;

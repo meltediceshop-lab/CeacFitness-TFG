@@ -273,7 +273,7 @@ export function ProfileSheet({ userId, demo, onClose, onOpenFriends, onChanged }
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-2">Publicaciones · {s.posts}</p>
                       <div className="grid grid-cols-3 gap-1.5">
                         {view.posts.map(p => (
-                          <div key={p.id} className="aspect-[4/5] rounded-xl overflow-hidden relative" style={p.photoUrl ? undefined : { background: 'radial-gradient(120% 100% at 100% 0%, rgb(var(--acc-500)), rgb(var(--acc-900)))' }}>
+                          <div key={p.id} className="aspect-[4/5] rounded-xl overflow-hidden relative" style={p.photoUrl ? undefined : { background: 'radial-gradient(120% 100% at 100% 0%, var(--hero-1), var(--hero-2))' }}>
                             {p.photoUrl
                               ? <img src={p.photoUrl} alt={p.workoutName || 'Publicación'} loading="lazy" className="w-full h-full object-cover" />
                               : <div className="p-2 h-full flex flex-col text-white"><Quote className="w-3.5 h-3.5 opacity-80" /><p className="mt-1 text-[10px] leading-snug line-clamp-6">{p.content || p.workoutName}</p></div>}

@@ -754,7 +754,7 @@ export function NutritionScreen() {
                   const isSelected = multiSelected.includes(opt.value);
                   return (
                     <button key={opt.value} onClick={() => handleMultiCheck(opt.value)} className={`w-full p-4 rounded-2xl text-left flex items-center gap-4 border-2 transition-all ${isSelected ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-transparent bg-white dark:bg-[#1a1a1a] shadow-sm'}`}>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-emerald-400 bg-emerald-400' : 'border-stone-300'}`}>
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-stone-300'}`}>
                         {isSelected && <Check className="w-3 h-3 text-white" />}
                       </div>
                       <span className="font-medium text-stone-900">{opt.label}</span>

@@ -839,7 +839,7 @@ export function DashboardScreen() {
               {metricsHistory.length >= 2 && (
                 <SparkLine
                   data={[...metricsHistory].reverse().filter(r => r.weight != null).map(r => ({ value: r.weight! }))}
-                  color="#10b981"
+                  color="rgb(var(--acc-500))"
                   height={28}
                 />
               )}
@@ -983,7 +983,7 @@ export function DashboardScreen() {
                     ) : (
                       /* Ya registrado — se muestra como completado pero no interactivo */
                       <div className="w-full flex items-center gap-4 bg-emerald-50 rounded-2xl p-4 opacity-70">
-                        <div className="w-11 h-11 bg-emerald-200 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <div className="w-11 h-11 bg-emerald-200 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
                           <Check className="w-5 h-5 text-emerald-600" />
                         </div>
                         <div>

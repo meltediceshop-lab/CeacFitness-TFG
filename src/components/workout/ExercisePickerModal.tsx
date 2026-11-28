@@ -48,7 +48,7 @@ export function ExercisePickerModal({
         animate={{ y: 0 }}
         exit={{ y: 500 }}
         transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-        className="w-full max-w-md bg-white dark:bg-[#141414] rounded-t-3xl flex flex-col"
+        className="w-full max-w-md glass-modal rounded-t-3xl flex flex-col"
         style={{ maxHeight: '85vh' }}
       >
         <div className="w-10 h-1 bg-stone-300 rounded-full mx-auto mt-3 mb-2 flex-shrink-0" />

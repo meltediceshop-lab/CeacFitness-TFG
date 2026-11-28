@@ -162,7 +162,7 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
                   {ACTIVITY_LEVELS.map(a => (
                     <button key={a.id} type="button" aria-pressed={activity === a.id} onClick={() => setActivity(a.id)}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-colors ${activity === a.id ? 'bg-emerald-500/10 ring-1 ring-emerald-500/50' : 'bg-[rgba(118,118,128,0.08)]'}`}>
-                      <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${activity === a.id ? 'border-emerald-500 bg-emerald-500 shadow-[inset_0_0_0_3px_#fff]' : 'border-stone-300 dark:border-white/30'}`} />
+                      <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${activity === a.id ? 'border-emerald-500 bg-emerald-500 shadow-[inset_0_0_0_3px_rgb(var(--acc-on))]' : 'border-stone-300 dark:border-white/30'}`} />
                       <span className="min-w-0"><span className="block text-sm font-semibold text-stone-900 dark:text-white">{a.label}</span><span className="block text-xs text-stone-500">{a.hint}</span></span>
                     </button>
                   ))}

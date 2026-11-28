@@ -33,7 +33,7 @@ function AnalogClock({ elapsed, size = 44 }: { elapsed: number; size?: number })
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {/* Cara */}
-      <circle cx={cx} cy={cy} r={r} fill="white" stroke="#d1fae5" strokeWidth="1.5" />
+      <circle cx={cx} cy={cy} r={r} fill="white" className="stroke-stone-200" strokeWidth="1.5" />
 
       {/* Marcas de hora */}
       {Array.from({ length: 12 }, (_, i) => {
@@ -41,7 +41,7 @@ function AnalogClock({ elapsed, size = 44 }: { elapsed: number; size?: number })
         return (
           <circle key={i} cx={dot.x} cy={dot.y}
             r={i % 3 === 0 ? 1.8 : 1}
-            className={i % 3 === 0 ? 'fill-emerald-500' : 'fill-stone-300 dark:fill-white/25'} />
+            className={i % 3 === 0 ? 'fill-emerald-500 dark:fill-emerald-950' : 'fill-stone-300'} />
         );
       })}
 
@@ -55,10 +55,10 @@ function AnalogClock({ elapsed, size = 44 }: { elapsed: number; size?: number })
 
       {/* Manecilla segundo — suave continuo */}
       <line x1={cx} y1={cy} x2={sec.x} y2={sec.y}
-        className="stroke-emerald-500" strokeWidth="1.1" strokeLinecap="round" />
+        className="stroke-emerald-500 dark:stroke-emerald-950" strokeWidth="1.1" strokeLinecap="round" />
 
       {/* Pivote central */}
-      <circle cx={cx} cy={cy} r="2.2" className="fill-emerald-500" />
+      <circle cx={cx} cy={cy} r="2.2" className="fill-emerald-500 dark:fill-emerald-950" />
     </svg>
   );
 }
@@ -118,7 +118,7 @@ export function WorkoutClockLarge({
         ? <AnalogClock elapsed={elapsed} size={120} />
         : (
           <div className="bg-stone-900 rounded-2xl px-6 py-4">
-            <span className="text-emerald-400 font-mono font-bold text-4xl tracking-widest tabular-nums">
+            <span className="text-stone-50 font-mono font-bold text-4xl tracking-widest tabular-nums">
               {formatTime(elapsed)}
             </span>
           </div>

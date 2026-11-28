@@ -17,7 +17,7 @@ interface LineChartProps {
 
 export function LineChart({
   data,
-  color = '#10b981',
+  color = 'rgb(var(--acc-500))',
   unit = '',
   height = 140,
   showDots = true,
@@ -100,7 +100,7 @@ export function LineChart({
 
         {/* Area fill */}
         <defs>
-          <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`grad-${color.replace(/[^a-z0-9]/gi, '')}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.25" />
             <stop offset="100%" stopColor={color} stopOpacity="0.02" />
           </linearGradient>
@@ -108,7 +108,7 @@ export function LineChart({
         {points.length > 1 && (
           <path
             d={`${pathD} L ${points[points.length - 1].x} ${height - 24 - 8} L ${points[0].x} ${height - 24 - 8} Z`}
-            fill={`url(#grad-${color.replace('#', '')})`}
+            fill={`url(#grad-${color.replace(/[^a-z0-9]/gi, '')})`}
           />
         )}
 
@@ -153,7 +153,7 @@ export function LineChart({
 /** Mini sparkline for dashboard card (no labels, no dots) */
 export function SparkLine({
   data,
-  color = '#10b981',
+  color = 'rgb(var(--acc-500))',
   height = 40,
 }: {
   data: { value: number }[];

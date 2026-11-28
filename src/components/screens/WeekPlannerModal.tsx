@@ -228,7 +228,7 @@ export function WeekPlannerModal({ sessions: initialSessions, weekNumber, onConf
                     {date.getDate()}
                   </span>
                   {session && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/70 mt-0.5" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-current opacity-70 mt-0.5" />
                   )}
                 </button>
               );

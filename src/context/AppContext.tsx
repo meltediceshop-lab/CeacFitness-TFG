@@ -1,6 +1,6 @@
 'use client';
 
-import { loadAppearance, resolveDark, saveAppearance, statusBarColor, type Appearance } from '@/lib/appTheme';
+import { loadAppearance, refreshStoredTheme, resolveDark, saveAppearance, statusBarColor, type Appearance } from '@/lib/appTheme';
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -465,6 +465,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const a = loadAppearance();
     setAppearanceState(a);
     applyDark(resolveDark(a));
+    refreshStoredTheme();
   }, []);
 
   // En automático, la app cambia sola cuando el teléfono pasa de claro a oscuro (o al revés).

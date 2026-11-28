@@ -61,7 +61,7 @@ function ClockPickerModal({ onChoose }: { onChoose: (style: ClockStyle) => void 
         initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="bg-white w-full max-w-md rounded-t-3xl px-6 pt-6 pb-10"
+        className="glass-modal w-full max-w-md rounded-t-3xl px-6 pt-6 pb-8"
       >
         <div className="w-10 h-1 bg-stone-200 rounded-full mx-auto mb-5" />
         <h2 className="text-xl font-bold text-stone-900 text-center mb-1">¿Qué tipo de reloj prefieres?</h2>
@@ -112,7 +112,7 @@ function ClockExpandedModal({
         initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="bg-white rounded-3xl p-8 flex flex-col items-center gap-4 max-w-xs w-full"
+        className="glass-modal rounded-3xl p-8 flex flex-col items-center gap-4 max-w-xs w-full"
         onClick={e => e.stopPropagation()}
       >
         <WorkoutClockLarge elapsed={elapsed} style={style} targetMinutes={targetMinutes} />
@@ -1159,7 +1159,7 @@ export function WorkoutScreen() {
                     const isCompleted = completedSets.has(setKey);
                     const isCurrent = i === currentSetIndex;
                     return (
-                      <div key={i} className={`flex-1 h-2 rounded-full ${isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-emerald-300' : 'bg-stone-200'}`} />
+                      <div key={i} className={`flex-1 h-2 rounded-full ${isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-emerald-500/45' : 'bg-stone-200'}`} />
                     );
                   })}
                 </div>
