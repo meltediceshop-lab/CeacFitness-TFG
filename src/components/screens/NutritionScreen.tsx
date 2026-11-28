@@ -189,53 +189,59 @@ function PlanDisplay({ plan, onReset, onShopping, onEditMeal, onRegenerateMeal, 
         </div>
         <div className="space-y-3">
           {plan.meals.map((meal, i) => (
-            <div key={i} className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="min-w-0 break-words font-semibold text-stone-900 dark:text-white text-sm">{meal.name}</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-stone-400 mr-1">{meal.time}</span>
-                  <button
-                    onClick={() => onLogMeal(i)}
-                    className={`w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full ${loggedMealIndex === i ? 'bg-emerald-500' : 'bg-[rgba(118,118,128,0.12)]'}`}
-                    title="Registrar en tu diario de hoy"
-                  >
-                    {loggedMealIndex === i
-                      ? <Check className="w-3.5 h-3.5 text-white" />
-                      : <PlusCircle className="w-3.5 h-3.5 text-emerald-500" />}
-                  </button>
-                  <button
-                    onClick={() => onRegenerateMeal(i)}
-                    disabled={regeneratingMeal === i}
-                    className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)] disabled:opacity-50"
-                    title="Regenerar con IA"
-                  >
-                    {regeneratingMeal === i
-                      ? <Loader2 className="w-3.5 h-3.5 text-emerald-500 animate-spin" />
-                      : <Sparkles className="w-3.5 h-3.5 text-emerald-500" />}
-                  </button>
-                  <button
-                    onClick={() => onEditMeal(i)}
-                    className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)]"
-                    title="Editar comida"
-                  >
-                    <Pencil className="w-3.5 h-3.5 text-stone-500" />
-                  </button>
-                  <button
-                    onClick={() => onDeleteMeal(i)}
-                    className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)]"
-                    title="Eliminar comida"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-stone-400 hover:text-red-500" />
-                  </button>
-                </div>
+            <div key={i} className="p-3.5 rounded-2xl bg-[rgba(118,118,128,0.07)] dark:bg-white/[0.06]">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="min-w-0 font-semibold text-[15px] leading-snug text-stone-900 dark:text-white">{meal.name}</p>
+                {meal.time && <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-stone-500 tabular-nums">{meal.time}</span>}
               </div>
-              <p className="text-stone-600 dark:text-stone-400 text-xs mb-2">{meal.description}</p>
-              <div className="flex flex-wrap gap-1">
-                {meal.examples.map((ex, j) => (
-                  <span key={j} className="px-2 py-0.5 bg-white dark:bg-stone-700 rounded-full text-xs text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-600">
-                    {ex}
-                  </span>
-                ))}
+              {meal.description && <p className="mt-1 text-[13px] leading-snug text-stone-600 dark:text-stone-400">{meal.description}</p>}
+              {meal.examples.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {meal.examples.map((ex, j) => (
+                    <span key={j} className="px-2.5 py-1 rounded-full text-xs leading-tight text-stone-700 dark:text-stone-200 bg-[rgba(118,118,128,0.12)] dark:bg-white/10">
+                      {ex}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onLogMeal(i)}
+                  className={`h-9 px-3.5 rounded-full flex items-center gap-1.5 text-[13px] font-semibold ${loggedMealIndex === i ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white'}`}
+                >
+                  {loggedMealIndex === i ? <Check className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
+                  {loggedMealIndex === i ? 'Añadida a hoy' : 'Añadir a hoy'}
+                </button>
+                <span className="flex-1" />
+                <button
+                  type="button"
+                  onClick={() => onRegenerateMeal(i)}
+                  disabled={regeneratingMeal === i}
+                  aria-label="Regenerar con IA"
+                  title="Regenerar con IA"
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-white disabled:opacity-50"
+                >
+                  {regeneratingMeal === i ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEditMeal(i)}
+                  aria-label="Editar comida"
+                  title="Editar comida"
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-white"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteMeal(i)}
+                  aria-label="Eliminar comida"
+                  title="Eliminar comida"
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-[rgba(118,118,128,0.12)] text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}

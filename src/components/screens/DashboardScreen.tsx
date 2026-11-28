@@ -712,19 +712,19 @@ export function DashboardScreen() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className={`font-semibold first-letter:uppercase ${isCompleted ? 'text-stone-600 dark:text-white/50' : 'text-stone-900 dark:text-white'}`}>
-                        {date ? date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }) : `Sesión ${session.sessionNumber ?? ''}`}
+                      <p className={`min-w-0 truncate font-semibold first-letter:uppercase ${isCompleted ? 'text-stone-600 dark:text-white/50' : 'text-stone-900 dark:text-white'}`}>
+                        {/* La fecha ya va en el cuadro de la izquierda: aquí basta el día */}{date ? date.toLocaleDateString('es-ES', { weekday: 'long' }) : `Sesión ${session.sessionNumber ?? ''}`}
                       </p>
                       {otherWeekView && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${isCompleted ? 'bg-emerald-100 text-emerald-800 dark:text-emerald-300' : 'bg-stone-100 dark:bg-white/10 text-stone-500'}`}>
+                        <span className={`flex-shrink-0 whitespace-nowrap text-xs px-2 py-0.5 rounded-full ${isCompleted ? 'bg-emerald-100 text-emerald-800 dark:text-emerald-300' : 'bg-stone-100 dark:bg-white/10 text-stone-500'}`}>
                           {isCompleted ? 'Hecha' : weekOffset < 0 ? 'No hecha' : 'Planificada'}
                         </span>
                       )}
                       {!otherWeekView && date && relativeDay(date) && !isNext && (
-                        <span className="text-xs text-stone-500 bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-full">{relativeDay(date)}</span>
+                        <span className="flex-shrink-0 whitespace-nowrap text-xs text-stone-500 bg-stone-100 dark:bg-white/10 px-2 py-0.5 rounded-full">{relativeDay(date)}</span>
                       )}
                       {isNext && (
-                        <span className="text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full">{date && relativeDay(date) ? `${relativeDay(date)} · siguiente` : 'Siguiente'}</span>
+                        <span className="flex-shrink-0 whitespace-nowrap text-xs font-semibold bg-emerald-500 text-white px-2 py-0.5 rounded-full">{(date && relativeDay(date)) || 'Siguiente'}</span>
                       )}
                     </div>
                     <p className={`text-sm ${isCompleted ? 'text-stone-400 dark:text-white/35' : 'text-stone-600 dark:text-white/60'}`}>{session.name ?? ''}</p>
@@ -734,7 +734,7 @@ export function DashboardScreen() {
                   </div>
                   <div className="flex items-center gap-2">
                     {!isCompleted && (
-                      <div className="flex items-center gap-1 text-stone-400 text-sm">
+                      <div className="flex items-center gap-1 text-stone-400 text-sm whitespace-nowrap flex-shrink-0">
                         <Clock className="w-4 h-4" />
                         <span>{session.duration ?? ''} min</span>
                       </div>
