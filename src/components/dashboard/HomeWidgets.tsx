@@ -419,7 +419,7 @@ function WidgetBody({ w, stats, d, preview }: { w: HomeWidget; stats: HomeStats;
           </div>
           {React.createElement(preview ? 'span' : 'button', {
             ...(preview ? {} : { type: 'button', onClick: (e: React.MouseEvent) => { e.stopPropagation(); stats.onStartSession(s); } }),
-            className: 'h-11 px-4 rounded-full font-semibold text-sm flex items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform',
+            className: 'h-11 px-4 rounded-full font-semibold text-sm flex items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform ![background-image:var(--lg-sheen)] [box-shadow:var(--lg-rim-tint),0_1px_2px_rgba(0,0,0,0.08),0_8px_18px_-10px_rgba(0,0,0,0.4)]',
             style: { background: solid ? '#fff' : c.hex, color: solid ? c.deep : '#fff' },
           }, <Play className="w-4 h-4" fill="currentColor" />, 'Empezar')}
         </div>
@@ -453,7 +453,7 @@ function WidgetCard({ w, stats, d, onEdit, preview }: { w: HomeWidget; stats: Ho
         <p className={`text-xs font-semibold truncate flex-1 ${solid ? 'text-white/90' : 'text-stone-600 dark:text-white/70'}`}>{w.title}</p>
         {!preview && onEdit && (
           <button type="button" onClick={onEdit} aria-label={`Editar la sección ${w.title}`}
-            className={`w-7 h-7 -mr-1 rounded-full flex items-center justify-center ${solid ? 'hover:bg-white/15 text-white/80' : 'hover:bg-[rgba(118,118,128,0.12)] text-stone-400'}`}>
+            className={`w-9 h-9 -my-1 -mr-2 rounded-full flex items-center justify-center ${solid ? 'hover:bg-white/15 text-white/80' : 'hover:bg-[rgba(118,118,128,0.12)] text-stone-400'}`}>
             <MoreHorizontal className="w-4 h-4" />
           </button>
         )}
@@ -492,7 +492,7 @@ function Editor({ w, stats, d, index, count, onChange, onMove, onDelete, onClose
     <Sheet onClose={onClose} label="Editar sección">
       <div className="px-5 pt-2 pb-3 flex items-center justify-between flex-shrink-0">
         <h2 className="text-lg font-bold text-stone-900 dark:text-white">Editar sección</h2>
-        <button type="button" onClick={onClose} className="h-9 px-4 rounded-full bg-emerald-500 text-white text-sm font-semibold">Listo</button>
+        <button type="button" onClick={onClose} className="h-10 px-4 rounded-full bg-emerald-500 text-white text-sm font-semibold">Listo</button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-4">
         {/* Vista previa en vivo */}
@@ -544,9 +544,9 @@ function Editor({ w, stats, d, index, count, onChange, onMove, onDelete, onClose
               </div>
             </div>
             <button type="button" onClick={() => setS({ seconds: !(w.settings.seconds ?? true) })} aria-pressed={w.settings.seconds ?? true}
-              className="w-full h-11 px-3.5 rounded-xl bg-[rgba(118,118,128,0.10)] flex items-center justify-between text-[15px] text-stone-900 dark:text-white">
+              className="lg-keep w-full h-11 px-3.5 rounded-xl bg-[rgba(118,118,128,0.10)] flex items-center justify-between text-[15px] text-stone-900 dark:text-white">
               Mostrar segundos
-              <span className={`w-11 h-6 rounded-full p-0.5 transition-colors ${(w.settings.seconds ?? true) ? 'bg-emerald-500' : 'bg-stone-300 dark:bg-white/20'}`}>
+              <span className={`w-11 h-6 rounded-full p-0.5 transition-colors ${(w.settings.seconds ?? true) ? 'bg-[#34c759]' : 'bg-stone-300 dark:bg-white/20'}`}>
                 <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${(w.settings.seconds ?? true) ? 'translate-x-5' : ''}`} />
               </span>
             </button>
@@ -566,7 +566,7 @@ function Editor({ w, stats, d, index, count, onChange, onMove, onDelete, onClose
                       if (m.id === 'exercise' && !(w.settings.exercise && d.bests.has(w.settings.exercise)) && d.bests.size) patch.exercise = [...d.bests.keys()][0];
                       setS(patch);
                     }}
-                    className={`h-10 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-left ${metric === m.id ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.10)] text-stone-700 dark:text-white/80'}`}>
+                    className={`h-10 px-3 rounded-full text-xs font-semibold flex items-center gap-1.5 text-left ${metric === m.id ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.10)] text-stone-700 dark:text-white/80'}`}>
                     <m.icon className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{m.label}</span>
                   </button>
                 ))}
@@ -609,17 +609,17 @@ function Editor({ w, stats, d, index, count, onChange, onMove, onDelete, onClose
         )}
 
         <div className="grid grid-cols-2 gap-2 pt-1">
-          <button type="button" disabled={index === 0} onClick={() => onMove(-1)} className="h-11 rounded-xl bg-[rgba(118,118,128,0.10)] text-sm font-semibold text-stone-800 dark:text-white flex items-center justify-center gap-1.5 disabled:opacity-40">
+          <button type="button" disabled={index === 0} onClick={() => onMove(-1)} className="h-11 rounded-full bg-[rgba(118,118,128,0.10)] text-sm font-semibold text-stone-800 dark:text-white flex items-center justify-center gap-1.5 disabled:opacity-40">
             <ChevronUp className="w-4 h-4" /> Subir
           </button>
-          <button type="button" disabled={index === count - 1} onClick={() => onMove(1)} className="h-11 rounded-xl bg-[rgba(118,118,128,0.10)] text-sm font-semibold text-stone-800 dark:text-white flex items-center justify-center gap-1.5 disabled:opacity-40">
+          <button type="button" disabled={index === count - 1} onClick={() => onMove(1)} className="h-11 rounded-full bg-[rgba(118,118,128,0.10)] text-sm font-semibold text-stone-800 dark:text-white flex items-center justify-center gap-1.5 disabled:opacity-40">
             <ChevronDown className="w-4 h-4" /> Bajar
           </button>
         </div>
         {confirm ? (
           <div className="flex gap-2">
-            <button type="button" onClick={() => setConfirm(false)} className="flex-1 h-11 rounded-xl bg-[rgba(118,118,128,0.10)] text-sm font-semibold text-stone-700 dark:text-white">Cancelar</button>
-            <button type="button" onClick={onDelete} className="flex-1 h-11 rounded-xl bg-red-500 text-white text-sm font-semibold">Quitar sección</button>
+            <button type="button" onClick={() => setConfirm(false)} className="flex-1 h-11 rounded-full bg-[rgba(118,118,128,0.10)] text-sm font-semibold text-stone-700 dark:text-white">Cancelar</button>
+            <button type="button" onClick={onDelete} className="flex-1 h-11 rounded-full bg-red-500 text-white text-sm font-semibold">Quitar sección</button>
           </div>
         ) : (
           <button type="button" onClick={() => setConfirm(true)} className="w-full h-11 rounded-xl text-red-500 text-sm font-semibold flex items-center justify-center gap-1.5">
@@ -688,7 +688,7 @@ export function HomeWidgets({ stats, userId }: { stats: HomeStats; userId: strin
     <section className="pt-1 pb-4" aria-label="Tus secciones">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-stone-600 dark:text-white/60 text-sm font-medium">Tus secciones</h2>
-        <button type="button" onClick={() => setGallery(true)} className="h-8 px-3 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1">
+        <button type="button" onClick={() => setGallery(true)} className="h-10 -my-1 px-3.5 rounded-full bg-[rgba(118,118,128,0.12)] text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1">
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Añadir
         </button>
       </div>

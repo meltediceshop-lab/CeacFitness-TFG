@@ -162,7 +162,7 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
                   {ACTIVITY_LEVELS.map(a => (
                     <button key={a.id} type="button" aria-pressed={activity === a.id} onClick={() => setActivity(a.id)}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-colors ${activity === a.id ? 'bg-emerald-500/10 ring-1 ring-emerald-500/50' : 'bg-[rgba(118,118,128,0.08)]'}`}>
-                      <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${activity === a.id ? 'border-emerald-500 bg-emerald-500 shadow-[inset_0_0_0_3px_#fff]' : 'border-stone-300 dark:border-white/30'}`} />
+                      <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${activity === a.id ? 'border-emerald-500 bg-emerald-500 shadow-[inset_0_0_0_3px_rgb(var(--acc-on))]' : 'border-stone-300 dark:border-white/30'}`} />
                       <span className="min-w-0"><span className="block text-sm font-semibold text-stone-900 dark:text-white">{a.label}</span><span className="block text-xs text-stone-500">{a.hint}</span></span>
                     </button>
                   ))}
@@ -174,7 +174,7 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
                 <div className="grid grid-cols-2 gap-1.5">
                   {ENERGY_GOALS.map(g => (
                     <button key={g.id} type="button" aria-pressed={goal === g.id} onClick={() => setGoal(g.id)}
-                      className={`h-10 rounded-xl text-sm font-semibold ${goal === g.id ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.10)] text-stone-700 dark:text-white/80'}`}>{g.label}</button>
+                      className={`h-10 rounded-full text-sm font-semibold ${goal === g.id ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.10)] text-stone-700 dark:text-white/80'}`}>{g.label}</button>
                   ))}
                 </div>
                 {goal !== 'maintain' && (
@@ -186,7 +186,7 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
 
               {/* Resultado */}
               {result ? (
-                <div className="rounded-3xl p-4 text-white" style={{ background: 'radial-gradient(120% 120% at 100% 0%, rgb(var(--acc-500)) 0%, rgb(var(--acc-700)) 55%, rgb(var(--acc-950)) 100%)' }}>
+                <div className="rounded-3xl p-4 text-white" style={{ background: 'radial-gradient(130% 130% at 100% 0%, var(--hero-1) 0%, var(--hero-2) 50%, var(--hero-3) 100%)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-emerald-100/90">Tu objetivo diario</p>
                   <p className="leading-none mt-1"><span className="text-4xl font-bold tabular-nums">{fmt(result.target)}</span><span className="text-sm font-semibold text-emerald-100/90 ml-1">kcal</span></p>
                   <div className="grid grid-cols-3 gap-2 mt-3">
@@ -230,9 +230,9 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
                 {Math.abs(diff) > 50 && (
                   <div className="flex gap-2 mt-2.5">
                     <button type="button" onClick={() => setManual(m => ({ ...m, carbs: Math.max(0, Math.round((m.kcal - m.protein * 4 - m.fats * 9) / 4)) }))}
-                      className="flex-1 h-9 rounded-full bg-white/70 dark:bg-white/10 text-xs font-semibold text-stone-800 dark:text-white">Cuadrar con los hidratos</button>
+                      className="flex-1 h-10 rounded-full bg-[rgba(118,118,128,0.12)] text-xs font-semibold text-stone-800 dark:text-white">Cuadrar con los hidratos</button>
                     <button type="button" onClick={() => setManual(m => ({ ...m, kcal: m.protein * 4 + m.carbs * 4 + m.fats * 9 }))}
-                      className="flex-1 h-9 rounded-full bg-white/70 dark:bg-white/10 text-xs font-semibold text-stone-800 dark:text-white">Usar {fmt(macroKcal)} kcal</button>
+                      className="flex-1 h-10 rounded-full bg-[rgba(118,118,128,0.12)] text-xs font-semibold text-stone-800 dark:text-white">Usar {fmt(macroKcal)} kcal</button>
                   </div>
                 )}
               </div>
@@ -244,13 +244,13 @@ export function GoalsSheet({ initialTargets, initialBody, profile, onSave, onClo
           {tab === 'calc' ? (
             <>
               <button type="button" disabled={!result} onClick={() => { if (result) { setManual(result.macros); setTab('manual'); } }}
-                className="h-12 px-4 rounded-2xl bg-[rgba(118,118,128,0.12)] text-sm font-semibold text-stone-800 dark:text-white disabled:opacity-40">Retocar</button>
+                className="h-12 px-4 rounded-full bg-[rgba(118,118,128,0.12)] text-sm font-semibold text-stone-800 dark:text-white disabled:opacity-40">Retocar</button>
               <button type="button" disabled={!result} onClick={() => result && onSave(result.macros, body, saveWeight && weightChanged)}
-                className="flex-1 h-12 rounded-2xl bg-emerald-500 text-white font-semibold disabled:opacity-40">Usar {result ? `${fmt(result.target)} kcal` : 'estos objetivos'}</button>
+                className="flex-1 h-12 rounded-full bg-emerald-500 text-white font-semibold disabled:opacity-40">Usar {result ? `${fmt(result.target)} kcal` : 'estos objetivos'}</button>
             </>
           ) : (
             <button type="button" disabled={manual.kcal < 800} onClick={() => onSave(manual, result && bodyDirty ? body : null, saveWeight && weightChanged)}
-              className="flex-1 h-12 rounded-2xl bg-emerald-500 text-white font-semibold disabled:opacity-40">{manual.kcal < 800 ? 'Mínimo 800 kcal' : 'Guardar objetivos'}</button>
+              className="flex-1 h-12 rounded-full bg-emerald-500 text-white font-semibold disabled:opacity-40">{manual.kcal < 800 ? 'Mínimo 800 kcal' : 'Guardar objetivos'}</button>
           )}
         </div>
       </motion.div>

@@ -40,7 +40,7 @@ function WeekBlock({ record, defaultOpen = false }: { record: WeekRecord; defaul
         className="w-full p-4 flex items-center justify-between text-left"
       >
         <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${full ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-stone-100 dark:bg-white/8'}`}>
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${full ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-stone-100 dark:bg-white/10'}`}>
             {full
               ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               : <Calendar className="w-4 h-4 text-stone-500 dark:text-white/50" />}
@@ -66,7 +66,7 @@ function WeekBlock({ record, defaultOpen = false }: { record: WeekRecord; defaul
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 space-y-2 border-t border-stone-100 dark:border-white/8 pt-3">
+            <div className="px-4 pb-4 space-y-2 border-t border-stone-100 dark:border-white/10 pt-3">
               {record.sessions.map(session => (
                 <div key={session.id} className="flex items-center gap-3">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${session.status === 'completed' ? 'bg-emerald-500' : 'bg-stone-200 dark:bg-white/10'}`}>
@@ -148,7 +148,7 @@ export function HistoryScreen() {
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => setScreen('dashboard')}
-            className="p-2 rounded-xl glass-btn transition-shadow"
+            className="p-2 rounded-full glass-btn"
           >
             <ArrowLeft className="w-5 h-5 text-stone-600" />
           </button>
@@ -156,23 +156,23 @@ export function HistoryScreen() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 p-1 glass-card rounded-xl">
+        <div className="flex gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]">
           <button
             onClick={() => setActiveTab('sessions')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+            className={`flex-1 py-3 px-4 rounded-lg font-medium ${
               activeTab === 'sessions'
-                ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm'
-                : 'text-stone-600'
+                ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm'
+                : 'text-stone-500'
             }`}
           >
             Sesiones
           </button>
           <button
             onClick={() => setActiveTab('progress')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+            className={`flex-1 py-3 px-4 rounded-lg font-medium ${
               activeTab === 'progress'
-                ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm'
-                : 'text-stone-600'
+                ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm'
+                : 'text-stone-500'
             }`}
           >
             Progreso

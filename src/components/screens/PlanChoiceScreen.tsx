@@ -118,7 +118,7 @@ export function PlanChoiceScreen() {
                     {open ? 'Ocultar ejercicios' : 'Ver ejercicios'}
                     <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
                   </button>
-                  <Button onClick={() => choosePlanOption(i)} className="flex-1 h-12 rounded-2xl text-base font-semibold">
+                  <Button onClick={() => choosePlanOption(i)} className="flex-1 h-12 rounded-full text-base font-semibold">
                     Elegir opción {letter}
                   </Button>
                 </div>

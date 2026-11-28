@@ -140,7 +140,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                       const disabled = i < Math.max(0, firstAllowed);
                       return (
                         <button key={i} type="button" disabled={disabled} onClick={() => setDay(i)} aria-pressed={day === i}
-                          className={`flex flex-col items-center py-1.5 rounded-xl text-xs font-semibold transition-colors disabled:opacity-30 ${
+                          className={`lg-keep flex flex-col items-center py-1.5 rounded-xl text-xs font-semibold transition-colors disabled:opacity-30 ${
                             day === i ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600 dark:text-white/70'
                           }`}>
                           <span className="text-[10px] uppercase opacity-80">{['L', 'M', 'X', 'J', 'V', 'S', 'D'][i]}</span>
@@ -181,7 +181,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                       </motion.li>
                     ))}
                   </ol>
-                  <Button onClick={finishTutorial} className="w-full h-12 rounded-2xl text-base">Entendido, vamos</Button>
+                  <Button onClick={finishTutorial} className="w-full h-12 rounded-full text-base">Entendido, vamos</Button>
                 </div>
               ) : (<>
               <div className="flex-1 overflow-y-auto no-scrollbar px-5 space-y-2">
@@ -196,7 +196,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                     <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[rgba(118,118,128,0.12)]">
                       {([['gym', 'Gimnasio'], ['outdoor', 'Calle y barras']] as const).map(([id, label]) => (
                         <button key={id} type="button" onClick={() => setPlace(id)} aria-pressed={place === id}
-                          className={`h-8 rounded-lg text-sm font-semibold transition-colors ${place === id ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 shadow-sm' : 'text-stone-500'}`}>
+                          className={`h-8 rounded-lg text-sm font-semibold ${place === id ? 'bg-[#fff] dark:bg-[#48484a] text-stone-900 dark:text-white shadow-sm' : 'text-stone-500'}`}>
                           {label}
                         </button>
                       ))}
@@ -205,7 +205,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                       <div className="flex flex-wrap gap-1.5">
                         {FOCUS_OPTIONS.map(f => (
                           <button key={f.id} type="button" onClick={() => setFocus(f.id)} aria-pressed={focus === f.id}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${focus === f.id ? 'bg-emerald-500 text-white' : 'bg-white/70 dark:bg-white/10 text-stone-600'}`}>
+                            className={`h-10 px-3 rounded-full text-xs font-semibold ${focus === f.id ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600'}`}>
                             {f.label}
                           </button>
                         ))}
@@ -216,11 +216,11 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                     <div className="flex items-center gap-1.5">
                       {MINUTE_OPTIONS.map(m => (
                         <button key={m} type="button" onClick={() => setAutoMinutes(m)} aria-pressed={autoMinutes === m}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors ${autoMinutes === m ? 'bg-emerald-500 text-white' : 'bg-white/70 dark:bg-white/10 text-stone-600'}`}>
+                          className={`h-10 px-3 rounded-full text-xs font-semibold tabular-nums ${autoMinutes === m ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-600'}`}>
                           {m} min
                         </button>
                       ))}
-                      <Button onClick={createAuto} className="ml-auto h-9 px-4 rounded-full text-sm">Prepárala</Button>
+                      <Button onClick={createAuto} className="ml-auto h-10 px-4 rounded-full text-sm">Prepárala</Button>
                     </div>
                     {autoError && <p className="text-xs text-red-600">No he encontrado ejercicios con esas condiciones. Prueba con otro enfoque.</p>}
                   </div>
@@ -241,17 +241,17 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                         aria-label="Quitar una serie"
                         disabled={e.sets <= MIN_SETS}
                         onClick={() => setChosen(list => list.map((x, k) => (k === i ? withSets(x, x.sets - 1) : x)))}
-                        className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center disabled:opacity-30"
+                        className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center disabled:opacity-30"
                       >
                         <Minus className="w-4 h-4 text-stone-700" />
                       </button>
-                      <span className="w-14 text-center leading-tight"><span className="block text-sm font-semibold text-stone-900 tabular-nums">{e.sets}</span><span className="block text-[10px] text-stone-500">{e.sets === 1 ? 'serie' : 'series'}</span></span>
+                      <span className="w-12 text-center leading-tight"><span className="block text-sm font-semibold text-stone-900 tabular-nums">{e.sets}</span><span className="block text-[10px] text-stone-500">{e.sets === 1 ? 'serie' : 'series'}</span></span>
                       <button
                         type="button"
                         aria-label="Añadir una serie"
                         disabled={e.sets >= MAX_SETS}
                         onClick={() => setChosen(list => list.map((x, k) => (k === i ? withSets(x, x.sets + 1) : x)))}
-                        className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center disabled:opacity-30"
+                        className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center disabled:opacity-30"
                       >
                         <Plus className="w-4 h-4 text-stone-700" />
                       </button>
@@ -259,7 +259,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                         type="button"
                         aria-label={`Quitar ${e.name}`}
                         onClick={() => setChosen(list => list.filter((_, k) => k !== i))}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500"
+                        className="w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -270,7 +270,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                 <button
                   type="button"
                   onClick={() => setPicking(true)}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-300 dark:border-white/15 py-4 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:border-emerald-400 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 rounded-full bg-[rgba(118,118,128,0.12)] py-4 text-sm font-semibold text-emerald-700 dark:text-emerald-400"
                 >
                   <Plus className="w-4 h-4" /> {chosen.length ? 'Añadir otro ejercicio' : 'Añadir ejercicio'}
                 </button>
@@ -282,7 +282,7 @@ export function FreeWorkoutSheet({ open, onClose }: { open: boolean; onClose: ()
                     {chosen.length} {chosen.length === 1 ? 'ejercicio' : 'ejercicios'} · {totalSets} series · unos {minutes} min
                   </p>
                 )}
-                <Button onClick={create} disabled={!chosen.length} className="w-full h-12 rounded-2xl text-base">
+                <Button onClick={create} disabled={!chosen.length} className="w-full h-12 rounded-full text-base">
                   {day === todayIdx ? 'Crear sesión de hoy' : `Crear para el ${weekDays[day].toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}`}
                 </Button>
               </div>

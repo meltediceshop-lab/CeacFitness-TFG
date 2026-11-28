@@ -135,7 +135,7 @@ export function ReviewScreen() {
   const OptionButton = ({ label, onClick, selected }: { label: string; onClick: () => void; selected?: boolean }) => (
     <button
       onClick={onClick}
-      className={`w-full px-5 py-4 rounded-2xl text-left font-medium transition-all ${
+      className={`lg-keep w-full px-5 py-4 rounded-2xl text-left font-medium transition-all ${
         selected
           ? 'bg-emerald-500 text-white shadow-sm'
           : 'glass-card text-stone-800 dark:text-stone-100 hover:ring-1 hover:ring-emerald-400/40'
@@ -150,7 +150,7 @@ export function ReviewScreen() {
       {/* Header */}
       <div className="px-6 pt-8 pb-4 flex items-center gap-3">
         {phase !== 'result' && phase !== 'submitting' && (
-          <button onClick={() => setScreen('dashboard')} className="p-2 rounded-xl glass-btn shadow-sm">
+          <button onClick={() => setScreen('dashboard')} className="p-2 rounded-full glass-btn">
             <ArrowLeft className="w-5 h-5 text-stone-600" />
           </button>
         )}
@@ -179,7 +179,7 @@ export function ReviewScreen() {
               <p className="text-stone-700 dark:text-stone-200 leading-relaxed max-w-sm mb-8">
                 Llevamos varias semanas entrenando juntos. Me gustaría hacer una pequeña revisión para comprobar cómo estás y asegurarme de que el plan sigue siendo el adecuado para ti. Solo tardaremos un par de minutos.
               </p>
-              <Button onClick={() => setPhase('goal')} className="w-full max-w-sm py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-base font-semibold shadow-sm">
+              <Button onClick={() => setPhase('goal')} className="w-full max-w-sm h-12 rounded-full bg-emerald-500 text-base font-semibold">
                 Empezar
               </Button>
               <button onClick={() => setScreen('dashboard')} className="mt-4 text-stone-400 text-sm">Ahora no</button>
@@ -222,7 +222,7 @@ export function ReviewScreen() {
                 <span className="text-stone-400 font-medium pr-3">kg</span>
               </div>
               <Button disabled={!weight.trim()} onClick={() => setPhase('measurements')}
-                className="w-full py-5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold disabled:opacity-40">
+                className="w-full h-12 rounded-full bg-emerald-500 font-semibold disabled:opacity-40">
                 Continuar
               </Button>
             </motion.div>
@@ -247,7 +247,7 @@ export function ReviewScreen() {
                 ))}
               </div>
               <Button onClick={() => { setScaleIndex(0); setPhase('scales'); }}
-                className="w-full py-5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold">
+                className="w-full h-12 rounded-full bg-emerald-500 font-semibold">
                 Continuar
               </Button>
             </motion.div>
@@ -288,8 +288,8 @@ export function ReviewScreen() {
                     {[1, 2, 3, 4, 5, 6, 7].map(d => (
                       <button key={d}
                         onClick={() => { setNewDays(d); setPhase('discomfort'); }}
-                        className={`py-4 rounded-2xl font-bold text-lg transition-all ${
-                          newDays === d ? 'bg-emerald-500 text-white' : 'glass-card text-stone-800 dark:text-stone-100'
+                        className={`py-4 rounded-full font-bold text-lg ${
+                          newDays === d ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-stone-100'
                         }`}
                       >
                         {d}
@@ -321,7 +321,7 @@ export function ReviewScreen() {
                     className="w-full glass-input rounded-2xl px-4 py-3 text-stone-900 dark:text-white outline-none resize-none"
                   />
                   <Button disabled={!discomfort.trim()} onClick={() => submit(discomfort)}
-                    className="w-full py-5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold disabled:opacity-40">
+                    className="w-full h-12 rounded-full bg-emerald-500 font-semibold disabled:opacity-40">
                     Finalizar revisión
                   </Button>
                 </>
@@ -391,7 +391,7 @@ export function ReviewScreen() {
               </div>
 
               <Button onClick={() => setScreen('dashboard')}
-                className="w-full py-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-base font-semibold shadow-sm">
+                className="w-full h-12 rounded-full bg-emerald-500 text-base font-semibold">
                 Volver al inicio
               </Button>
             </motion.div>

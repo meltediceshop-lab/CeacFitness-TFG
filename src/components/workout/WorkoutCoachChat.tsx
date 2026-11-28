@@ -87,10 +87,10 @@ export function WorkoutCoachChat({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-28 right-5 z-40 w-14 h-14 rounded-full bg-emerald-500 shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        className="fixed bottom-28 right-5 z-40 w-14 h-14 rounded-full lg-glass lg-blur flex items-center justify-center"
         title="Preguntar al Coach"
       >
-        <Sparkles className="w-6 h-6 text-white" />
+        <Sparkles className="w-6 h-6 text-emerald-600" />
       </button>
 
       <AnimatePresence>
@@ -117,7 +117,7 @@ export function WorkoutCoachChat({
                     {currentExercise?.name || sessionName}
                   </p>
                 </div>
-                <button onClick={() => setOpen(false)} className="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 transition-colors flex-shrink-0">
+                <button onClick={() => setOpen(false)} className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center flex-shrink-0">
                   <X className="w-5 h-5 text-stone-500" />
                 </button>
               </div>
@@ -165,7 +165,7 @@ export function WorkoutCoachChat({
                   <button
                     onClick={() => sendMessage(input)}
                     disabled={!input.trim() || isLoading}
-                    className="w-9 h-9 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
+                    className="w-9 h-9 rounded-full bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0"
                   >
                     {isLoading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
                   </button>

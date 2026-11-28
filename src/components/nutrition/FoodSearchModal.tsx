@@ -195,7 +195,7 @@ export function FoodSearchModal({
       <div className="flex flex-wrap gap-2 mb-5">
         {MEAL_SLOTS.map(s => (
           <button key={s.id} type="button" onClick={() => setSlot(s.id)}
-            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${slot === s.id ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.10)] text-stone-600 dark:text-stone-300'}`}>
+            className={`text-xs h-10 px-3.5 rounded-full ${slot === s.id ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.10)] text-stone-600 dark:text-stone-300'}`}>
             {s.emoji} {s.label}
           </button>
         ))}
@@ -261,10 +261,10 @@ export function FoodSearchModal({
                 {loading && <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => openCreate()} className="h-10 rounded-xl bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-1.5">
+                <button type="button" onClick={() => openCreate()} className="h-10 rounded-full bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-1.5">
                   <ScanLine className="w-4 h-4" /> Crear con su etiqueta
                 </button>
-                <button type="button" onClick={() => { setQuick(q => ({ ...q, name: query.trim() })); setView('quick'); }} className="h-10 rounded-xl bg-[rgba(118,118,128,0.12)] text-sm font-semibold text-stone-800 dark:text-white flex items-center justify-center gap-1.5">
+                <button type="button" onClick={() => { setQuick(q => ({ ...q, name: query.trim() })); setView('quick'); }} className="h-10 rounded-full bg-[rgba(118,118,128,0.12)] text-sm font-semibold text-stone-800 dark:text-white flex items-center justify-center gap-1.5">
                   <Zap className="w-4 h-4" /> Registro rápido
                 </button>
               </div>
@@ -285,7 +285,7 @@ export function FoodSearchModal({
                   {results.length === 0 && !loading ? (
                     <div className="text-center py-6">
                       <p className="text-stone-500 text-sm mb-3">No encuentro «{query.trim()}».</p>
-                      <button type="button" onClick={() => openCreate()} className="h-10 px-4 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">Crearlo con su etiqueta</button>
+                      <button type="button" onClick={() => openCreate()} className="h-10 px-4 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white text-sm font-semibold">Crearlo con su etiqueta</button>
                     </div>
                   ) : (
                     <div className="space-y-1.5">{results.map(f => foodRow(f))}</div>
@@ -318,14 +318,14 @@ export function FoodSearchModal({
                 {selected.portionG && (
                   <>
                     {[0.5, 1, 2].map(m => (
-                      <button key={m} type="button" onClick={() => setGrams(Math.round(selected.portionG! * m))} className="text-xs px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                      <button key={m} type="button" onClick={() => setGrams(Math.round(selected.portionG! * m))} className="text-xs h-10 px-3.5 rounded-full bg-[rgba(118,118,128,0.10)] text-stone-600 dark:text-stone-300">
                         {selected.portionLabel ? `${m === 0.5 ? '½' : m} × ${selected.portionLabel}` : `${m === 0.5 ? '½' : m} ${m === 1 ? 'ración' : 'raciones'}`} · {Math.round(selected.portionG! * m)} g
                       </button>
                     ))}
                   </>
                 )}
                 {[50, 100, 150, 200].map(g => (
-                  <button key={g} type="button" onClick={() => setGrams(g)} className="text-xs px-3 py-1.5 rounded-full bg-[rgba(118,118,128,0.10)] text-stone-600 dark:text-stone-300">{g} g</button>
+                  <button key={g} type="button" onClick={() => setGrams(g)} className="text-xs h-10 px-3.5 rounded-full bg-[rgba(118,118,128,0.10)] text-stone-600 dark:text-stone-300">{g} g</button>
                 ))}
               </div>
 
@@ -347,7 +347,7 @@ export function FoodSearchModal({
               {selected.label && <LabelTable label={selected.label} grams={grams} />}
 
               {SlotPicker}
-              <button type="button" onClick={confirmAdd} disabled={grams <= 0} className="w-full h-12 rounded-2xl bg-emerald-500 text-white font-semibold disabled:opacity-40">Añadir al registro</button>
+              <button type="button" onClick={confirmAdd} disabled={grams <= 0} className="w-full h-12 rounded-full bg-emerald-500 text-white font-semibold disabled:opacity-40">Añadir al registro</button>
             </div>
           </>
         )}
@@ -406,7 +406,7 @@ export function FoodSearchModal({
                 <p className="text-xs text-amber-700 dark:text-amber-400 -mt-1">Ojo: con esos macros saldrían unas {kcalCheck} kcal. Revisa que has copiado bien la etiqueta.</p>
               )}
               {formError && <p className="text-sm text-red-500">{formError}</p>}
-              <button type="button" onClick={saveFood} className="w-full h-12 rounded-2xl bg-emerald-500 text-white font-semibold">{editId ? 'Guardar cambios' : 'Guardar y añadir'}</button>
+              <button type="button" onClick={saveFood} className="w-full h-12 rounded-full bg-emerald-500 text-white font-semibold">{editId ? 'Guardar cambios' : 'Guardar y añadir'}</button>
             </div>
           </>
         )}
@@ -428,7 +428,7 @@ export function FoodSearchModal({
                 ))}
               </div>
               {SlotPicker}
-              <button type="button" onClick={addQuick} disabled={!quick.name.trim() || n(quick.kcal) == null} className="w-full h-12 rounded-2xl bg-emerald-500 text-white font-semibold disabled:opacity-40">Añadir al registro</button>
+              <button type="button" onClick={addQuick} disabled={!quick.name.trim() || n(quick.kcal) == null} className="w-full h-12 rounded-full bg-emerald-500 text-white font-semibold disabled:opacity-40">Añadir al registro</button>
             </div>
           </>
         )}

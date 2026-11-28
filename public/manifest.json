@@ -4,8 +4,8 @@
   "description": "Entrena tu cuerpo. Cuida tu cabeza.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f5f6f4",
-  "theme_color": "#f5f6f4",
+  "background_color": "#f2f2f7",
+  "theme_color": "#f2f2f7",
   "orientation": "portrait",
   "icons": [
     {

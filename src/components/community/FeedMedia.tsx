@@ -78,7 +78,7 @@ function NoteMedia({ post }: { post: CommunityPost }) {
       {post.photoUrl ? (
         <img src={post.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
       ) : (
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 90% at 85% 0%, #10b981 0%, #065f46 45%, #022c22 100%)' }} />
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(130% 130% at 100% 0%, var(--hero-1) 0%, var(--hero-2) 50%, var(--hero-3) 100%)' }} />
       )}
       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.55) 62%, rgba(0,0,0,0.85) 100%)' }} />
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
@@ -102,10 +102,10 @@ function NoteMedia({ post }: { post: CommunityPost }) {
 /** Entreno antiguo sin imagen: resumen compacto y honesto (sin calorías inventadas). */
 function WorkoutMedia({ post }: { post: CommunityPost }) {
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl p-5" style={{ background: 'radial-gradient(120% 120% at 100% 0%, #065f46 0%, #0a0a0a 60%)' }}>
+    <div className="relative w-full overflow-hidden rounded-2xl p-5" style={{ background: 'radial-gradient(120% 120% at 100% 0%, var(--hero-1) 0%, var(--hero-3) 70%)' }}>
       <div className="flex items-center justify-between mb-6">
         <span className="text-white font-black text-lg tracking-tight">Fit K</span>
-        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.14em] text-emerald-300 bg-emerald-400/10 border border-emerald-400/25">ENTRENO COMPLETADO</span>
+        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.14em] text-white bg-white/15 border border-white/20">ENTRENO COMPLETADO</span>
       </div>
       <p className="text-white text-2xl font-bold leading-tight [text-wrap:balance] mb-5">{post.workoutName || 'Entrenamiento'}</p>
       <div className="flex gap-6">
@@ -134,7 +134,7 @@ export function PostMedia({ post, onImageClick }: { post: CommunityPost; onImage
   if (post.type === 'note' && (post.isDemo || !post.photoUrl || broken)) return <NoteMedia post={{ ...post, photoUrl: broken ? undefined : post.photoUrl }} />;
   if (post.photoUrl && !broken) {
     return (
-      <button type="button" onClick={() => onImageClick?.(post.photoUrl!)} className="block w-full rounded-2xl overflow-hidden bg-[rgba(118,118,128,0.12)] cursor-zoom-in">
+      <button type="button" onClick={() => onImageClick?.(post.photoUrl!)} className="lg-keep block w-full rounded-2xl overflow-hidden bg-[rgba(118,118,128,0.12)] cursor-zoom-in">
         <img src={post.photoUrl} alt={post.workoutName || 'Publicación'} loading="lazy" onError={() => setBroken(true)}
           className="w-full h-auto max-h-[600px] object-contain mx-auto" />
       </button>

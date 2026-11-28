@@ -97,7 +97,7 @@ export function WorkoutPreviewScreen() {
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => setScreen('dashboard')}
-            className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
+            className="w-10 h-10 rounded-full glass-btn flex items-center justify-center"
           >
             <ArrowLeft className="w-5 h-5 text-stone-600" />
           </button>
@@ -107,7 +107,7 @@ export function WorkoutPreviewScreen() {
           </div>
           <button
             onClick={() => setShowSessionOptions(true)}
-            className="p-2 rounded-xl glass-btn shadow-sm hover:shadow-md transition-shadow"
+            className="w-10 h-10 rounded-full glass-btn flex items-center justify-center"
           >
             <AlertCircle className="w-5 h-5 text-stone-400" />
           </button>
@@ -153,7 +153,7 @@ export function WorkoutPreviewScreen() {
                           setSelectedWeeklySession(changeSessionMinutes(selectedWeeklySession, m));
                           setShowTime(false);
                         }}
-                        className={`min-w-[3.5rem] px-3 py-2 rounded-full text-sm font-semibold tabular-nums transition-colors ${
+                        className={`min-w-[3.5rem] h-10 px-3.5 rounded-full text-sm font-semibold tabular-nums ${
                           selectedWeeklySession.duration === m ? 'bg-emerald-500 text-white' : 'bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-white/80'
                         }`}
                       >
@@ -169,7 +169,7 @@ export function WorkoutPreviewScreen() {
 
           <button
             onClick={() => setShowWarmupInfo(v => !v)}
-            className={`mt-4 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+            className={`lg-keep mt-4 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
               includeWarmup
                 ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
                 : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200'
@@ -196,10 +196,10 @@ export function WorkoutPreviewScreen() {
                     </p>
                     <button
                       onClick={() => setIncludeWarmup(!includeWarmup)}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      className={`flex items-center gap-1 h-10 px-4 rounded-full text-xs font-semibold ${
                         includeWarmup
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                          ? 'bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white'
+                          : 'bg-emerald-500 text-white'
                       }`}
                     >
                       {includeWarmup ? <><Check className="w-3.5 h-3.5" /> Añadido</> : 'Añadir'}
@@ -303,7 +303,7 @@ export function WorkoutPreviewScreen() {
       <div className="fixed bottom-0 left-0 right-0 px-6 pt-10 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[var(--app-bg)] via-[var(--app-bg)]/90 to-transparent">
         <Button
           onClick={handleStartSession}
-          className="w-full h-14 rounded-2xl text-lg font-semibold"
+          className="w-full h-14 rounded-full text-lg font-semibold"
         >
           <Play className="w-5 h-5 mr-2" />
           Empezar sesión
@@ -376,7 +376,7 @@ export function WorkoutPreviewScreen() {
 
               <button
                 onClick={() => setShowSessionOptions(false)}
-                className="w-full mt-6 py-4 text-stone-500 font-medium"
+                className="w-full mt-6 h-12 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white font-medium"
               >
                 Cancelar
               </button>

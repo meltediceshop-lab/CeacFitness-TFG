@@ -50,7 +50,7 @@ export function ShoppingListModal({ plan, onClose }: { plan: NutritionPlan; onCl
         animate={{ y: 0 }}
         exit={{ y: 500 }}
         transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-        className="w-full max-w-md bg-white dark:bg-[#141414] rounded-t-3xl flex flex-col"
+        className="w-full max-w-md glass-modal rounded-t-3xl flex flex-col"
         style={{ maxHeight: '85vh' }}
       >
         <div className="w-10 h-1 bg-stone-300 rounded-full mx-auto mt-3 mb-2 flex-shrink-0" />
@@ -64,7 +64,7 @@ export function ShoppingListModal({ plan, onClose }: { plan: NutritionPlan; onCl
               <p className="text-xs text-stone-400">{doneCount}/{items.length} en el carro</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 transition-colors">
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-stone-100">
             <X className="w-4 h-4 text-stone-600" />
           </button>
         </div>

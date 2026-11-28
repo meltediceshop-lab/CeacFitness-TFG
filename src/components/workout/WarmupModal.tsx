@@ -25,7 +25,7 @@ export function WarmupModal({ onClose }: { onClose: () => void }) {
             <h2 className="text-lg font-bold text-stone-900 dark:text-white">Calentamiento</h2>
             <p className="text-stone-400 text-xs">5 minutos antes de empezar</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 transition-colors flex-shrink-0">
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0">
             <X className="w-5 h-5 text-stone-600 dark:text-white/70" />
           </button>
         </div>

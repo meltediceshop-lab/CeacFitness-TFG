@@ -1,6 +1,6 @@
 'use client';
 
-import { statusBarColor } from '@/lib/appTheme';
+import { loadAppearance, refreshStoredTheme, resolveDark, saveAppearance, statusBarColor, type Appearance } from '@/lib/appTheme';
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -381,6 +381,9 @@ interface AppContextType {
   supabaseUserId: string | null;
   isDark: boolean;
   toggleDarkMode: () => void;
+  /** Apariencia elegida: automática (la del teléfono), clara u oscura. */
+  appearance: Appearance;
+  setAppearance: (a: Appearance) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -441,6 +444,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
+  const [appearance, setAppearanceState] = useState<Appearance>('system');
   // Sección 7 del Motor: para 3-4 días/semana hay 2 opciones válidas de plan.
   const [planOptions, setPlanOptions] = useState<WeeklySession[][] | null>(null);
   const [pendingOnboarding, setPendingOnboarding] = useState<{
@@ -450,22 +454,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = createClient();
 
-  useEffect(() => {
-    const saved = localStorage.getItem('fitmente-dark-mode');
-    const dark = saved === 'true';
+  function applyDark(dark: boolean) {
     setIsDark(dark);
     document.documentElement.classList.toggle('dark', dark);
     setStatusBarColor(dark);
+  }
+
+  // Al arrancar: la apariencia guardada (por defecto, la del teléfono).
+  useEffect(() => {
+    const a = loadAppearance();
+    setAppearanceState(a);
+    applyDark(resolveDark(a));
+    refreshStoredTheme();
   }, []);
 
+  // En automático, la app cambia sola cuando el teléfono pasa de claro a oscuro (o al revés).
+  useEffect(() => {
+    if (appearance !== 'system' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyDark(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [appearance]);
+
+  function setAppearance(a: Appearance) {
+    saveAppearance(a);
+    setAppearanceState(a);
+    applyDark(resolveDark(a));
+  }
+
+  /** Interruptor rápido: fija el modo contrario al que se ve ahora. */
   function toggleDarkMode() {
-    setIsDark(prev => {
-      const next = !prev;
-      document.documentElement.classList.toggle('dark', next);
-      setStatusBarColor(next);
-      localStorage.setItem('fitmente-dark-mode', String(next));
-      return next;
-    });
+    setAppearance(isDark ? 'light' : 'dark');
   }
 
   // On mount: check Supabase session, then load user data
@@ -1475,6 +1495,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         supabaseUserId,
         isDark,
         toggleDarkMode,
+        appearance,
+        setAppearance,
         login,
         register,
         logout,

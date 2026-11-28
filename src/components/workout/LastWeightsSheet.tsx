@@ -48,7 +48,7 @@ export function LastWeightsButton({
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Ver los pesos de la última vez"
-        className="fixed bottom-28 left-5 z-40 h-14 pl-4 pr-5 rounded-full glass-card flex items-center gap-2 text-sm font-semibold text-stone-800 shadow-lg active:scale-95 transition-transform"
+        className="fixed bottom-28 left-5 z-40 h-14 pl-4 pr-5 rounded-full glass-card flex items-center gap-2 text-sm font-semibold text-stone-800"
       >
         <History className="w-5 h-5 text-emerald-600" />
         Última vez

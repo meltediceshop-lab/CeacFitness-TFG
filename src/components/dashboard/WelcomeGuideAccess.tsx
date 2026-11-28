@@ -45,7 +45,7 @@ export function WelcomeGuideAccess() {
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-white/10 transition-colors flex-shrink-0"
+                  className="w-9 h-9 rounded-full bg-[rgba(118,118,128,0.12)] flex items-center justify-center flex-shrink-0"
                 >
                   <X className="w-4 h-4 text-stone-400" />
                 </button>

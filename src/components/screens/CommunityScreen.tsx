@@ -104,7 +104,7 @@ function ImageViewer({ url, onClose }: { url: string; onClose: () => void }) {
       className="fixed inset-0 z-[200] bg-black flex items-center justify-center"
       onClick={onClose}
     >
-      <button onClick={onClose} className="absolute top-5 right-5 p-2 bg-white/10 rounded-full text-white z-10">
+      <button onClick={onClose} className="absolute top-5 right-5 w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur rounded-full text-white z-10">
         <X className="w-5 h-5" />
       </button>
       <img
@@ -120,13 +120,13 @@ function ImageViewer({ url, onClose }: { url: string; onClose: () => void }) {
 // ─── Historias: quién ha publicado hace poco ─────────────────────
 function Avatar({ name, url, size = 36, ring = false }: { name: string; url?: string; size?: number; ring?: boolean }) {
   const inner = (
-    <span className="rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-emerald-400 to-teal-600 text-white font-bold flex-shrink-0"
+    <span className="rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-700 text-white font-bold flex-shrink-0"
       style={{ width: size, height: size, fontSize: size * 0.4 }}>
       {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : name.charAt(0).toUpperCase()}
     </span>
   );
   if (!ring) return inner;
-  return <span className="rounded-full p-[2.5px] bg-gradient-to-tr from-emerald-500 via-teal-400 to-lime-300 flex-shrink-0"><span className="block rounded-full p-[2px] bg-[var(--app-bg)]">{inner}</span></span>;
+  return <span className="rounded-full p-[2.5px] bg-gradient-to-tr from-emerald-600 to-emerald-300 flex-shrink-0"><span className="block rounded-full p-[2px] bg-[var(--app-bg)]">{inner}</span></span>;
 }
 
 function StoriesStrip({ posts, currentUserId, userName, avatarUrl, onCreate, onScrollToPost }: {
@@ -194,7 +194,7 @@ function PostMenu({
     <div className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+        className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[rgba(118,118,128,0.12)] transition-colors"
         aria-label="Opciones"
       >
         <MoreVertical className="w-4 h-4 text-stone-400" />
@@ -407,8 +407,8 @@ function PostCard({
             className="w-full glass-input rounded-xl px-3 py-2 text-sm text-stone-800 dark:text-stone-100 outline-none resize-none"
           />
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setEditing(false)} className="px-3 py-1.5 text-sm text-stone-500 rounded-lg">Cancelar</button>
-            <button onClick={handleSaveEdit} className="px-4 py-1.5 text-sm font-semibold text-white bg-emerald-500 rounded-lg">Guardar</button>
+            <button onClick={() => setEditing(false)} className="h-10 px-4 text-sm font-semibold rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white">Cancelar</button>
+            <button onClick={handleSaveEdit} className="h-10 px-5 text-sm font-semibold text-white bg-emerald-500 rounded-full">Guardar</button>
           </div>
         </div>
       ) : (
@@ -500,10 +500,10 @@ function PostCard({
             </button>
           ) : (
             <div className="relative pt-1 space-y-2">
-              <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+              <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 py-2 -my-2" style={{ scrollbarWidth: 'none' }}>
                 {QUICK_REPLIES.map(q => (
                   <button key={q} type="button" onClick={() => handleSendComment(q)}
-                    className="text-xs px-3 py-1.5 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-stone-200 flex-shrink-0">
+                    className="h-9 text-xs px-3.5 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-700 dark:text-stone-200 flex-shrink-0">
                     {q}
                   </button>
                 ))}
@@ -536,7 +536,7 @@ function PostCard({
                   onClick={() => handleSendComment(commentText)}
                   disabled={!commentText.trim() || loadingComment}
                   aria-label="Enviar comentario"
-                  className="w-9 h-9 rounded-full bg-emerald-500 disabled:bg-stone-300 dark:disabled:bg-stone-700 flex items-center justify-center flex-shrink-0"
+                  className="w-9 h-9 rounded-full bg-emerald-500 disabled:opacity-40 flex items-center justify-center flex-shrink-0"
                 >
                   {loadingComment ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
                 </button>
@@ -795,7 +795,7 @@ export function CommunityScreen() {
               {showSearch ? <X className="w-[18px] h-[18px]" /> : <Search className="w-[18px] h-[18px]" />}
             </button>
             <button type="button" aria-label="Publicar" onClick={() => openStudio()}
-              className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-[0_6px_16px_-6px_rgb(var(--acc-500)/0.7)] active:scale-95 transition-transform">
+              className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center">
               <Plus className="w-5 h-5" strokeWidth={2.5} />
             </button>
           </div>
@@ -816,7 +816,7 @@ export function CommunityScreen() {
                   className="w-full glass-input rounded-full pl-10 pr-10 py-2.5 text-sm text-stone-800 dark:text-stone-100 placeholder-stone-400"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} aria-label="Borrar búsqueda" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400">
+                  <button onClick={() => setSearchQuery('')} aria-label="Borrar búsqueda" className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-stone-400">
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -845,14 +845,14 @@ export function CommunityScreen() {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           onClick={() => openStudio()}
           className="relative w-full overflow-hidden rounded-[28px] text-left active:scale-[0.99] transition-transform"
-          style={{ background: 'radial-gradient(130% 120% at 100% 0%, rgb(var(--acc-500)) 0%, rgb(var(--acc-700)) 38%, rgb(var(--acc-950)) 100%)' }}
+          style={{ background: 'radial-gradient(130% 130% at 100% 0%, var(--hero-1) 0%, var(--hero-2) 50%, var(--hero-3) 100%)' }}
         >
           <div className="relative flex items-stretch min-h-[164px]">
             <div className="flex-1 min-w-0 p-5 pr-2 flex flex-col">
               <span className="text-[10px] font-bold tracking-[0.16em] text-emerald-200/90">NUEVO</span>
               <span className="mt-1 text-[22px] leading-tight font-bold text-white [text-wrap:balance]">Crea tu tarjeta</span>
               <span className="mt-1 text-[13px] leading-snug text-emerald-50/80">Tu sesión, tu semana o tu progreso, listos para Instagram o WhatsApp.</span>
-              <span className="mt-auto pt-3 inline-flex self-start items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-emerald-800 text-sm font-semibold">
+              <span className="mt-auto pt-3 inline-flex self-start items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#fff] text-[color:var(--hero-3)] text-sm font-semibold">
                 Crear tarjeta <ChevronRight className="w-4 h-4" />
               </span>
             </div>
@@ -878,7 +878,7 @@ export function CommunityScreen() {
             <p className="text-stone-500 text-sm mt-0.5 mb-3">{theme.prompt}</p>
             <button
               onClick={() => openStudio('note', theme.prompt, theme.title)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-500 text-white text-sm font-semibold active:scale-95 transition-transform"
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white text-sm font-semibold"
             >
               <PenLine className="w-4 h-4" /> Escribir sobre esto
             </button>
@@ -931,7 +931,7 @@ export function CommunityScreen() {
             </p>
             <button
               onClick={() => openStudio()}
-              className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-semibold transition-colors"
+              className="px-6 py-3 bg-emerald-500 text-white rounded-full font-semibold"
             >
               Compartir algo
             </button>
@@ -1021,8 +1021,8 @@ export function CommunityScreen() {
               <h3 className="text-xl font-bold text-stone-900 mb-2">¿Eliminar publicación?</h3>
               <p className="text-stone-500 mb-6 text-sm">Esta acción no se puede deshacer. Se borrará junto con sus reacciones y comentarios.</p>
               <div className="flex gap-3">
-                <Button onClick={() => setConfirmDelete(null)} variant="outline" className="flex-1 py-4 rounded-xl">Cancelar</Button>
-                <Button onClick={handleConfirmDelete} className="flex-1 py-4 rounded-xl bg-red-500 hover:bg-red-600">Eliminar</Button>
+                <Button onClick={() => setConfirmDelete(null)} variant="outline" className="flex-1 py-4 rounded-full">Cancelar</Button>
+                <Button onClick={handleConfirmDelete} className="flex-1 py-4 rounded-full bg-red-500 hover:bg-red-600">Eliminar</Button>
               </div>
             </motion.div>
           </motion.div>

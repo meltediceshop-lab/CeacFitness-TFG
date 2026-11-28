@@ -149,13 +149,13 @@ function PlanDisplay({ plan, onReset, onShopping, onEditMeal, onRegenerateMeal, 
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={onAdjustMacros} className="p-2 rounded-xl bg-white/70 dark:bg-black/20 hover:bg-white transition-colors" title="Ajustar macros y calorías">
+            <button onClick={onAdjustMacros} className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)]" title="Ajustar macros y calorías">
               <SlidersHorizontal className="w-4 h-4 text-stone-500" />
             </button>
-            <button onClick={onShopping} className="p-2 rounded-xl bg-white/70 dark:bg-black/20 hover:bg-white transition-colors" title="Lista de la compra">
+            <button onClick={onShopping} className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)]" title="Lista de la compra">
               <ShoppingCart className="w-4 h-4 text-stone-500" />
             </button>
-            <button onClick={onReset} className="p-2 rounded-xl bg-white/70 dark:bg-black/20 hover:bg-white transition-colors" title="Regenerar plan completo">
+            <button onClick={onReset} className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)]" title="Regenerar plan completo">
               <RefreshCw className="w-4 h-4 text-stone-500" />
             </button>
           </div>
@@ -190,23 +190,23 @@ function PlanDisplay({ plan, onReset, onShopping, onEditMeal, onRegenerateMeal, 
         <div className="space-y-3">
           {plan.meals.map((meal, i) => (
             <div key={i} className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-semibold text-stone-900 dark:text-white text-sm">{meal.name}</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="min-w-0 break-words font-semibold text-stone-900 dark:text-white text-sm">{meal.name}</span>
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-stone-400 mr-1">{meal.time}</span>
                   <button
                     onClick={() => onLogMeal(i)}
-                    className={`p-1.5 rounded-lg transition-colors ${loggedMealIndex === i ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-white dark:bg-stone-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30'}`}
+                    className={`w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full ${loggedMealIndex === i ? 'bg-emerald-500' : 'bg-[rgba(118,118,128,0.12)]'}`}
                     title="Registrar en tu diario de hoy"
                   >
                     {loggedMealIndex === i
-                      ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ? <Check className="w-3.5 h-3.5 text-white" />
                       : <PlusCircle className="w-3.5 h-3.5 text-emerald-500" />}
                   </button>
                   <button
                     onClick={() => onRegenerateMeal(i)}
                     disabled={regeneratingMeal === i}
-                    className="p-1.5 rounded-lg bg-white dark:bg-stone-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
+                    className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)] disabled:opacity-50"
                     title="Regenerar con IA"
                   >
                     {regeneratingMeal === i
@@ -215,14 +215,14 @@ function PlanDisplay({ plan, onReset, onShopping, onEditMeal, onRegenerateMeal, 
                   </button>
                   <button
                     onClick={() => onEditMeal(i)}
-                    className="p-1.5 rounded-lg bg-white dark:bg-stone-700 hover:bg-stone-100 dark:hover:bg-stone-600 transition-colors"
+                    className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)]"
                     title="Editar comida"
                   >
                     <Pencil className="w-3.5 h-3.5 text-stone-500" />
                   </button>
                   <button
                     onClick={() => onDeleteMeal(i)}
-                    className="p-1.5 rounded-lg bg-white dark:bg-stone-700 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                    className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-[rgba(118,118,128,0.12)]"
                     title="Eliminar comida"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-stone-400 hover:text-red-500" />
@@ -242,7 +242,7 @@ function PlanDisplay({ plan, onReset, onShopping, onEditMeal, onRegenerateMeal, 
           <button
             onClick={onAddMeal}
             disabled={addingMeal}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-stone-300 dark:border-white/20 text-stone-500 hover:border-emerald-400 hover:text-emerald-600 dark:hover:border-emerald-500 transition-colors text-sm disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white text-sm disabled:opacity-50"
           >
             {addingMeal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             {addingMeal ? 'Generando comida con IA...' : 'Añadir comida'}
@@ -360,7 +360,7 @@ function MealEditModal({ meal, onSave, onClose }: {
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
           <h2 className="font-bold text-stone-900 dark:text-white text-lg">Editar comida</h2>
-          <button onClick={onClose} className="p-2 rounded-xl bg-stone-100 dark:bg-white/10">
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-stone-100">
             <X className="w-4 h-4 text-stone-600 dark:text-white/70" />
           </button>
         </div>
@@ -393,19 +393,19 @@ function MealEditModal({ meal, onSave, onClose }: {
                   <input value={ex} onChange={e => updateExample(i, e.target.value)}
                     className="glass-input flex-1 rounded-xl px-3 py-2.5 text-sm" placeholder={`Opción ${i + 1}`} />
                   <button onClick={() => handleSwapFood(i)} disabled={swappingFoodIndex !== null}
-                    className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 text-stone-400 hover:text-emerald-500 transition-colors flex-shrink-0 disabled:opacity-50"
+                    className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-stone-100 text-stone-400 hover:text-emerald-500 disabled:opacity-50"
                     title="Cambiar por alternativa IA">
                     {swappingFoodIndex === i
                       ? <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
                       : <RefreshCw className="w-4 h-4" />}
                   </button>
-                  <button onClick={() => removeExample(i)} className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 text-stone-400 hover:text-red-500 transition-colors flex-shrink-0">
+                  <button onClick={() => removeExample(i)} className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full bg-stone-100 text-stone-400 hover:text-red-500">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               ))}
               <button onClick={addExample}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-stone-300 dark:border-white/15 text-stone-500 hover:border-emerald-400 hover:text-emerald-600 transition-colors text-sm">
+                className="w-full flex items-center justify-center gap-1.5 h-10 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white text-sm">
                 <Plus className="w-4 h-4" /> Añadir opción
               </button>
             </div>
@@ -413,7 +413,7 @@ function MealEditModal({ meal, onSave, onClose }: {
         </div>
 
         <div className="px-5 pb-6 pt-2 flex-shrink-0">
-          <Button onClick={handleSave} className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-semibold">
+          <Button onClick={handleSave} className="w-full h-12 rounded-full bg-emerald-500 font-semibold">
             Guardar cambios
           </Button>
         </div>
@@ -754,20 +754,20 @@ export function NutritionScreen() {
                   const isSelected = multiSelected.includes(opt.value);
                   return (
                     <button key={opt.value} onClick={() => handleMultiCheck(opt.value)} className={`w-full p-4 rounded-2xl text-left flex items-center gap-4 border-2 transition-all ${isSelected ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-transparent bg-white dark:bg-[#1a1a1a] shadow-sm'}`}>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-emerald-400 bg-emerald-400' : 'border-stone-300'}`}>
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-stone-300'}`}>
                         {isSelected && <Check className="w-3 h-3 text-white" />}
                       </div>
                       <span className="font-medium text-stone-900">{opt.label}</span>
                     </button>
                   );
                 })}
-                <Button onClick={handleMultiNext} className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 mt-4" disabled={multiSelected.length === 0}>Continuar</Button>
+                <Button onClick={handleMultiNext} className="w-full h-12 rounded-full bg-emerald-500 mt-4" disabled={multiSelected.length === 0}>Continuar</Button>
               </div>
             )}
             {currentQ.type === 'text' && (
               <div className="space-y-4">
                 <input type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleTextNext()} placeholder={'placeholder' in currentQ ? currentQ.placeholder : ''} className="w-full p-4 bg-white dark:bg-[#1a1a1a] border-2 border-stone-200 dark:border-stone-700 focus:border-emerald-400 rounded-2xl text-stone-900 placeholder-stone-400 outline-none text-sm" />
-                <Button onClick={handleTextNext} className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600">{step === QUESTIONS.length - 1 ? 'Generar mi plan' : 'Continuar'}</Button>
+                <Button onClick={handleTextNext} className="w-full h-12 rounded-full bg-emerald-500">{step === QUESTIONS.length - 1 ? 'Generar mi plan' : 'Continuar'}</Button>
               </div>
             )}
           </motion.div>
@@ -883,7 +883,7 @@ export function NutritionScreen() {
                 {' · '}<span className="tabular-nums">{targets.kcal} kcal</span>
               </p>
               <button type="button" onClick={() => setShowGoals(true)}
-                className="h-8 px-3 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5 flex-shrink-0">
+                className="h-10 px-4 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white text-xs font-semibold flex items-center gap-1.5 flex-shrink-0">
                 <SlidersHorizontal className="w-3.5 h-3.5" /> Ajustar objetivos
               </button>
             </div>
@@ -931,7 +931,7 @@ export function NutritionScreen() {
                                 {l.quantityG ? `${l.quantityG}g · ` : ''}{l.kcal} kcal · P{l.protein} C{l.carbs} G{l.fats}
                               </p>
                             </div>
-                            <button onClick={() => removeFood(l.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0">
+                            <button onClick={() => removeFood(l.id)} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0">
                               <Trash2 className="w-3.5 h-3.5 text-stone-400 hover:text-red-500" />
                             </button>
                           </motion.div>
@@ -939,7 +939,7 @@ export function NutritionScreen() {
                       </AnimatePresence>
                       <button
                         onClick={() => setFoodSlot(slot.id)}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-stone-300 dark:border-stone-700 text-stone-500 hover:border-emerald-400 hover:text-emerald-600 transition-colors text-sm"
+                        className="w-full flex items-center justify-center gap-1.5 h-10 rounded-full bg-[rgba(118,118,128,0.12)] text-stone-800 dark:text-white text-sm"
                       >
                         <Plus className="w-4 h-4" /> Añadir alimento
                       </button>
